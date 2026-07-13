@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -69,6 +70,22 @@ export default defineConfig(({ envMode }) => {
       host: '0.0.0.0',
       strictPort: false,
       proxy: devProxy,
+      // Opt-in HTTPS for the dev server. The backend issues its session cookie
+      // with `Secure` (main.go: sessions.Options{Secure: ...}), and a browser
+      // silently drops a Secure cookie on an http:// origin — so signing in
+      // against a real backend through the dev proxy appears to "succeed" (the
+      // login call returns 200) and then bounces straight back to /sign-in,
+      // because the session was never stored. Point these at a self-signed pair
+      // to reproduce the authenticated app locally:
+      //   DEV_HTTPS_KEY=… DEV_HTTPS_CERT=… bun run dev
+      ...(process.env.DEV_HTTPS_KEY && process.env.DEV_HTTPS_CERT
+        ? {
+            https: {
+              key: readFileSync(process.env.DEV_HTTPS_KEY),
+              cert: readFileSync(process.env.DEV_HTTPS_CERT),
+            },
+          }
+        : {}),
     },
     output: {
       // Production optimizations
