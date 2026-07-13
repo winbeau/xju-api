@@ -1,5 +1,14 @@
 {
   "translation": {
+    "One key.": "一把鑰匙。",
+    "Every model.": "所有模型。",
+    "A time-based key to a shared pool of frontier models. Bring your own client — the gateway speaks the API you already use.": "按時間計費的金鑰，接入共享的前沿模型號池。用你慣用的客戶端——閘道說的就是你已經在用的那套 API。",
+    "Unified endpoint": "統一端點",
+    "OpenAI-compatible. Swap the base URL, nothing else.": "OpenAI 相容。只換 base URL，其餘不動。",
+    "Time-based keys": "時間卡金鑰",
+    "Day, three-day and week cards. No metering surprises.": "日卡、三天卡、週卡。沒有計量上的意外。",
+    "Pooled upstreams": "號池上游",
+    "Frontier models behind one rotating account pool.": "前沿模型，背後是一個自動輪換的帳號池。",
     "Invite Code": "邀請碼",
     "Enter your invite code": "請輸入邀請碼",
     "Registration is invite-only. Please enter an invite code": "本站僅支援邀請註冊，請填寫邀請碼",

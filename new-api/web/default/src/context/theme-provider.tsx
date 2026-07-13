@@ -30,7 +30,13 @@ import { getCookie, setCookie, removeCookie } from '@/lib/cookies'
 type Theme = 'dark' | 'light' | 'system'
 type ResolvedTheme = Exclude<Theme, 'system'>
 
-const DEFAULT_THEME = 'system'
+// xju-api ships a single light theme (the xju-feiyue Notion system, which has
+// no dark palette at all), so the default is `light` rather than `system` and
+// no UI exposes a switcher. The provider itself is kept intact — `useTheme()`
+// still feeds sonner, the charts and the skeletons — and the `.dark` rules
+// stay in the stylesheets, dormant. Reinstating a dark mode is therefore a
+// matter of adding a switcher back, not of re-plumbing this file.
+const DEFAULT_THEME = 'light'
 const THEME_COOKIE_NAME = 'vite-ui-theme'
 const THEME_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year
 const THEMES = new Set<Theme>(['dark', 'light', 'system'])

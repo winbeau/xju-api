@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ConfigDrawer } from '@/components/config-drawer'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationPopover } from '@/components/notification-popover'
 import { ProfileDropdown } from '@/components/profile-dropdown'
@@ -85,7 +84,6 @@ type AppHeaderProps = {
    * Whether to show config drawer
    * @default true
    */
-  showConfigDrawer?: boolean
   /**
    * Whether to show profile dropdown
    * @default true
@@ -100,7 +98,6 @@ export function AppHeader({
   showSearch = true,
   rightContent,
   showNotifications = true,
-  showConfigDrawer = true,
   showProfileDropdown = true,
 }: AppHeaderProps) {
   // Prioritize dynamically generated links from backend
@@ -140,7 +137,6 @@ export function AppHeader({
               />
             )}
             <LanguageSwitcher />
-            {showConfigDrawer && <ConfigDrawer />}
             {showProfileDropdown && <ProfileDropdown />}
           </div>
         )}

@@ -22,7 +22,6 @@ import { useEffect, useMemo, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { IconBadge } from '@/components/ui/icon-badge'
-import { useThemeCustomization } from '@/context/theme-customization-provider'
 import { useTheme } from '@/context/theme-provider'
 import {
   DEFAULT_TIME_GRANULARITY,
@@ -59,11 +58,7 @@ interface ModelChartsProps {
 export function ModelCharts(props: ModelChartsProps) {
   const { t } = useTranslation()
   const { resolvedTheme } = useTheme()
-  const { customization } = useThemeCustomization()
-  const chartRadius = useThemeRadiusPx(
-    '--radius-md',
-    `${customization.preset}:${customization.radius}`
-  )
+  const chartRadius = useThemeRadiusPx('--radius-md')
   const [activeTab, setActiveTab] = useState<ModelAnalyticsChartTab>(
     props.defaultChartTab ?? 'trend'
   )
@@ -115,7 +110,6 @@ export function ModelCharts(props: ModelChartsProps) {
     props.loading ? 'loading' : 'ready',
     props.data.length,
     resolvedTheme,
-    customization.preset,
   ].join('-')
 
   return (

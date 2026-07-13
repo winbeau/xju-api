@@ -98,61 +98,84 @@ For commercial licensing, please contact support@quantumnous.com
   --radius-4xl: calc(var(--radius) * 1.5); /* 12px */
 }
 
+/* ── The theme ─────────────────────────────────────────────────────────────
+ * xju-api ships exactly ONE look: the Notion-style system ported from
+ * xju-feiyue (`src/styles/tokens.css` + its shadcn bridge in `globals.css`).
+ * There is no preset picker, no font/radius/scale axis and no light/dark
+ * toggle — those all existed to let a user drift away from the one design
+ * this product is supposed to have, so they were removed along with
+ * `theme-presets.css`. Palette values below are the direct oklch translation
+ * of feiyue's hexes; the hex is noted on each line so the two systems can be
+ * diffed by eye.
+ *
+ * The defining choice: `--primary` is the warm INK (#37352f), not the link
+ * blue (#2383e2). feiyue's buttons are near-black; blue is a link color only.
+ * Using the blue as a button fill is what makes a Notion-style UI read as
+ * generic SaaS. */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.5rem; /* 8px master → 6/8/12 ladder above */
   --app-header-height: 3rem;
   /* Static build-channel fallback consumed when JS hasn't booted yet. */
   --app-rev: '2k6e8r7p';
-  /* Currently active body font. The font axis swaps this between
-   * `--font-sans` and `--font-serif` via `[data-theme-font='...']` blocks
-   * in theme-presets.css. Default mirrors `--font-sans` so behavior is
-   * identical when no font preference is set. */
+  /* feiyue's UI chrome is sans throughout; the serif is a document/display
+   * face, applied per-element (headings, hero, big numerals). */
   --font-body: var(--font-sans);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+
+  --background: oklch(1 0 0); /* #ffffff */
+  --foreground: oklch(0.325 0.009 96); /* #37352f warm ink */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.325 0.009 96);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.692 0.141 243.716);
+  --popover-foreground: oklch(0.325 0.009 96);
+
+  --primary: oklch(0.325 0.009 96); /* #37352f — ink, NOT the link blue */
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0 0);
-  --secondary-foreground: oklch(0.42 0.16 250);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.49 0 0);
-  --accent: color-mix(in oklch, var(--primary) 12%, var(--background));
-  --accent-foreground: oklch(0.145 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --secondary: oklch(0.956 0.003 100); /* #f1f1ef hover gray */
+  --secondary-foreground: oklch(0.325 0.009 96);
+
+  --muted: oklch(0.972 0.004 95); /* #f7f6f3 warm beige */
+  --muted-foreground: oklch(0.565 0.006 95); /* #787774 */
+  --accent: oklch(0.956 0.003 100); /* #f1f1ef — hover = lighten, not lift */
+  --accent-foreground: oklch(0.325 0.009 96);
+
+  --destructive: oklch(0.6 0.19 27); /* #e03e3e */
   --destructive-foreground: oklch(0.985 0 0);
-  --success: oklch(0.596 0.145 163.225);
+  --success: oklch(0.52 0.075 180); /* #0f7b6c — teal, never emerald */
   --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.681 0.162 75.834);
-  --warning-foreground: oklch(0.145 0 0);
-  --info: oklch(0.588 0.158 241.966);
+  --warning: oklch(0.66 0.145 55); /* #d9730d */
+  --warning-foreground: oklch(0.985 0 0);
+  --info: oklch(0.6 0.152 252); /* #2383e2 — the link blue lives here */
   --info-foreground: oklch(0.985 0 0);
-  --neutral: oklch(0.708 0 0);
-  --neutral-foreground: oklch(0.145 0 0);
-  --border: oklch(0.93 0 0);
-  --input: oklch(0.93 0 0);
-  --ring: oklch(0.708 0.16 249.003);
-  --chart-1: oklch(0.72 0.18 250);
-  --chart-2: oklch(0.65 0.15 200);
-  --chart-3: oklch(0.7 0.12 280);
-  --chart-4: oklch(0.68 0.19 325);
-  --chart-5: oklch(0.68 0.16 155);
-  --overview-accent-1: oklch(0.72 0.18 250);
-  --overview-accent-2: oklch(0.65 0.15 200);
-  --overview-accent-3: oklch(0.7 0.12 280);
-  --sidebar: color-mix(in oklch, var(--foreground) 0.5%, var(--background));
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.64 0.197 253.892);
+  --neutral: oklch(0.68 0.005 100); /* #9b9a97 */
+  --neutral-foreground: oklch(0.325 0.009 96);
+
+  /* Hairlines. feiyue gives --border and --input the same value. */
+  --border: oklch(0.938 0.004 95); /* #edece9 */
+  --input: oklch(0.938 0.004 95); /* #edece9 */
+  --ring: oklch(0.565 0.006 95); /* #787774 — gray focus ring, not blue */
+
+  /* Charts = Notion's tag palette. */
+  --chart-1: oklch(0.6 0.152 252); /* blue  #2383e2 */
+  --chart-2: oklch(0.52 0.075 180); /* green #0f7b6c */
+  --chart-3: oklch(0.66 0.145 55); /* orange #d9730d */
+  --chart-4: oklch(0.58 0.1 310); /* purple #9065b0 */
+  --chart-5: oklch(0.6 0.19 27); /* red   #e03e3e */
+  --overview-accent-1: oklch(0.6 0.152 252);
+  --overview-accent-2: oklch(0.52 0.075 180);
+  --overview-accent-3: oklch(0.58 0.1 310);
+
+  /* Sidebar wears the signature warm beige; its active item is ink. */
+  --sidebar: oklch(0.972 0.004 95); /* #f7f6f3 */
+  --sidebar-foreground: oklch(0.325 0.009 96);
+  --sidebar-primary: oklch(0.325 0.009 96);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: color-mix(in oklch, var(--primary) 12%, var(--background));
-  --sidebar-accent-foreground: oklch(0.579 0.196 255.909);
-  --sidebar-border: oklch(0.93 0 0);
-  --sidebar-ring: oklch(0.58 0.2 250);
-  --skeleton-base: oklch(0.97 0 0);
-  --skeleton-highlight: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.945 0.003 95); /* #efefed */
+  --sidebar-accent-foreground: oklch(0.325 0.009 96);
+  --sidebar-border: oklch(0.938 0.004 95);
+  --sidebar-ring: oklch(0.565 0.006 95);
+
+  --skeleton-base: oklch(0.956 0.003 100);
+  --skeleton-highlight: oklch(0.978 0.003 95);
   --table-row: var(--background);
   --table-header: color-mix(
     in oklch,

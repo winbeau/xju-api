@@ -1,5 +1,14 @@
 {
   "translation": {
+    "One key.": "One key.",
+    "Every model.": "Every model.",
+    "A time-based key to a shared pool of frontier models. Bring your own client — the gateway speaks the API you already use.": "A time-based key to a shared pool of frontier models. Bring your own client — the gateway speaks the API you already use.",
+    "Unified endpoint": "Unified endpoint",
+    "OpenAI-compatible. Swap the base URL, nothing else.": "OpenAI-compatible. Swap the base URL, nothing else.",
+    "Time-based keys": "Time-based keys",
+    "Day, three-day and week cards. No metering surprises.": "Day, three-day and week cards. No metering surprises.",
+    "Pooled upstreams": "Pooled upstreams",
+    "Frontier models behind one rotating account pool.": "Frontier models behind one rotating account pool.",
     "Invite Code": "Code d’invitation",
     "Enter your invite code": "Entrez votre code d’invitation",
     "Registration is invite-only. Please enter an invite code": "Inscription sur invitation uniquement. Veuillez saisir un code d’invitation",

@@ -28,7 +28,6 @@ import { useEffect } from 'react'
 
 import { NavigationProgress } from '@/components/navigation-progress'
 import { Toaster } from '@/components/ui/sonner'
-import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { saveAffiliateCode } from '@/features/auth/lib/storage'
 import { GeneralError } from '@/features/errors/general-error'
 import { NotFoundError } from '@/features/errors/not-found-error'
@@ -47,17 +46,21 @@ function RootComponent() {
   }, [])
 
   return (
-    <ThemeCustomizationProvider>
+    <>
       <NavigationProgress />
       <Outlet />
-      <Toaster closeButton duration={5000} position='top-center' richColors />
+      {/* `richColors` is deliberately off: it injects sonner's own saturated
+       * palette, which lands outside the token set. Toast colors must come
+       * from --popover/--border/--success/--destructive like every other
+       * surface. */}
+      <Toaster closeButton duration={4000} position='bottom-right' />
       {import.meta.env.MODE === 'development' && (
         <>
           <ReactQueryDevtools buttonPosition='bottom-left' />
           <TanStackRouterDevtools position='bottom-right' />
         </>
       )}
-    </ThemeCustomizationProvider>
+    </>
   )
 }
 
