@@ -31,7 +31,7 @@
 |---|---|---|---|---|
 | **L1 用户配置层** | 发卡与统计前台 | **new-api** | `api.selab.top` → `127.0.0.1:3000` | 面向下游用户与运营：发卡 / 续卡 / 开闭 / 用量统计；前端仿 xju-feiyue 的 Notion 风格并裁掉无用功能 |
 | **L2 中转胶水** | 协议中转 | **CLIProxyAPI** | `codex.selab.top` → `127.0.0.1:8317` | 把 L1 下发的 OpenAI 兼容请求，转成上游各家协议 |
-| **L3 号源号池** | 凭证池 | **CLIProxyAPI**（同进程） | `auths/*.json` | 承载上游账号凭证，负载轮换。**零改动**，只做搬运 |
+| **L3 号源号池** | 凭证池 | **CLIProxyAPI**（同进程） | `auths/*.json` | 承载上游账号凭证，负载轮换。**默认零改动**（按需可删减/升级适配），主要搬运号池 |
 
 - **入口**：`claude-tri` 上新装 **Caddy**，两个子域各自 TLS/ACME 自动签证，反代到两个只绑定 `127.0.0.1` 的后端。
 - **L1 → L2 接线**：在 new-api 后台新增一个「OpenAI 兼容」渠道，Base URL 指向 `http://127.0.0.1:8317`（同机回环，推荐）或 `https://codex.selab.top`（走公网），Key = CLIProxyAPI `config.yaml` 里一条常驻内部 `api-key`。
@@ -42,7 +42,7 @@
 
 ### 1.3 核心设计原则
 
-- **后端零改动优先**：CLIProxyAPI 完全不改；new-api 只改前端（视觉 + 裁剪），业务逻辑复用其原生令牌体系。
+- **后端最小改动优先**：CLIProxyAPI 默认不改，**按需可做删减 / 升级适配**（源码已内置本仓，可直接改）；new-api 只改前端（视觉 + 裁剪），业务逻辑复用其原生令牌体系。
 - **单文件优先**：new-api 用 SQLite 单文件落库，不起 postgres/redis 容器（部署机资源紧张）。
 - **公开仓库安全第一**：全文占位符，真实值不入库。
 
@@ -85,7 +85,7 @@
 |---|---|---|---|---|---|
 | Caddy | 官方最新 | 系统服务（apt / 二进制） | `0.0.0.0:80,443` | `/etc/caddy/Caddyfile`、`caddy_data/`（ACME 证书） | 新写配置 |
 | new-api (L1) | `calciumion/new-api:latest`（建议 pin 具体 tag） | Docker 单容器 | `127.0.0.1:3000` | `/opt/new-api/data`（SQLite）、`/opt/new-api/logs` | **前端改造** |
-| CLIProxyAPI (L2/L3) | `eceasy/cli-proxy-api:latest`（建议 pin） | Docker 单容器 | `127.0.0.1:8317` | `config.yaml`、`auths/`、`logs/` | **零改动** |
+| CLIProxyAPI (L2/L3) | `eceasy/cli-proxy-api:latest`（建议 pin） | Docker 单容器 | `127.0.0.1:8317` | `config.yaml`、`auths/`、`logs/` | **默认零改动（按需适配）** |
 
 > 说明：new-api 不起自带 `docker-compose.yml` 的 `postgres:15` + `redis:latest`（部署机内存/磁盘紧张，且不设 `SQL_DSN` 即自动落 SQLite、不设 `REDIS_CONN_STRING` 即退化内存缓存）。
 
@@ -326,7 +326,7 @@ xju-api/
 ├── .gitignore                   # 全仓密钥保护（config.yaml/auths/真实.env 永不入库；*.example.* 保留）
 │
 ├── new-api/                     # 【L1 源码·已内置，去 .git】QuantumNous/new-api；前端换肤+裁剪在此改
-├── CLIProxyAPI/                 # 【L2/L3 源码·已内置，去 .git】router-for-me/CLIProxyAPI；零改动
+├── CLIProxyAPI/                 # 【L2/L3 源码·已内置，去 .git】router-for-me/CLIProxyAPI；默认零改动，按需可删减/升级适配
 │
 ├── deploy/                      # 部署脚手架
 │   ├── Caddyfile                # 两 site block（api/codex），占位邮箱，见 §3.3
