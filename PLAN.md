@@ -34,7 +34,9 @@
 | **L3 号源号池** | 凭证池 | **CLIProxyAPI**（同进程） | `auths/*.json` | 承载上游账号凭证，负载轮换。**默认零改动**（按需可删减/升级适配），主要搬运号池 |
 
 - **入口**：`claude-tri` 上新装 **Caddy**，两个子域各自 TLS/ACME 自动签证，反代到两个只绑定 `127.0.0.1` 的后端。
-- **L1 → L2 接线**：在 new-api 后台新增一个「OpenAI 兼容」渠道，Base URL 指向 `http://127.0.0.1:8317`（同机回环，推荐）或 `https://codex.selab.top`（走公网），Key = CLIProxyAPI `config.yaml` 里一条常驻内部 `api-key`。
+- **L1 → L2 接线**：在 new-api 后台新增一个「OpenAI 兼容」渠道，Base URL 填 **`http://cli-proxy-api:8317`**（容器名），Key = CLIProxyAPI `config.yaml` 里一条常驻内部 `api-key`。
+  > ⚠️ **实测修正**（2026-07-13 部署时发现）：**不能填 `http://127.0.0.1:8317`**。new-api 跑在容器里，`127.0.0.1` 指向的是它自己的回环，而 CLIProxyAPI 的 `8317` 只发布在**宿主**的 `127.0.0.1` 上——容器间不通，请求会报 `do request failed`。
+  > 正确做法：两个容器接入同一 docker 网络 `xju-net`（见 `deploy/`），用**容器名**互访。该网络不发布端口，公网暴露面不变。
 
 ### 1.2 日卡产品
 
@@ -382,8 +384,8 @@ xju-api/
 | ufw 增量放行 | `48687/tcp`(ssh，先加!) + `80/tcp` + `443/tcp`，确认后再 enable，**别锁死自己** |
 | 起 CLIProxyAPI | docker-compose，`127.0.0.1:8317:8317`，OAuth 回调口注释；`config.yaml` 填占位 `api-keys` |
 | rsync 号池 | 从现跑号池的机器 `rsync -e "ssh -p 48687"` 拉 `auths/*.json` 到 `/opt/cli-proxy-api/auths/` |
-| 起 new-api | `docker run` 绑 `127.0.0.1:3000:3000`，挂 `/opt/new-api/data`，设 `SESSION_COOKIE_SECURE=true` / `SESSION_COOKIE_TRUSTED_URL=https://api.selab.top` / `SESSION_SECRET=$(openssl rand -hex 32)` |
-| 首登改密 | new-api 空库自动建 `root/123456`，**首登立即改密 + 视需求关注册** |
+| 起 new-api | `deploy/new-api.run.sh`：绑 `127.0.0.1:3000:3000` + 接入 `xju-net`，挂 `/opt/new-api/data`，设 `SESSION_COOKIE_SECURE=true` / `SESSION_COOKIE_TRUSTED_URL=https://api.selab.top` / `SESSION_SECRET`（首次生成后持久化复用，否则重启全员掉登录） |
+| 初始化管理员 | ⚠️ **实测修正**：本版**不再自动建 `root/123456`**，改走初始化向导 —— `POST /api/setup {username,password,confirmPassword}`（或浏览器 `/setup`）。**直接设强密码**，省掉「先弱密码再改密」的窗口期 |
 
 **验收**：`https://api.selab.top` 出登录页且 TLS 有效；`https://codex.selab.top` 反代通（`/v1/models` 或返回预期）；两后端只在 `127.0.0.1` 可见（外网 `curl :3000/:8317` 不通）；号池 `auths/` 已就位。
 

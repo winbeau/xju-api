@@ -18,10 +18,16 @@ fi
 
 mkdir -p "$DATA_DIR" "$LOG_DIR"
 
+# L1↔L2 专用网络: new-api 在容器里,宿主的 127.0.0.1:8317 对它不可见,
+# 必须与 cli-proxy-api 同网络、用容器名互访(渠道 Base URL = http://cli-proxy-api:8317)。
+# 该网络不发布任何端口,不增加公网暴露面。
+docker network inspect xju-net >/dev/null 2>&1 || docker network create xju-net
+
 docker rm -f new-api 2>/dev/null || true
 docker run -d \
 	--name new-api \
 	--restart unless-stopped \
+	--network xju-net \
 	-p 127.0.0.1:3000:3000 \
 	-e TZ=Asia/Shanghai \
 	-e SESSION_SECRET="$(cat "$SECRET_FILE")" \
@@ -32,4 +38,5 @@ docker run -d \
 	"$IMAGE"
 
 echo "new-api 已启动: 127.0.0.1:3000(仅回环,公网走 Caddy api.selab.top)"
-echo "⚠️ 空库首次启动自动建 root/123456 —— 立即登录改密,并视需求关闭注册(PLAN.md §8-6)"
+echo "⚠️ 首启需走初始化向导(POST /api/setup 或浏览器访问 /setup)创建管理员 ——"
+echo "   本版不再自动建 root/123456;设强密码并视需求关注册(PLAN.md §8-6)"

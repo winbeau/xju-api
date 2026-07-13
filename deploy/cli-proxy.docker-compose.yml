@@ -21,3 +21,11 @@ services:
       - ./auths:/root/.cli-proxy-api
       - ./logs:/CLIProxyAPI/logs
     restart: unless-stopped
+    networks:
+      - xju-net
+
+networks:
+  # L1↔L2 专用网络: new-api 也接入本网络,用容器名 cli-proxy-api:8317 访问,
+  # 因为宿主的 127.0.0.1:8317 在 new-api 容器内不可见。不发布端口,无公网暴露面。
+  xju-net:
+    name: xju-net

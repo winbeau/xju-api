@@ -45,6 +45,19 @@ curl -fsS http://127.0.0.1:8317/v1/models -H "Authorization: Bearer <内部api-k
 | 机器变慢 / OOM | `free -h`、`docker stats` | 本机内存只有 3.8Gi 且多项目共用 —— 不要再起新容器 |
 | 磁盘告警 | `df -h`、`docker system df` | 日志/旧镜像膨胀：`docker image prune`、查三处日志滚动是否生效（剩 ~11G 是最大风险，PLAN.md §9-4） |
 
+## 部署实测踩坑（2026-07-13 首次上线，全部已验证）
+
+> 这些是 PLAN.md 规划时未预见、在真实部署中撞到的，**照做可避免重复踩**。
+
+| # | 坑 | 现象 | 正解 |
+|---|---|---|---|
+| 1 | **容器间回环不通** | 渠道 Base URL 填 `http://127.0.0.1:8317`，请求报 `upstream error: do request failed` | new-api 在容器内，`127.0.0.1` 是它自己的回环；CLIProxyAPI 的 8317 只发布在**宿主**回环上。两容器接入同一网络 `xju-net`，Base URL 改用**容器名** `http://cli-proxy-api:8317` |
+| 2 | **不再有 root/123456** | 用 `root/123456` 登录返回「用户名或密码错误」；日志显示 `system is not initialized and no root user exists` | 走初始化向导 `POST /api/setup {username,password,confirmPassword}`，**一步到位设强密码** |
+| 3 | **建渠道 payload 要包信封** | `POST /api/channel/` 平铺字段 → 服务端 **panic**（nil 指针，`validateChannel` 在 nil 判断前解引用） | 必须包一层：`{"mode":"single","channel":{...}}` |
+| 4 | **改渠道不能带 `status`** | `PUT /api/channel/` 返回 `Invalid parameters` | `controller/channel.go:931` 显式拒绝含 `status` 的请求（status 有独立端点）。用最小 patch：`{"id":1,"base_url":"...","key":"..."}` |
+| 5 | **读回渠道时 key 被屏蔽** | 读回改一改再 PUT，会把密钥**擦成空** | `GET /api/channel/:id` 返回 `"key":""`。PUT 时必须**显式补回真实 key** |
+| 6 | **模型未配价直接拒绝请求** | 报「模型 xxx 的价格未配置」，请求 400 | 开 `SelfUseModeEnabled=true`（`PUT /api/option/`）。实测**不影响记账**：`logs` 里 prompt/completion tokens 和 quota 依然全额记录 |
+
 ## 硬约束提醒
 
 - 端口/防火墙一律**增量**操作，严禁 `ufw reset` / 无脑 `ufw enable`（多项目共用机，PLAN.md §3.1）。
