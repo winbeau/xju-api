@@ -14,7 +14,6 @@ import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as authRouteRouteImport } from './routes/(auth)/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as OauthProviderRouteImport } from './routes/oauth/$provider'
 import { Route as ConsoleLogRouteImport } from './routes/console/log'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
@@ -80,11 +79,6 @@ const authRouteRoute = authRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SetupIndexRoute = SetupIndexRouteImport.update({
-  id: '/setup/',
-  path: '/setup/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OauthProviderRoute = OauthProviderRouteImport.update({
@@ -348,7 +342,6 @@ export interface FileRoutesByFullPath {
   '/503': typeof errors503Route
   '/console/log': typeof ConsoleLogRoute
   '/oauth/$provider': typeof OauthProviderRoute
-  '/setup/': typeof SetupIndexRoute
   '/user/reset': typeof authUserResetRoute
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
@@ -396,7 +389,6 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/console/log': typeof ConsoleLogRoute
   '/oauth/$provider': typeof OauthProviderRoute
-  '/setup': typeof SetupIndexRoute
   '/user/reset': typeof authUserResetRoute
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
@@ -448,7 +440,6 @@ export interface FileRoutesById {
   '/(errors)/503': typeof errors503Route
   '/console/log': typeof ConsoleLogRoute
   '/oauth/$provider': typeof OauthProviderRoute
-  '/setup/': typeof SetupIndexRoute
   '/(auth)/user/reset': typeof authUserResetRoute
   '/_authenticated/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
@@ -499,7 +490,6 @@ export interface FileRouteTypes {
     | '/503'
     | '/console/log'
     | '/oauth/$provider'
-    | '/setup/'
     | '/user/reset'
     | '/dashboard/$section'
     | '/errors/$error'
@@ -547,7 +537,6 @@ export interface FileRouteTypes {
     | '/503'
     | '/console/log'
     | '/oauth/$provider'
-    | '/setup'
     | '/user/reset'
     | '/dashboard/$section'
     | '/errors/$error'
@@ -598,7 +587,6 @@ export interface FileRouteTypes {
     | '/(errors)/503'
     | '/console/log'
     | '/oauth/$provider'
-    | '/setup/'
     | '/(auth)/user/reset'
     | '/_authenticated/dashboard/$section'
     | '/_authenticated/errors/$error'
@@ -642,7 +630,6 @@ export interface RootRouteChildren {
   errors503Route: typeof errors503Route
   ConsoleLogRoute: typeof ConsoleLogRoute
   OauthProviderRoute: typeof OauthProviderRoute
-  SetupIndexRoute: typeof SetupIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -680,13 +667,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/setup/': {
-      id: '/setup/'
-      path: '/setup'
-      fullPath: '/setup/'
-      preLoaderRoute: typeof SetupIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/oauth/$provider': {
@@ -1125,7 +1105,6 @@ const rootRouteChildren: RootRouteChildren = {
   errors503Route: errors503Route,
   ConsoleLogRoute: ConsoleLogRoute,
   OauthProviderRoute: OauthProviderRoute,
-  SetupIndexRoute: SetupIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -49,10 +49,16 @@
 - [x] `lib/nav-modules.ts`：重写为纯布尔 `HeaderNavModules`（删 `ModuleAccess`/`getFreshModuleAccess` 等失去调用者的导出；旧后端配置里的 pricing/rankings 对象值自动忽略）
 - [x] `maintenance/config.ts` + `header-navigation-section.tsx`：管理端只留三个开关
 
+## 包 J — 设置向导（setup）
+
+- [x] 删 `src/features/setup/`（wizard + 4 个 step 组件 + api/types）与路由 `src/routes/setup/`
+- [x] 删 `__root.tsx` 的**根级守卫**：它在系统未初始化时强制 `redirect({ to: '/setup' })`，向导没了守卫必须一起走，否则空库会跳到不存在的路由。连带删掉只服务于它的 `setup_status_checked` localStorage 缓存 helper。`beforeLoad` 除此之外无实质逻辑，整块移除。
+- ⚠️ **代价（已写进 `deploy/new-api.run.sh`）**：空库首启不能再用浏览器建管理员，**只能走 `POST /api/setup`**。后端接口未改动，仅前端不再提供图形向导。
+
 ## 未删（按计划保留）
 
 - usage-logs 的 Task/Drawing 子 tab：**config 隐藏**（管理端 Maintenance → Sidebar Modules 关 `console.midjourney`/`console.task`），代码保留
-- `errors`/`legal`/`performance-metrics`/`models`/`system-info`/`setup`：保留（§5.2）
+- `errors`/`legal`/`performance-metrics`/`models`/`system-info`：保留（§5.2）
 
 ## 孤儿清理（knip）
 
