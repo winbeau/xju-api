@@ -1,0 +1,33 @@
+# --- Secrets & credentials (NEVER commit) ---
+config.yaml
+config.local.yaml
+*.env
+.env
+.env.*
+auth.json
+auths/
+*.pem
+*.key
+secret*
+*secret*
+
+# --- new-api / CLIProxyAPI runtime data ---
+*.sqlite
+*.sqlite-*
+*.db
+data/
+logs/
+*.log
+
+# --- Node / frontend build ---
+node_modules/
+dist/
+build/
+.cache/
+bun.lockb
+
+# --- OS / editor ---
+.DS_Store
+*.swp
+.idea/
+.vscode/
