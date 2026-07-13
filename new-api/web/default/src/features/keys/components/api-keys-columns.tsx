@@ -23,7 +23,6 @@ import { useTranslation } from 'react-i18next'
 import { BadgeCell, TruncatedCell } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import {
   Tooltip,
@@ -42,7 +41,6 @@ import { ApiKeyTimestampCell } from './api-key-timestamp-cell'
 import {
   ApiKeyCell,
   ModelLimitsCell,
-  IpRestrictionsCell,
 } from './api-keys-cells'
 import { DataTableRowActions } from './data-table-row-actions'
 
@@ -80,35 +78,12 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
   const staleAccessThreshold = dayjs(now).subtract(3, 'month').valueOf()
   return [
     {
-      id: 'select',
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          indeterminate={table.getIsSomePageRowsSelected()}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label='Select all'
-          className='translate-y-[2px]'
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label='Select row'
-          className='translate-y-[2px]'
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-      size: 40,
-    },
-    {
       accessorKey: 'name',
       header: t('Name'),
       cell: ({ row }) => (
         <span className='font-medium'>{row.getValue('name')}</span>
       ),
-      size: 180,
+      size: 140,
       meta: { mobileTitle: true },
     },
     {
@@ -127,7 +102,7 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         )
       },
       filterFn: (row, id, value) => value.includes(String(row.getValue(id))),
-      size: 120,
+      size: 90,
       meta: { mobileBadge: true },
     },
     {
@@ -136,7 +111,7 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
       header: t('API Key'),
       cell: ({ row }) => <ApiKeyCell apiKey={row.original} />,
       enableSorting: false,
-      size: 260,
+      size: 190,
     },
     {
       id: 'quota',
@@ -193,7 +168,68 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
           </Tooltip>
         )
       },
-      size: 170,
+      size: 110,
+    },
+    {
+      accessorKey: 'expired_time',
+      header: t('Expires'),
+      cell: ({ row }) => {
+        const expiredTime = row.getValue('expired_time') as number
+        if (expiredTime === -1) {
+          return (
+            <StatusBadge
+              label={t('Never')}
+              variant='neutral'
+              copyable={false}
+              className='-ml-1.5'
+            />
+          )
+        }
+        const isExpired = expiredTime * 1000 < now
+        return (
+          <ApiKeyTimestampCell
+            timestamp={expiredTime}
+            now={now}
+            locale={locale}
+            justNowLabel={justNowLabel}
+            className={cn(
+              isExpired ? 'text-destructive' : 'text-muted-foreground'
+            )}
+          />
+        )
+      },
+      size: 130,
+      meta: { mobileHidden: true },
+    },
+    {
+      accessorKey: 'accessed_time',
+      header: t('Last Used'),
+      cell: ({ row }) => {
+        const accessedTime = row.getValue('accessed_time') as number
+        const isStale =
+          accessedTime > 0 && accessedTime * 1000 < staleAccessThreshold
+
+        return (
+          <ApiKeyTimestampCell
+            timestamp={accessedTime}
+            now={now}
+            locale={locale}
+            justNowLabel={justNowLabel}
+            className={isStale ? 'text-warning' : 'text-muted-foreground'}
+          />
+        )
+      },
+      size: 130,
+      meta: { mobileHidden: true },
+    },
+    {
+      id: 'model_limits',
+      accessorKey: 'model_limits',
+      header: t('Models'),
+      cell: ({ row }) => <ModelLimitsCell apiKey={row.original} />,
+      enableSorting: false,
+      size: 130,
+      meta: { mobileHidden: true },
     },
     {
       accessorKey: 'group',
@@ -238,98 +274,18 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
           </TruncatedCell>
         )
       },
-      size: 160,
-      meta: { mobileHidden: true },
-    },
-    {
-      id: 'model_limits',
-      accessorKey: 'model_limits',
-      header: t('Models'),
-      cell: ({ row }) => <ModelLimitsCell apiKey={row.original} />,
-      enableSorting: false,
-      size: 160,
-      meta: { mobileHidden: true },
-    },
-    {
-      id: 'allow_ips',
-      accessorKey: 'allow_ips',
-      header: t('IP Restriction'),
-      cell: ({ row }) => <IpRestrictionsCell apiKey={row.original} />,
-      enableSorting: false,
-      size: 160,
-      meta: { mobileHidden: true },
-    },
-    {
-      accessorKey: 'created_time',
-      header: t('Created'),
-      cell: ({ row }) => (
-        <ApiKeyTimestampCell
-          timestamp={row.getValue('created_time')}
-          now={now}
-          locale={locale}
-          justNowLabel={justNowLabel}
-          className='text-muted-foreground'
-        />
-      ),
-      size: 180,
-      meta: { mobileHidden: true },
-    },
-    {
-      accessorKey: 'accessed_time',
-      header: t('Last Used'),
-      cell: ({ row }) => {
-        const accessedTime = row.getValue('accessed_time') as number
-        const isStale =
-          accessedTime > 0 && accessedTime * 1000 < staleAccessThreshold
-
-        return (
-          <ApiKeyTimestampCell
-            timestamp={accessedTime}
-            now={now}
-            locale={locale}
-            justNowLabel={justNowLabel}
-            className={isStale ? 'text-warning' : 'text-muted-foreground'}
-          />
-        )
-      },
-      size: 180,
-      meta: { mobileHidden: true },
-    },
-    {
-      accessorKey: 'expired_time',
-      header: t('Expires'),
-      cell: ({ row }) => {
-        const expiredTime = row.getValue('expired_time') as number
-        if (expiredTime === -1) {
-          return (
-            <StatusBadge
-              label={t('Never')}
-              variant='neutral'
-              copyable={false}
-              className='-ml-1.5'
-            />
-          )
-        }
-        const isExpired = expiredTime * 1000 < now
-        return (
-          <ApiKeyTimestampCell
-            timestamp={expiredTime}
-            now={now}
-            locale={locale}
-            justNowLabel={justNowLabel}
-            className={cn(
-              isExpired ? 'text-destructive' : 'text-muted-foreground'
-            )}
-          />
-        )
-      },
-      size: 180,
+      size: 120,
       meta: { mobileHidden: true },
     },
     {
       id: 'actions',
-      header: () => t('Actions'),
-      cell: ({ row }) => <DataTableRowActions row={row} />,
+      header: () => <div className='text-center'>{t('Actions')}</div>,
+      cell: ({ row }) => (
+        <div className='flex justify-center'>
+          <DataTableRowActions row={row} />
+        </div>
+      ),
+      size: 96,
       meta: { pinned: 'right' as const },
     },
   ]

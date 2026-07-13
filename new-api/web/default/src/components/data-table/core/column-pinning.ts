@@ -58,15 +58,29 @@ function getPinnedColumnClassName(
   pinnedColumn: DataTablePinnedColumn,
   kind: 'header' | 'cell'
 ) {
+  // A pinned column needs to read as *detached* from the scrolling ones, and
+  // the usual way — an edge shadow — is out of the question in this design
+  // system. Instead the column casts a short gradient onto the cells it
+  // overlaps: content scrolling underneath dissolves into the column's own
+  // background rather than being sliced off by a hard line.
+  //
+  // `to-background` deliberately targets the *cell* background; the header row
+  // sits on a different surface, so it gets its own stop below.
   const edgeClassName =
     pinnedColumn.side === 'left'
-      ? ''
-      : ''
+      ? 'before:pointer-events-none before:absolute before:inset-y-0 before:-right-6 before:w-6 before:bg-linear-to-l'
+      : 'before:pointer-events-none before:absolute before:inset-y-0 before:-left-6 before:w-6 before:bg-linear-to-r'
+
+  const edgeGradientStops =
+    kind === 'header'
+      ? 'before:from-transparent before:to-[var(--table-header-bg,var(--table-header))]'
+      : 'before:from-transparent before:to-background'
 
   return cn(
     'sticky whitespace-nowrap',
     pinnedColumn.side === 'left' ? 'left-0' : 'right-0',
     edgeClassName,
+    edgeGradientStops,
     kind === 'header'
       ? '[background-color:var(--table-header-bg,var(--table-header))] group-hover:[background-color:var(--table-header-hover)] z-30'
       : 'bg-background z-10 group-hover:[background-color:color-mix(in_oklch,var(--muted)_50%,var(--background))] group-data-[state=selected]:bg-muted',
