@@ -23,6 +23,12 @@ mkdir -p "$DATA_DIR" "$LOG_DIR"
 # 该网络不发布任何端口,不增加公网暴露面。
 docker network inspect xju-net >/dev/null 2>&1 || docker network create xju-net
 
+# NODE_NAME 必须固定。缺省时 new-api 拿容器 hostname 当节点名
+# (common/node_identity.go),而 `docker run` 每次都生成新的容器 ID ——
+# 于是每次重新部署都会在 system_instances 表里注册一个新节点、把上一个变成
+# 僵尸,「系统信息」页很快就攒出一堆死节点。固定 NODE_NAME 后,重部署会 upsert
+# 同一行。
+
 docker rm -f new-api 2>/dev/null || true
 docker run -d \
 	--name new-api \
@@ -33,6 +39,7 @@ docker run -d \
 	-e SESSION_SECRET="$(cat "$SECRET_FILE")" \
 	-e SESSION_COOKIE_SECURE=true \
 	-e SESSION_COOKIE_TRUSTED_URL=https://api.selab.top \
+	-e NODE_NAME="${NODE_NAME:-xju-newapi}" \
 	-v "$DATA_DIR":/data \
 	-v "$LOG_DIR":/app/logs \
 	"$IMAGE"
