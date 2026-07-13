@@ -1,32 +1,35 @@
-# --- Secrets & credentials (NEVER commit) ---
-config.yaml
-config.local.yaml
-*.env
+# ============================================================
+# xju-api 单仓（含 new-api / CLIProxyAPI 源码）
+# 各子项目自带 .gitignore 管其构建产物；此文件做全仓密钥保护。
+# 注意：*.example / *.example.* 模板文件一律保留（开发需要）。
+# ============================================================
+
+# --- 真实密钥 / 运行期配置（绝不提交；模板 *.example.* 保留）---
+**/config.yaml
+**/config.local.yaml
+**/auths/
+**/auth.json
 .env
-.env.*
-auth.json
-auths/
+.env.local
+**/.env
+**/.env.local
 *.pem
 *.key
-secret*
-*secret*
+id_ed25519*
+id_rsa*
 
-# --- new-api / CLIProxyAPI runtime data ---
-*.sqlite
-*.sqlite-*
-*.db
-data/
-logs/
-*.log
-
-# --- Node / frontend build ---
+# --- 构建 / 运行期产物 ---
 node_modules/
 dist/
 build/
 .cache/
-bun.lockb
+*.sqlite
+*.sqlite-*
+*.db
+*.log
+logs/
 
-# --- OS / editor ---
+# --- OS / 编辑器 ---
 .DS_Store
 *.swp
 .idea/

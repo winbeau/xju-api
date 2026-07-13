@@ -294,7 +294,7 @@
 
 ### 5.4 从哪下手（改造重点两处）
 
-1. **`keys/components/api-keys-mutate-drawer.tsx`（日卡实际落地点）**：在建卡/续卡表单加「1天 / 3天 / 7天 / 30天」快捷按钮，点击按 `max(原到期, now) + N*86400` 回填 `expired_time`；续卡走**完整 PUT**（带 `status:1` + 新 `expired_time`），不能只 `status_only`（对齐 token.go:280 坑）。同时 `data-table-row-actions.tsx` 摘掉「发到 Chat」行操作（否则残留 `useChatPresets` 死引用）。
+1. **`keys/components/api-keys-mutate-drawer.tsx`（日卡实际落地点）**：在建卡/续卡表单加「1天 / 3天 / 7天」快捷按钮（30 天月卡档先隐藏，见 §9），点击按 `max(原到期, now) + N*86400` 回填 `expired_time`；续卡走**完整 PUT**（带 `status:1` + 新 `expired_time`），不能只 `status_only`（对齐 token.go:280 坑）。同时 `data-table-row-actions.tsx` 摘掉「发到 Chat」行操作（否则残留 `useChatPresets` 死引用）。
 2. **`routes/index.tsx` + `features/home/`**：仿 xju-feiyue 重做首页，替换 `Stats`/`Features`/`HowItWorks` 视觉但保留 `PublicLayout` 骨架和 `Footer` 归属。
 
 ### 5.5 换肤最小路径（优先级）
@@ -317,13 +317,16 @@
 
 ## 6. 仓库结构（`xju-api` 放什么）
 
-> `xju-api` 是**运维编排 + 文档 + 补丁**仓，**不含** new-api / CLIProxyAPI 的源码（它们是各自独立仓库 / 上游镜像）。此仓只放「怎么部署、怎么定制、怎么发卡」。
+> `xju-api` 采用**单仓（monorepo）**开发：直接内置 `new-api/` 与 `CLIProxyAPI/` 源码（已去除各自 `.git`，并入本仓统一版本管理），外加运维编排 / 文档 / 定制补丁。各子项目保留自带 `LICENSE` 与 `.gitignore`；顶层 `.gitignore` 只做全仓密钥保护（`config.yaml`/`auths/`/真实 `.env` 永不入库，`*.example.*` 模板保留）。
 
 ```
 xju-api/
 ├── PLAN.md                      # 本文档
 ├── README.md                    # 项目速览 + 快速上手（指向 PLAN.md 各节）
-├── .gitignore                   # 已配：屏蔽 config.yaml / auths/ / *.env / *.db / secret*
+├── .gitignore                   # 全仓密钥保护（config.yaml/auths/真实.env 永不入库；*.example.* 保留）
+│
+├── new-api/                     # 【L1 源码·已内置，去 .git】QuantumNous/new-api；前端换肤+裁剪在此改
+├── CLIProxyAPI/                 # 【L2/L3 源码·已内置，去 .git】router-for-me/CLIProxyAPI；零改动
 │
 ├── deploy/                      # 部署脚手架
 │   ├── Caddyfile                # 两 site block（api/codex），占位邮箱，见 §3.3
@@ -339,7 +342,7 @@ xju-api/
 │   ├── toggle_card.sh           # 临时开闭：PUT /api/token/?status_only=true
 │   └── .env.example             # NEWAPI_BASE / ACCESS_TOKEN 占位（真实 .env 被 gitignore）
 │
-├── newapi-customization/        # new-api 前端定制说明（不放 new-api 源码）
+├── newapi-customization/        # new-api 前端定制的说明与补丁（源码本体在 ./new-api/）
 │   ├── README.md                # §5 换肤 + 裁剪的落地步骤与文件清单
 │   ├── theme-notion.md          # [data-theme-preset='notion'] 色板/圆角/字体/滚动条规范
 │   ├── prune-checklist.md       # 删除包 A/B/C/D/E/F/G/I 逐步清单 + 每包「必须改」项
@@ -350,7 +353,7 @@ xju-api/
     └── runbook.md               # 升级/回滚/排障速查
 ```
 
-> `.gitignore` 已覆盖：`config.yaml` / `config.local.yaml` / `*.env` / `auth.json` / `auths/` / `*.pem` / `*.key` / `secret*` / `*.db` / `logs/` / `node_modules/`。新增敏感文件类型时同步补充。
+> 顶层 `.gitignore` 覆盖：`**/config.yaml` / `config.local.yaml` / `**/.env` / `auth.json` / `**/auths/` / `*.pem` / `*.key` / `*.db` / `*.sqlite*` / `logs/` / `node_modules/`；**保留** `*.example.*` 模板与 lockfile（vendored 源码开发需要）。新增敏感类型时同步补充。
 
 ---
 
@@ -456,14 +459,14 @@ xju-api/
 
 | # | 项 | 现状 / 风险 | 待决策 |
 |---|---|---|---|
-| 1 | **仓库归属** | 已定 `winbeau/xju-api`（公开，remote 已接）；是否再转入 **XjuSelab** 组织待定 | 如需归 XjuSelab，须用组织 owner 账号 transfer（hly99999 对 XjuSelab 只读、无权限） |
-| 2 | **账号模型 A/B** | A（每用户一账号）统计原生、推荐；B（全挂运营）建卡集中但统计要自写 | 上线前**必须先定**，影响建卡流程与统计脚本 |
-| 3 | **月卡是否上架** | 机制已留位（N=30），产品上是否售卖未定 | 运营决策；不上则前端快捷按钮先隐藏 30 天档 |
+| 1 | **仓库归属** | ✅ 已定 `winbeau/xju-api`（公开）；**不转 XjuSelab**，维持 winbeau 个人仓 | 无（全程 winbeau 账号 commit + push） |
+| 2 | **账号模型 A/B** | ✅ 已定 **模型 A**：每个下游用户一个 new-api 账号，`GET /api/data/users` 原生按用户聚合 | 无（发卡流程 / 统计按模型 A 落地） |
+| 3 | **月卡是否上架** | ✅ 已定 **暂不上架**（机制留位 N=30） | 前端日卡快捷按钮只做 1/3/7 天，30 天档先隐藏 |
 | 4 | **claude-tri 资源紧张** | 内存空闲 ~126Mi、磁盘剩 ~11G，日志/镜像易撑爆 | 必上磁盘告警；镜像 pin tag 控层数；日志滚动已配 |
 | 5 | **多项目共用机干扰** | 已有 redis/postgres/dev-server 占 0.0.0.0；`:2022` 用途未明 | Phase 0 查明 `:2022`；所有端口/防火墙走增量 |
 | 6 | **CF 橙云拦 ACME** | 首签期橙云代理可能拦 HTTP-01/TLS-ALPN | 首签先灰云，签发后再评估是否开代理 |
 | 7 | **号池搬运** | 真实 `auths/*.json` 在现跑号池的机器上，本仓 `auths/` 只有 `.gitkeep` | Phase 1 rsync 搬运，勿从代码仓找 |
-| 8 | **new-api 升级冲突** | 前端定制在 `web/default`，上游升级可能冲突 | 定制沉淀为 `newapi-customization/patches/`；升级用 pin tag + 回滚演练 |
+| 8 | **new-api 上游升级** | 源码已 vendored 进本仓（脱离上游 git），前端定制直接改 `new-api/web/default` | 升级=手动 merge 上游 tag 到 `new-api/`，冲突处按 `newapi-customization/` 说明重放；升级前打 tag 可回滚 |
 | 9 | **自助支付边界** | 现阶段发卡=后台开票，不做自助支付；subscriptions 已删 | 未来若要自助购卡，正确路径是「支付成功 → 调 token API 写 expired_time」的后端改造，非当前范围 |
 
 ---
