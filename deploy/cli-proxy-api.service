@@ -1,0 +1,21 @@
+# deploy/cli-proxy-api.service — systemd 备选模板(docker compose 为首选,见 PLAN.md §2.2)
+# 适用场景: 不便跑 Docker 时,用官方二进制/自编译产物直跑
+# 安装: sudo cp cli-proxy-api.service /etc/systemd/system/ \
+#       && sudo systemctl daemon-reload && sudo systemctl enable --now cli-proxy-api
+[Unit]
+Description=CLIProxyAPI (xju-api L2/L3 upstream pool proxy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=winbeau
+WorkingDirectory=/opt/cli-proxy-api
+ExecStart=/opt/cli-proxy-api/cli-proxy-api --config /opt/cli-proxy-api/config.yaml
+Restart=always
+RestartSec=5
+# 资源护栏: claude-tri 内存紧张(PLAN.md §3.1)
+MemoryMax=512M
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

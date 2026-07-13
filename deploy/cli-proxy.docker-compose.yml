@@ -1,0 +1,23 @@
+# deploy/cli-proxy.docker-compose.yml — L2/L3 CLIProxyAPI(claude-tri)
+# 建议落位: /opt/cli-proxy-api/docker-compose.yml
+# 同目录放真实 config.yaml(参照 ./config.example.yaml 填写)与 auths/ 号池 —— 两者均被仓库 .gitignore 排除,永不入库
+services:
+  cli-proxy-api:
+    image: eceasy/cli-proxy-api:latest # 上线前建议 pin 具体 tag(PLAN.md §9-4)
+    container_name: cli-proxy-api
+    ports:
+      # 仅绑回环;公网由 Caddy 的 codex.selab.top 反代(PLAN.md §8-1)
+      - "127.0.0.1:8317:8317"
+      # OAuth 回调口:仅交互式登录号池时临时取消注释,用完即恢复;
+      # 平时走 SSH 隧道在本地浏览器完成(PLAN.md §8-2):
+      #   ssh -p 48687 -L 1455:127.0.0.1:1455 winbeau@70.39.193.15
+      # - "127.0.0.1:1455:1455"     # codex 回调
+      # - "127.0.0.1:54545:54545"   # claude 回调
+      # - "127.0.0.1:51121:51121"   # antigravity 回调
+      # - "127.0.0.1:8085:8085"
+      # - "127.0.0.1:11451:11451"
+    volumes:
+      - ./config.yaml:/CLIProxyAPI/config.yaml
+      - ./auths:/root/.cli-proxy-api
+      - ./logs:/CLIProxyAPI/logs
+    restart: unless-stopped

@@ -1,0 +1,46 @@
+# deploy/Caddyfile — xju-api 唯一公网入口(claude-tri)
+# 安装位置: /etc/caddy/Caddyfile ; 改完 `caddy validate --config /etc/caddy/Caddyfile` 再 reload
+# 前置(PLAN.md §3.2): api/codex 两条 A 记录已指向 70.39.193.15,且 Cloudflare 首签期设「仅 DNS/灰云」
+{
+	email __ACME_EMAIL__
+}
+
+# ---------- L1 发卡/统计前台 (new-api) ----------
+api.selab.top {
+	encode zstd gzip
+
+	reverse_proxy 127.0.0.1:3000 {
+		header_up X-Real-IP {remote_host}
+		# new-api 原生健康端点
+		health_uri /api/status
+		health_interval 30s
+	}
+
+	log {
+		output file /var/log/caddy/api.selab.top.json {
+			roll_size 50mb
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format json
+	}
+}
+
+# ---------- L2/L3 协议中转 + 号池 (CLIProxyAPI) ----------
+codex.selab.top {
+	encode zstd gzip
+
+	# CLIProxyAPI 无专用健康端点(PLAN.md §3.3),不设主动健康检查
+	reverse_proxy 127.0.0.1:8317 {
+		header_up X-Real-IP {remote_host}
+	}
+
+	log {
+		output file /var/log/caddy/codex.selab.top.json {
+			roll_size 50mb
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format json
+	}
+}

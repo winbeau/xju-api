@@ -1,0 +1,38 @@
+# deploy/config.example.yaml — CLIProxyAPI 配置样板(xju-api 用法)
+# 复制为部署机 /opt/cli-proxy-api/config.yaml 后填真实值;真实 config.yaml 被 .gitignore 排除,永不入库。
+# 完整可配项参见仓内 CLIProxyAPI/config.example.yaml(上游原版,含全部注释)。
+
+host: "" # 容器内绑全部接口即可;宿主侧由 compose 限定 127.0.0.1:8317(PLAN.md §8-1)
+port: 8317
+
+tls:
+  enable: false # TLS 一律在 Caddy 层终止(PLAN.md §3.3)
+
+remote-management:
+  allow-remote: false # 管理接口仅 localhost(PLAN.md §8-5)
+  # 置空则整个管理 API 关闭(/v0/management 全 404);需要时用 $(openssl rand -hex 32) 生成
+  secret-key: "__MANAGEMENT_SECRET__"
+
+auth-dir: "~/.cli-proxy-api" # 容器内路径,对应宿主 ./auths(号池 *.json 由 Phase 1 rsync 搬入)
+
+# L1 new-api「OpenAI 兼容」渠道 Key 填这里的值(至少一条常驻,PLAN.md §1.1)
+api-keys:
+  - "__INTERNAL_API_KEY__" # $(openssl rand -hex 32)
+
+debug: false
+
+# 磁盘仅剩 ~11G,必须限日志总量(PLAN.md §9-4)
+logging-to-file: true
+logs-max-total-size-mb: 512
+error-logs-max-files: 10
+
+usage-statistics-enabled: false # 记账在 L1 new-api 做,这里不重复统计省内存
+
+request-retry: 3
+
+quota-exceeded:
+  switch-project: true
+  switch-preview-model: true
+
+routing:
+  strategy: "round-robin" # 号池轮换
