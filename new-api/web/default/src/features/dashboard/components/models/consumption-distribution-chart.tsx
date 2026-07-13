@@ -142,7 +142,7 @@ export function ConsumptionDistributionChart(
                 onClick={() => setChartType(item.value)}
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors ${
                   chartType === item.value
-                    ? 'bg-background text-foreground shadow-sm'
+                    ? 'bg-background text-foreground '
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >

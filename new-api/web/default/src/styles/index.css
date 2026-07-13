@@ -62,6 +62,10 @@ For commercial licensing, please contact support@quantumnous.com
      * (defined in theme.css, swapped by `[data-theme-font='...']` blocks
      * in theme-presets.css). Defaults to the project's humanist sans. */
     font-family: var(--font-body);
+    /* 15px/1.5 is xju-feiyue's body metric — a notch above the 14px SaaS
+     * default, which is what gives the UI its calmer, document-like rhythm. */
+    font-size: 15px;
+    line-height: 1.5;
   }
 
   /* Keep sticky headers stable while primitives lock body scrolling. */
@@ -482,78 +486,29 @@ For commercial licensing, please contact support@quantumnous.com
   }
 }
 
-/* Micro-interactions — Vercel-style subtle hover/active feedback */
+/* Micro-interactions.
+ * A card must NOT lift or cast a shadow on hover: in the xju-feiyue system
+ * elevation is carried by a hairline border, and hover is expressed purely as
+ * a background shift toward the subtle surface (#f7f6f3). Lifting a card is
+ * the single most "generic SaaS" tell there is. */
 @media (prefers-reduced-motion: no-preference) {
   [data-slot='card']:not([data-card-hover='false']) {
-    transition:
-      transform 150ms ease,
-      box-shadow 150ms ease;
+    transition: background-color 150ms ease;
   }
 
   @media (min-width: 641px) {
     [data-slot='card']:not([data-card-hover='false']):hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgb(0 0 0 / 0.06);
-    }
-
-    .dark [data-slot='card']:not([data-card-hover='false']):hover {
-      box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
+      background-color: var(--muted);
     }
   }
 
-  button:not(:disabled):active,
-  [role='button']:not(:disabled):active {
-    transform: scale(0.98);
-  }
-
+  /* Rows tint on hover; they do not animate in. The staggered row-entry
+   * choreography that used to live here (25ms→250ms per-row delays) is the
+   * opposite of the xju-feiyue register, which has exactly one motion value —
+   * 150ms ease on color — and no entrance animation anywhere. Likewise the
+   * button :active scale: feedback is a color change, not a transform. */
   [data-slot='table'] tr {
-    transition: background-color 120ms ease;
-  }
-
-  /* Table row stagger-in animation */
-  [data-slot='table'] tbody tr {
-    animation: tableRowEnter 0.2s cubic-bezier(0.33, 1, 0.68, 1) both;
-  }
-  [data-slot='table'] tbody tr:nth-child(2) {
-    animation-delay: 25ms;
-  }
-  [data-slot='table'] tbody tr:nth-child(3) {
-    animation-delay: 50ms;
-  }
-  [data-slot='table'] tbody tr:nth-child(4) {
-    animation-delay: 75ms;
-  }
-  [data-slot='table'] tbody tr:nth-child(5) {
-    animation-delay: 100ms;
-  }
-  [data-slot='table'] tbody tr:nth-child(6) {
-    animation-delay: 125ms;
-  }
-  [data-slot='table'] tbody tr:nth-child(7) {
-    animation-delay: 150ms;
-  }
-  [data-slot='table'] tbody tr:nth-child(8) {
-    animation-delay: 175ms;
-  }
-  [data-slot='table'] tbody tr:nth-child(9) {
-    animation-delay: 200ms;
-  }
-  [data-slot='table'] tbody tr:nth-child(10) {
-    animation-delay: 225ms;
-  }
-  [data-slot='table'] tbody tr:nth-child(n + 11) {
-    animation-delay: 250ms;
-  }
-}
-
-@keyframes tableRowEnter {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+    transition: background-color 150ms ease;
   }
 }
 
@@ -611,4 +566,16 @@ For commercial licensing, please contact support@quantumnous.com
   .terminal-demo-pulse {
     animation: none !important;
   }
+}
+
+/* ── Third-party shadow overrides ─────────────────────────────────────────
+ * Sonner ships its own box-shadow on the toast element, so no amount of
+ * class-stripping in our own source reaches it. In the xju-feiyue system a
+ * toast is a bordered surface like any other, never an elevated one.
+ * Scoped to the toast element (not a global `* { box-shadow: none }`), which
+ * would also destroy every focus ring — Tailwind compiles `ring-*` to
+ * box-shadow. */
+[data-sonner-toast] {
+  box-shadow: none !important;
+  border: 1px solid var(--border) !important;
 }

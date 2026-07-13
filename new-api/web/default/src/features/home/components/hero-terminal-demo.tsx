@@ -211,8 +211,8 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
       <div
         className={cn(
           'overflow-hidden rounded-2xl border backdrop-blur-sm',
-          'border-border/60 bg-white/95 shadow-[0_20px_50px_-25px_rgba(15,23,42,0.18)]',
-          'dark:border-white/[0.06] dark:bg-[#0b0f17]/95 dark:shadow-[0_20px_60px_-25px_rgba(0,0,0,0.7)]'
+          'border-border/60 bg-white/95 ',
+          'dark:border-white/[0.06] dark:bg-[#0b0f17]/95 '
         )}
       >
         {/* Tab strip */}
@@ -241,7 +241,7 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
             )
           })}
           <div className='ml-auto flex items-center gap-2 pr-2 sm:pr-3'>
-            <span className='inline-block size-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.45)]' />
+            <span className='inline-block size-1.5 rounded-full bg-emerald-500 ' />
             <span className='text-foreground/40 font-mono text-[10px] tracking-wider uppercase'>
               200 ok
             </span>

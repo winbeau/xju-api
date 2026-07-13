@@ -640,9 +640,13 @@ For commercial licensing, please contact support@quantumnous.com
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.325 0.009 96);
 
-  /* Notion link blue — the only saturated accent. */
-  --primary: oklch(0.6 0.152 252); /* ≈ #2383e2 */
-  --primary-foreground: oklch(0.99 0.002 95);
+  /* Primary is the INK, not the link blue. This is the single most defining
+   * choice of the system: xju-feiyue's shadcn bridge sets
+   * `--primary: 40 9% 20%` (= #37352f) with white text — its buttons are warm
+   * near-black, never blue. The blue (#2383e2) is a *link* color only; using
+   * it as a button fill is what makes a Notion-style UI read as generic SaaS. */
+  --primary: oklch(0.325 0.009 96); /* ≈ #37352f warm ink */
+  --primary-foreground: oklch(1 0 0);
 
   --secondary: oklch(0.956 0.003 100); /* ≈ #f1f1ef hover gray */
   --secondary-foreground: oklch(0.325 0.009 96);
@@ -663,10 +667,12 @@ For commercial licensing, please contact support@quantumnous.com
   --neutral: oklch(0.68 0.005 100); /* ≈ #9b9a97 */
   --neutral-foreground: oklch(0.325 0.009 96);
 
-  /* Hairline borders; inputs use the stronger divider tone (#dcdad4). */
+  /* Hairline borders. feiyue's bridge gives --border and --input the SAME
+   * value (#edece9); the darker #dcdad4 is reserved for dividers that need
+   * more separation than a hairline. */
   --border: oklch(0.938 0.004 95); /* ≈ #edece9 */
-  --input: oklch(0.888 0.005 95); /* ≈ #dcdad4 */
-  --ring: oklch(0.6 0.152 252);
+  --input: oklch(0.938 0.004 95); /* ≈ #edece9 */
+  --ring: oklch(0.565 0.006 95); /* ≈ #787774 — a gray focus ring, not blue */
 
   /* Chart palette = Notion tag colors: blue/green/orange/purple/red. */
   --chart-1: oklch(0.6 0.152 252); /* blue */
@@ -675,15 +681,15 @@ For commercial licensing, please contact support@quantumnous.com
   --chart-4: oklch(0.58 0.1 310); /* purple */
   --chart-5: oklch(0.6 0.19 27); /* red */
 
-  /* Sidebar wears the signature warm beige. */
+  /* Sidebar wears the signature warm beige; its active item is ink, not blue. */
   --sidebar: oklch(0.972 0.004 95); /* #f7f6f3 */
   --sidebar-foreground: oklch(0.325 0.009 96);
-  --sidebar-primary: oklch(0.6 0.152 252);
-  --sidebar-primary-foreground: oklch(0.99 0.002 95);
+  --sidebar-primary: oklch(0.325 0.009 96);
+  --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.945 0.003 95); /* ≈ #efefed */
   --sidebar-accent-foreground: oklch(0.325 0.009 96);
   --sidebar-border: oklch(0.938 0.004 95);
-  --sidebar-ring: oklch(0.6 0.152 252);
+  --sidebar-ring: oklch(0.565 0.006 95);
 
   --skeleton-base: oklch(0.956 0.003 100);
   --skeleton-highlight: oklch(0.978 0.003 95);
@@ -700,8 +706,10 @@ For commercial licensing, please contact support@quantumnous.com
   --popover: oklch(0.27 0 0); /* ≈ #252525 */
   --popover-foreground: oklch(0.875 0.003 100);
 
-  --primary: oklch(0.68 0.11 245); /* lifted link blue ≈ #529cca */
-  --primary-foreground: oklch(0.18 0 0);
+  /* Inverted ink: on charcoal the "near-black button" becomes a near-white
+   * one. Same rule as light mode — primary is ink, never the link blue. */
+  --primary: oklch(0.9 0.003 100); /* ≈ #e3e3e1 */
+  --primary-foreground: oklch(0.225 0 0);
   --secondary: oklch(0.275 0 0);
   --secondary-foreground: oklch(0.875 0.003 100);
 
@@ -722,8 +730,8 @@ For commercial licensing, please contact support@quantumnous.com
   --neutral-foreground: oklch(0.18 0 0);
 
   --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.68 0.11 245);
+  --input: oklch(1 0 0 / 9%);
+  --ring: oklch(0.68 0.005 100); /* gray focus ring, not blue */
 
   --chart-1: oklch(0.68 0.11 245);
   --chart-2: oklch(0.68 0.09 180);
@@ -733,12 +741,12 @@ For commercial licensing, please contact support@quantumnous.com
 
   --sidebar: oklch(0.245 0 0); /* sidebar slightly darker than canvas */
   --sidebar-foreground: oklch(0.875 0.003 100);
-  --sidebar-primary: oklch(0.68 0.11 245);
-  --sidebar-primary-foreground: oklch(0.18 0 0);
+  --sidebar-primary: oklch(0.9 0.003 100);
+  --sidebar-primary-foreground: oklch(0.225 0 0);
   --sidebar-accent: oklch(0.3 0 0);
   --sidebar-accent-foreground: oklch(0.92 0.003 100);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.68 0.11 245);
+  --sidebar-ring: oklch(0.68 0.005 100);
 
   --skeleton-base: oklch(0.285 0 0);
   --skeleton-highlight: oklch(0.36 0 0);

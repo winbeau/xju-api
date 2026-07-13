@@ -27,5 +27,9 @@ services:
 networks:
   # L1↔L2 专用网络: new-api 也接入本网络,用容器名 cli-proxy-api:8317 访问,
   # 因为宿主的 127.0.0.1:8317 在 new-api 容器内不可见。不发布端口,无公网暴露面。
+  #
+  # external: 该网络由 new-api.run.sh 用 `docker network create xju-net` 先建;
+  # 不声明 external 的话 compose 会因缺少自己的标签而拒绝复用它。
   xju-net:
+    external: true
     name: xju-net

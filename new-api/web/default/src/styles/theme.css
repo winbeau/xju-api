@@ -84,17 +84,22 @@ For commercial licensing, please contact support@quantumnous.com
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* Radius ladder capped at 12px to match xju-feiyue's 6/8/12 scale — its
+   * corners are deliberately tight and nothing in that system exceeds 12px.
+   * The ladder is `@theme inline`, so Tailwind inlines these calc() into each
+   * utility; redeclaring --radius-* inside a preset block would be ignored.
+   * With --radius: 0.5rem, controls land at 8px and surfaces at 12px. */
+  --radius-sm: calc(var(--radius) * 0.75); /* 6px */
+  --radius-md: var(--radius); /* 8px */
+  --radius-lg: var(--radius); /* 8px — controls */
+  --radius-xl: calc(var(--radius) * 1.5); /* 12px — surfaces (cap) */
+  --radius-2xl: calc(var(--radius) * 1.5); /* 12px */
+  --radius-3xl: calc(var(--radius) * 1.5); /* 12px */
+  --radius-4xl: calc(var(--radius) * 1.5); /* 12px */
 }
 
 :root {
-  --radius: 1rem;
+  --radius: 0.5rem;
   --app-header-height: 3rem;
   /* Static build-channel fallback consumed when JS hasn't booted yet. */
   --app-rev: '2k6e8r7p';

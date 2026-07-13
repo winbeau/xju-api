@@ -141,7 +141,7 @@ export function ModelCharts(props: ModelChartsProps) {
               onClick={() => setActiveTab(tab.value)}
               className={`shrink-0 rounded-md px-3 text-xs font-medium transition-colors ${
                 activeTab === tab.value
-                  ? 'bg-background text-foreground shadow-sm'
+                  ? 'bg-background text-foreground '
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >

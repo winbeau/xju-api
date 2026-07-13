@@ -278,7 +278,10 @@ func updateOptionMap(key string, value string) (err error) {
 			common.ImageDownloadPermission = intValue
 		}
 	}
-	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" || key == "SMTPForceAuthLogin" || key == "SMTPInsecureSkipVerify" {
+	// NOTE: this guard is an allowlist — a key that neither ends in "Enabled"
+	// nor appears here never reaches the bool switch below, so its option is
+	// persisted but never applied to the in-memory var.
+	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" || key == "SMTPForceAuthLogin" || key == "SMTPInsecureSkipVerify" || key == "InviteCodeRequired" {
 		boolValue := value == "true"
 		switch key {
 		case "PasswordRegisterEnabled":

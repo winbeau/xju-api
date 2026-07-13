@@ -96,7 +96,7 @@ export function SecureVerificationDialog({
         </>
       }
       description={description}
-      contentClassName='top-[8vh] max-w-[calc(100%-1.5rem)] translate-y-0 overflow-hidden border-none shadow-xl sm:top-1/2 sm:max-w-md sm:translate-y-[-50%] sm:rounded-xl'
+      contentClassName='top-[8vh] max-w-[calc(100%-1.5rem)] translate-y-0 overflow-hidden border-none  sm:top-1/2 sm:max-w-md sm:translate-y-[-50%] sm:rounded-xl'
       headerClassName='border-b pb-4 text-left'
       titleClassName='flex items-center gap-2 text-lg font-semibold'
       descriptionClassName='text-left'

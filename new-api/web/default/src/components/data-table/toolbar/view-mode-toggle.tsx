@@ -87,7 +87,7 @@ export function DataTableViewModeToggle(props: DataTableViewModeToggleProps) {
                   className={cn(
                     'inline-flex h-full w-7 items-center justify-center rounded-md text-xs font-medium transition-all',
                     isActive
-                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      ? 'bg-primary text-primary-foreground '
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >

@@ -135,11 +135,15 @@ export function ThemeCustomizationProvider(props: {
 
   // Mirror state to the <body> via data-* attributes so theme-presets.css can
   // override CSS variables at the right cascade layer.
+  //
+  // The attribute is ALWAYS written, including for the default preset. It used
+  // to be omitted when the preset matched the default, which only worked while
+  // the default was `default` (whose palette is just `:root`). Now that the
+  // default is `notion` — a preset with a real `[data-theme-preset='notion']`
+  // block — omitting the attribute would mean the shipped default theme never
+  // matches its own CSS and silently falls back to the `:root` palette.
   useEffect(() => {
-    applyAttribute(
-      'data-theme-preset',
-      preset === DEFAULT_THEME_CUSTOMIZATION.preset ? null : preset
-    )
+    applyAttribute('data-theme-preset', preset)
   }, [preset])
 
   // Font is the one axis where we resolve before writing the attribute:
