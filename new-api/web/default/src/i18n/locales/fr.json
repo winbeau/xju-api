@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Invite Code": "Code d’invitation",
+    "Enter your invite code": "Entrez votre code d’invitation",
+    "Registration is invite-only. Please enter an invite code": "Inscription sur invitation uniquement. Veuillez saisir un code d’invitation",
     "+1 Day": "+1 jour",
     "+3 Days": "+3 jours",
     "+7 Days": "+7 jours",

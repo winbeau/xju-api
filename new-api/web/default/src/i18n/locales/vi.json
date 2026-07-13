@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Invite Code": "Mã mời",
+    "Enter your invite code": "Nhập mã mời của bạn",
+    "Registration is invite-only. Please enter an invite code": "Chỉ đăng ký bằng lời mời. Vui lòng nhập mã mời",
     "+1 Day": "+1 ngày",
     "+3 Days": "+3 ngày",
     "+7 Days": "+7 ngày",

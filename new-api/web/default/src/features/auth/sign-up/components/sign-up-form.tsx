@@ -89,6 +89,9 @@ export function SignUpForm({
     defaultValues: {
       username: '',
       email: '',
+      // Prefill from an invite link (?aff=...) when present; the user can still
+      // type a code by hand.
+      aff_code: getAffiliateCode(),
       password: '',
       confirmPassword: '',
     },
@@ -96,6 +99,9 @@ export function SignUpForm({
 
   const emailValue = form.watch('email')
   const emailVerificationRequired = !!status?.email_verification
+  // xju-api: invite-only registration — the backend rejects an absent/unknown
+  // code, so surface it as a required field instead of a silent 400.
+  const inviteCodeRequired = !!status?.invite_code_required
   const hasUserAgreement = Boolean(status?.user_agreement_enabled)
   const hasPrivacyPolicy = Boolean(status?.privacy_policy_enabled)
   const requiresLegalConsent = hasUserAgreement || hasPrivacyPolicy
@@ -141,6 +147,13 @@ export function SignUpForm({
       return
     }
 
+    if (inviteCodeRequired && !data.aff_code?.trim()) {
+      form.setError('aff_code', {
+        message: t('Registration is invite-only. Please enter an invite code'),
+      })
+      return
+    }
+
     // Validate email verification if required
     if (emailVerificationRequired) {
       if (!data.email) {
@@ -162,7 +175,8 @@ export function SignUpForm({
         password: data.password,
         email: data.email || undefined,
         verification_code: verificationCode || undefined,
-        aff_code: getAffiliateCode(),
+        // Hand-typed code wins; fall back to one captured from an invite link.
+        aff_code: data.aff_code?.trim() || getAffiliateCode(),
         turnstile: turnstileToken,
       })
 
@@ -244,6 +258,28 @@ export function SignUpForm({
             </FormItem>
           )}
         />
+
+        {/* Invite Code Field — xju-api: only rendered when the backend
+            enforces invite-only registration. */}
+        {inviteCodeRequired && (
+          <FormField
+            control={form.control}
+            name='aff_code'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Invite Code')}</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder={t('Enter your invite code')}
+                    {...field}
+                    value={field.value ?? ''}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         {/* Password Field */}
         <FormField

@@ -17,7 +17,7 @@ api.selab.top {
 	}
 
 	log {
-		output file /var/log/caddy/api.selab.top.json {
+		output file /var/lib/caddy/logs/api.selab.top.json {
 			roll_size 50mb
 			roll_keep 10
 			roll_keep_for 720h
@@ -36,7 +36,7 @@ codex.selab.top {
 	}
 
 	log {
-		output file /var/log/caddy/codex.selab.top.json {
+		output file /var/lib/caddy/logs/codex.selab.top.json {
 			roll_size 50mb
 			roll_keep 10
 			roll_keep_for 720h

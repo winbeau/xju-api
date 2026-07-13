@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Invite Code": "邀請碼",
+    "Enter your invite code": "請輸入邀請碼",
+    "Registration is invite-only. Please enter an invite code": "本站僅支援邀請註冊，請填寫邀請碼",
     "+1 Day": "+1 天",
     "+3 Days": "+3 天",
     "+7 Days": "+7 天",

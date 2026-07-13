@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Invite Code": "招待コード",
+    "Enter your invite code": "招待コードを入力してください",
+    "Registration is invite-only. Please enter an invite code": "登録は招待制です。招待コードを入力してください",
     "+1 Day": "+1日",
     "+3 Days": "+3日",
     "+7 Days": "+7日",
