@@ -21,7 +21,6 @@ import { useTranslation } from 'react-i18next'
 
 import { useStatus } from '@/hooks/use-status'
 import { parseHeaderNavModulesFromStatus } from '@/lib/nav-modules'
-import { useAuthStore } from '@/stores/auth-store'
 
 export type TopNavLink = {
   title: string
@@ -37,16 +36,15 @@ export type TopNavLink = {
  * {
  *   home: true,
  *   console: true,
- *   pricing: { enabled: true, requireAuth: false },
- *   rankings: { enabled: true, requireAuth: false },
- *   docs: true,
- *   about: true
+ *   docs: true
  * }
+ *
+ * xju-api prune (PLAN.md §5.2): pricing (Model Square), rankings and about
+ * public pages are removed with their routes.
  */
 export function useTopNavLinks(): TopNavLink[] {
   const { t } = useTranslation()
   const { status } = useStatus()
-  const { auth } = useAuthStore()
 
   // Parse HeaderNavModules
   const modules = useMemo(() => {
@@ -57,8 +55,6 @@ export function useTopNavLinks(): TopNavLink[] {
 
   // Documentation link (may be external)
   const docsLink: string | undefined = status?.docs_link as string | undefined
-
-  const isAuthed = !!auth?.user
 
   const links: TopNavLink[] = []
 
@@ -72,20 +68,6 @@ export function useTopNavLinks(): TopNavLink[] {
     links.push({ title: t('Console'), href: '/dashboard' })
   }
 
-  // Pricing
-  const pricing = modules?.pricing
-  if (pricing && typeof pricing === 'object' && pricing.enabled) {
-    const requiresAuth = pricing.requireAuth && !isAuthed
-    links.push({ title: t('Model Square'), href: '/pricing', requiresAuth })
-  }
-
-  // Rankings
-  const rankings = modules?.rankings
-  if (rankings && typeof rankings === 'object' && rankings.enabled) {
-    const requiresAuth = rankings.requireAuth && !isAuthed
-    links.push({ title: t('Rankings'), href: '/rankings', requiresAuth })
-  }
-
   // Docs (supports external links)
   if (modules?.docs !== false) {
     if (docsLink) {
@@ -93,11 +75,6 @@ export function useTopNavLinks(): TopNavLink[] {
     } else {
       links.push({ title: t('Docs'), href: '/docs' })
     }
-  }
-
-  // About
-  if (modules?.about !== false) {
-    links.push({ title: t('About'), href: '/about' })
   }
 
   return links

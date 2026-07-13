@@ -104,25 +104,25 @@ export function Hero(props: HeroProps) {
         <div className='flex flex-col items-start text-left lg:col-span-6'>
           {/* Top Pill Badge */}
           <div
-            className='landing-animate-fade-up mb-5 inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/5 px-3 py-1.5 text-[11px] font-medium text-blue-600 opacity-0 shadow-xs dark:border-blue-400/20 dark:bg-blue-400/5 dark:text-blue-400'
+            className='landing-animate-fade-up border-border bg-muted text-muted-foreground mb-5 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium opacity-0'
             style={{ animationDelay: '0ms' }}
           >
             <span className='relative flex size-1.5'>
-              <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75' />
-              <span className='relative inline-flex size-1.5 rounded-full bg-blue-500 dark:bg-blue-400' />
+              <span className='bg-primary/60 absolute inline-flex h-full w-full animate-ping rounded-full opacity-75' />
+              <span className='bg-primary relative inline-flex size-1.5 rounded-full' />
             </span>
             <span>{t('AI Application Infrastructure Foundation')}</span>
           </div>
 
+          {/* Notion-style hero (PLAN.md §5.1): editorial serif headline on
+              warm ink — no gradient text, layering comes from type. */}
           <h1
-            className='landing-animate-fade-up text-[clamp(2.25rem,4.5vw,3.25rem)] leading-[1.15] font-bold tracking-tight'
+            className='landing-animate-fade-up font-serif text-[clamp(2.25rem,4.5vw,3.25rem)] leading-[1.15] font-semibold tracking-tight'
             style={{ animationDelay: '60ms' }}
           >
             {t('Unified API Gateway for')}
             <br />
-            <span className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'>
-              {t('Vast Range of AI Models')}
-            </span>
+            <span className='text-primary'>{t('Vast Range of AI Models')}</span>
           </h1>
           <p
             className='landing-animate-fade-up text-muted-foreground/80 mt-5 max-w-xl text-base leading-relaxed opacity-0 md:text-[15px]'
@@ -160,9 +160,9 @@ export function Hero(props: HeroProps) {
                 <Button
                   variant='outline'
                   className='border-border/50 hover:border-border hover:bg-muted/50 h-11 rounded-lg px-5 text-sm font-medium'
-                  render={<Link to='/pricing' />}
+                  render={<Link to='/sign-in' />}
                 >
-                  {t('View Pricing')}
+                  {t('Sign In')}
                 </Button>
                 {renderDocsButton()}
               </>

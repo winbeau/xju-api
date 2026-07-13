@@ -67,7 +67,12 @@ import { getUserModels, getUserGroups } from '@/lib/api'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 
-import { createApiKey, updateApiKey, getApiKey } from '../api'
+import {
+  createApiKey,
+  updateApiKey,
+  updateApiKeyStatus,
+  getApiKey,
+} from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import {
   getApiKeyFormSchema,
@@ -178,6 +183,21 @@ export function ApiKeysMutateDrawer({
           id: currentRow.id,
         })
         if (result.success) {
+          // Day-card revival: the server refuses `status: 1` while the STORED
+          // expiration is in the past (UpdateToken checks before applying the
+          // body), so re-enabling an expired key must happen as a second
+          // status-only call AFTER the full update pushed the new expiration.
+          const renewedIntoFuture =
+            basePayload.expired_time === -1 ||
+            basePayload.expired_time * 1000 > Date.now()
+          if (currentRow.status === 3 && renewedIntoFuture) {
+            const enableResult = await updateApiKeyStatus(currentRow.id, 1)
+            if (!enableResult.success) {
+              toast.error(
+                enableResult.message || t(ERROR_MESSAGES.UPDATE_FAILED)
+              )
+            }
+          }
           toast.success(t(SUCCESS_MESSAGES.API_KEY_UPDATED))
           onOpenChange(false)
           triggerRefresh()
@@ -238,6 +258,17 @@ export function ApiKeysMutateDrawer({
     now.setHours(now.getHours() + hours)
 
     form.setValue('expired_time', now)
+  }
+
+  // Day-card semantics: stack on top of the remaining time when the key has
+  // not expired yet (renewals never shortchange the user), start from now
+  // otherwise — i.e. `max(current expiration, now) + N days`.
+  const handleAddDays = (days: number) => {
+    const current = form.getValues('expired_time')
+    const now = new Date()
+    const base = current && current > now ? new Date(current) : now
+    base.setDate(base.getDate() + days)
+    form.setValue('expired_time', base)
   }
 
   const { meta: currencyMeta } = getCurrencyDisplay()
@@ -371,32 +402,35 @@ export function ApiKeysMutateDrawer({
                         >
                           {t('Never')}
                         </Button>
+                        {/* Day-card tiers (PLAN.md §4.1): 1/3/7-day stack on
+                            the remaining time; the 30-day tier is reserved
+                            but not exposed yet (PLAN.md §9-3). */}
                         <Button
                           type='button'
                           variant='outline'
                           size='sm'
                           className='px-2 text-xs sm:px-3 sm:text-sm'
-                          onClick={() => handleSetExpiry(1, 0, 0)}
+                          onClick={() => handleAddDays(1)}
                         >
-                          {t('1 Month')}
+                          {t('+1 Day')}
                         </Button>
                         <Button
                           type='button'
                           variant='outline'
                           size='sm'
                           className='px-2 text-xs sm:px-3 sm:text-sm'
-                          onClick={() => handleSetExpiry(0, 1, 0)}
+                          onClick={() => handleAddDays(3)}
                         >
-                          {t('1 Day')}
+                          {t('+3 Days')}
                         </Button>
                         <Button
                           type='button'
                           variant='outline'
                           size='sm'
                           className='px-2 text-xs sm:px-3 sm:text-sm'
-                          onClick={() => handleSetExpiry(0, 0, 1)}
+                          onClick={() => handleAddDays(7)}
                         >
-                          {t('1 Hour')}
+                          {t('+7 Days')}
                         </Button>
                       </div>
                     </div>

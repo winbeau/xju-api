@@ -20,9 +20,7 @@ import type { ContentSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { AnnouncementsSection } from './announcements-section'
 import { ApiInfoSection } from './api-info-section'
-import { ChatSettingsSection } from './chat-settings-section'
 import { DashboardSection } from './dashboard-section'
-import { DrawingSettingsSection } from './drawing-settings-section'
 import { FAQSection } from './faq-section'
 import { UptimeKumaSection } from './uptime-kuma-section'
 
@@ -93,29 +91,9 @@ const CONTENT_SECTIONS = [
       />
     ),
   },
-  {
-    id: 'chat',
-    titleKey: 'Chat Presets',
-    build: (settings: ContentSettings) => (
-      <ChatSettingsSection defaultValue={settings.Chats} />
-    ),
-  },
-  {
-    id: 'drawing',
-    titleKey: 'Drawing',
-    build: (settings: ContentSettings) => (
-      <DrawingSettingsSection
-        defaultValues={{
-          DrawingEnabled: settings.DrawingEnabled,
-          MjNotifyEnabled: settings.MjNotifyEnabled,
-          MjAccountFilterEnabled: settings.MjAccountFilterEnabled,
-          MjForwardUrlEnabled: settings.MjForwardUrlEnabled,
-          MjModeClearEnabled: settings.MjModeClearEnabled,
-          MjActionCheckSuccessEnabled: settings.MjActionCheckSuccessEnabled,
-        }}
-      />
-    ),
-  },
+  // xju-api prune (PLAN.md §5.3): the 'chat' (Chat Presets) and 'drawing'
+  // (Midjourney/Drawing flags) sections are removed along with the built-in
+  // web chat — the day-card platform only relays API traffic.
 ] as const
 
 export type ContentSectionId = (typeof CONTENT_SECTIONS)[number]['id']

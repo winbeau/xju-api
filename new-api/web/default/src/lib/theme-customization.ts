@@ -38,6 +38,14 @@ export const THEME_PRESETS = [
     swatches: ['oklch(0.984 0.005 95)', 'oklch(0.685 0.142 38)'],
   },
   {
+    // Notion-style editorial workspace: white paper canvas with the warm
+    // beige secondary surface (#f7f6f3) and Notion's link blue (#2383e2)
+    // as the single accent. Swatches preview the beige → blue pairing.
+    value: 'notion',
+    name: 'Notion',
+    swatches: ['oklch(0.972 0.004 95)', 'oklch(0.6 0.152 252)'],
+  },
+  {
     value: 'simple-large',
     name: 'Simple Large-font',
     swatches: ['oklch(0.15 0 0)', 'oklch(0.99 0 0)'],
@@ -115,8 +123,10 @@ export type ThemeCustomization = {
   contentLayout: ContentLayout
 }
 
+// xju-api (PLAN.md §5): the Notion-style preset is the out-of-the-box look;
+// users can still switch presets from the appearance drawer.
 export const DEFAULT_THEME_CUSTOMIZATION: ThemeCustomization = {
-  preset: 'default',
+  preset: 'notion',
   font: 'default',
   radius: 'default',
   scale: 'default',
@@ -178,6 +188,8 @@ export const PRESET_DEFAULT_FONT: Partial<
 > = {
   default: 'sans',
   anthropic: 'serif',
+  // Notion's UI skeleton is sans; headings opt into serif per-component.
+  notion: 'sans',
 }
 
 /**

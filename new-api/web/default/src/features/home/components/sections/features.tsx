@@ -186,7 +186,7 @@ export function Features(_props: FeaturesProps) {
           <p className='text-muted-foreground mb-3 text-xs font-medium tracking-widest uppercase'>
             {t('Core Features')}
           </p>
-          <h2 className='text-2xl leading-tight font-bold tracking-tight md:text-3xl'>
+          <h2 className='font-serif text-2xl leading-tight font-semibold tracking-tight md:text-3xl'>
             {t('Built for developers,')}
             <br />
             {t('designed for scale')}

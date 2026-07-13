@@ -426,10 +426,12 @@ For commercial licensing, please contact support@quantumnous.com
  *   - `anthropic`: warm cream surfaces are a brand choice, NOT a primary-mix
  *     derivation (the Anthropic system deliberately uses warm neutrals for
  *     cards/borders rather than tinting them with the clay accent).
- *   - `simple-large`: keeps intentionally neutral, high-contrast surfaces. */
+ *   - `simple-large`: keeps intentionally neutral, high-contrast surfaces.
+ *   - `notion`: warm neutral grays (#f7f6f3 family) are the brand surface,
+ *     never a blue-primary derivation — tinting them would break the look. */
 [data-theme-preset]:not([data-theme-preset='default']):not(
     [data-theme-preset='anthropic']
-  ):not([data-theme-preset='simple-large']) {
+  ):not([data-theme-preset='simple-large']):not([data-theme-preset='notion']) {
   --card: color-mix(in oklch, var(--primary) 3%, var(--background));
   --popover: color-mix(in oklch, var(--primary) 5%, var(--background));
   --muted: color-mix(in oklch, var(--primary) 7%, var(--background));
@@ -454,7 +456,7 @@ For commercial licensing, please contact support@quantumnous.com
 .dark
   [data-theme-preset]:not([data-theme-preset='default']):not(
     [data-theme-preset='anthropic']
-  ):not([data-theme-preset='simple-large']) {
+  ):not([data-theme-preset='simple-large']):not([data-theme-preset='notion']) {
   --card: color-mix(in oklch, var(--primary) 8%, var(--background));
   --popover: color-mix(in oklch, var(--primary) 12%, var(--background));
   --muted: color-mix(in oklch, var(--primary) 12%, var(--background));
@@ -610,6 +612,136 @@ For commercial licensing, please contact support@quantumnous.com
 
   --skeleton-base: oklch(0.305 0.004 60);
   --skeleton-highlight: oklch(0.41 0.004 60);
+}
+
+/* ── Notion ───────────────────────────────────────────────────────────── */
+/*
+ * Notion-style editorial workspace look (xju-api day-card storefront):
+ * flat white canvas + warm beige secondary surfaces (#f7f6f3 family) with
+ * warm ink text (#37352f — never pure black) and hairline borders
+ * (#edece9). Layering comes from borders and background shifts, NOT from
+ * shadows; hover states lighten the background instead of deepening
+ * elevation. The single accent is Notion's link blue (#2383e2).
+ *
+ * Opted out of the semantic surface bridge above: the warm neutral grays
+ * are the brand surface — deriving them from the blue primary would turn
+ * the whole UI icy. Radius is fixed at 8px (0.5rem) per the Notion spec.
+ *
+ * OKLCH hue ~95 = warm paper gray; hue 252 = Notion link blue.
+ */
+[data-theme-preset='notion'] {
+  /* Canvas + ink — white paper, warm near-black text. */
+  --background: oklch(1 0 0); /* #ffffff */
+  --foreground: oklch(0.325 0.009 96); /* ≈ #37352f warm ink */
+
+  /* Flat white cards separated by hairline borders, not shadows. */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.325 0.009 96);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.325 0.009 96);
+
+  /* Notion link blue — the only saturated accent. */
+  --primary: oklch(0.6 0.152 252); /* ≈ #2383e2 */
+  --primary-foreground: oklch(0.99 0.002 95);
+
+  --secondary: oklch(0.956 0.003 100); /* ≈ #f1f1ef hover gray */
+  --secondary-foreground: oklch(0.325 0.009 96);
+
+  --muted: oklch(0.972 0.004 95); /* ≈ #f7f6f3 warm beige */
+  --muted-foreground: oklch(0.565 0.006 95); /* ≈ #787774 */
+  --accent: oklch(0.956 0.003 100); /* hover = lighten, not shadow */
+  --accent-foreground: oklch(0.325 0.009 96);
+
+  --destructive: oklch(0.6 0.19 27); /* ≈ #e03e3e */
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.52 0.075 180); /* ≈ #0f7b6c teal-green */
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.66 0.145 55); /* ≈ #d9730d */
+  --warning-foreground: oklch(0.985 0 0);
+  --info: oklch(0.6 0.152 252);
+  --info-foreground: oklch(0.985 0 0);
+  --neutral: oklch(0.68 0.005 100); /* ≈ #9b9a97 */
+  --neutral-foreground: oklch(0.325 0.009 96);
+
+  /* Hairline borders; inputs use the stronger divider tone (#dcdad4). */
+  --border: oklch(0.938 0.004 95); /* ≈ #edece9 */
+  --input: oklch(0.888 0.005 95); /* ≈ #dcdad4 */
+  --ring: oklch(0.6 0.152 252);
+
+  /* Chart palette = Notion tag colors: blue/green/orange/purple/red. */
+  --chart-1: oklch(0.6 0.152 252); /* blue */
+  --chart-2: oklch(0.52 0.075 180); /* green */
+  --chart-3: oklch(0.66 0.145 55); /* orange */
+  --chart-4: oklch(0.58 0.1 310); /* purple */
+  --chart-5: oklch(0.6 0.19 27); /* red */
+
+  /* Sidebar wears the signature warm beige. */
+  --sidebar: oklch(0.972 0.004 95); /* #f7f6f3 */
+  --sidebar-foreground: oklch(0.325 0.009 96);
+  --sidebar-primary: oklch(0.6 0.152 252);
+  --sidebar-primary-foreground: oklch(0.99 0.002 95);
+  --sidebar-accent: oklch(0.945 0.003 95); /* ≈ #efefed */
+  --sidebar-accent-foreground: oklch(0.325 0.009 96);
+  --sidebar-border: oklch(0.938 0.004 95);
+  --sidebar-ring: oklch(0.6 0.152 252);
+
+  --skeleton-base: oklch(0.956 0.003 100);
+  --skeleton-highlight: oklch(0.978 0.003 95);
+
+  /* 8px master radius → 6/8/12px ladder via the derived --radius-* calc. */
+  --radius: 0.5rem;
+}
+.dark [data-theme-preset='notion'] {
+  /* Notion dark: soft charcoal (#191919 family), never pure black. */
+  --background: oklch(0.225 0 0); /* ≈ #191919 */
+  --foreground: oklch(0.875 0.003 100); /* ≈ #d3d3d1 */
+  --card: oklch(0.25 0 0); /* ≈ #202020 */
+  --card-foreground: oklch(0.875 0.003 100);
+  --popover: oklch(0.27 0 0); /* ≈ #252525 */
+  --popover-foreground: oklch(0.875 0.003 100);
+
+  --primary: oklch(0.68 0.11 245); /* lifted link blue ≈ #529cca */
+  --primary-foreground: oklch(0.18 0 0);
+  --secondary: oklch(0.275 0 0);
+  --secondary-foreground: oklch(0.875 0.003 100);
+
+  --muted: oklch(0.25 0 0);
+  --muted-foreground: oklch(0.68 0.005 100); /* #9b9a97 */
+  --accent: oklch(0.3 0 0); /* ≈ #2c2c2c hover */
+  --accent-foreground: oklch(0.92 0.003 100);
+
+  --destructive: oklch(0.7 0.16 25); /* ≈ #ff7369 */
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.68 0.09 180); /* ≈ #4dab9a */
+  --success-foreground: oklch(0.18 0 0);
+  --warning: oklch(0.78 0.13 60); /* ≈ #ffa344 */
+  --warning-foreground: oklch(0.18 0 0);
+  --info: oklch(0.68 0.11 245);
+  --info-foreground: oklch(0.18 0 0);
+  --neutral: oklch(0.68 0.005 100);
+  --neutral-foreground: oklch(0.18 0 0);
+
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.68 0.11 245);
+
+  --chart-1: oklch(0.68 0.11 245);
+  --chart-2: oklch(0.68 0.09 180);
+  --chart-3: oklch(0.78 0.13 60);
+  --chart-4: oklch(0.68 0.1 310);
+  --chart-5: oklch(0.7 0.16 25);
+
+  --sidebar: oklch(0.245 0 0); /* sidebar slightly darker than canvas */
+  --sidebar-foreground: oklch(0.875 0.003 100);
+  --sidebar-primary: oklch(0.68 0.11 245);
+  --sidebar-primary-foreground: oklch(0.18 0 0);
+  --sidebar-accent: oklch(0.3 0 0);
+  --sidebar-accent-foreground: oklch(0.92 0.003 100);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.68 0.11 245);
+
+  --skeleton-base: oklch(0.285 0 0);
+  --skeleton-highlight: oklch(0.36 0 0);
 }
 
 /* ── Font axis ────────────────────────────────────────────────────────────

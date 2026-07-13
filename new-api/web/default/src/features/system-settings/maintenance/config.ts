@@ -16,19 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-export type HeaderNavAccessConfig = {
-  enabled: boolean
-  requireAuth: boolean
-}
-
+// xju-api prune (PLAN.md §5.2): pricing/rankings/about public pages removed,
+// so header-nav config narrows to plain booleans for the surviving links.
 export type HeaderNavModulesConfig = {
   home: boolean
   console: boolean
-  pricing: HeaderNavAccessConfig
-  rankings: HeaderNavAccessConfig
   docs: boolean
-  about: boolean
-  [key: string]: boolean | HeaderNavAccessConfig
+  [key: string]: boolean
 }
 
 export type SidebarSectionConfig = {
@@ -41,24 +35,13 @@ export type SidebarModulesAdminConfig = Record<string, SidebarSectionConfig>
 export const HEADER_NAV_DEFAULT: HeaderNavModulesConfig = {
   home: true,
   console: true,
-  pricing: {
-    enabled: true,
-    requireAuth: false,
-  },
-  rankings: {
-    enabled: true,
-    requireAuth: false,
-  },
   docs: true,
-  about: true,
 }
 
+// xju-api prune (PLAN.md §5.2): chat/topup/redemption/subscription module
+// switches removed with their features; must stay in sync with
+// DEFAULT_SIDEBAR_MODULES in src/hooks/use-sidebar-config.ts.
 export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
-  chat: {
-    enabled: true,
-    playground: true,
-    chat: true,
-  },
   console: {
     enabled: true,
     detail: true,
@@ -69,17 +52,14 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
   },
   personal: {
     enabled: true,
-    topup: true,
     personal: true,
   },
   admin: {
     enabled: true,
     channel: true,
     models: true,
-    redemption: true,
     user: true,
     setting: true,
-    subscription: true,
   },
 }
 
@@ -96,33 +76,7 @@ const toBoolean = (value: unknown, fallback: boolean): boolean => {
 
 const cloneHeaderNavDefault = (): HeaderNavModulesConfig => ({
   ...HEADER_NAV_DEFAULT,
-  pricing: { ...HEADER_NAV_DEFAULT.pricing },
-  rankings: { ...HEADER_NAV_DEFAULT.rankings },
 })
-
-const parseAccessModule = (
-  raw: unknown,
-  fallback: HeaderNavAccessConfig
-): HeaderNavAccessConfig => {
-  if (
-    typeof raw === 'boolean' ||
-    typeof raw === 'string' ||
-    typeof raw === 'number'
-  ) {
-    return {
-      enabled: toBoolean(raw, fallback.enabled),
-      requireAuth: fallback.requireAuth,
-    }
-  }
-  if (raw && typeof raw === 'object') {
-    const record = raw as Record<string, unknown>
-    return {
-      enabled: toBoolean(record.enabled, fallback.enabled),
-      requireAuth: toBoolean(record.requireAuth, fallback.requireAuth),
-    }
-  }
-  return { ...fallback }
-}
 
 const cloneSidebarDefault = (): SidebarModulesAdminConfig =>
   Object.entries(SIDEBAR_MODULES_DEFAULT).reduce<SidebarModulesAdminConfig>(
@@ -142,22 +96,11 @@ export function parseHeaderNavModules(
   }
   try {
     const parsed = JSON.parse(value) as Record<string, unknown>
-    const result: HeaderNavModulesConfig = {
-      ...base,
-      pricing: { ...base.pricing },
-      rankings: { ...base.rankings },
-    }
+    const result: HeaderNavModulesConfig = { ...base }
 
     Object.entries(parsed).forEach(([key, raw]) => {
-      if (key === 'pricing') {
-        result.pricing = parseAccessModule(raw, base.pricing)
-        return
-      }
-      if (key === 'rankings') {
-        result.rankings = parseAccessModule(raw, base.rankings)
-        return
-      }
-
+      // Legacy configs may still carry pricing/rankings objects; the pages
+      // are gone, so any non-boolean-ish value is simply ignored.
       if (typeof raw === 'boolean') {
         result[key] = raw
         return

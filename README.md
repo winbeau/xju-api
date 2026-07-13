@@ -2,7 +2,7 @@
 
 自建的**三层 AI API 代理平台** —— 用「日卡 / 三天卡 / 周卡（月卡留位）」的时间卡形式，把上游多个 AI 账号（号池）的能力打包分发给下游用户。
 
-> 本仓是**运维编排 + 文档 + 定制补丁**仓,**不含** new-api / CLIProxyAPI 源码。完整设计见 **[PLAN.md](./PLAN.md)**。
+> 单仓（monorepo）：**内置 `new-api/` 与 `CLIProxyAPI/` 源码**（已去各自 .git）+ 运维编排 + 文档 + 定制记录。完整设计见 **[PLAN.md](./PLAN.md)**。
 
 ## 架构一览
 
@@ -29,10 +29,12 @@
 ## 目录
 
 ```
+new-api/               L1 源码（前端已完成 Notion 换肤 + 裁剪，见 newapi-customization/）
+CLIProxyAPI/           L2/L3 源码（默认零改动）
 deploy/                部署脚手架（Caddyfile / docker 模板 / 配置样板 / 备份）
-scripts/               发卡 glue（建卡 / 续卡 / 开闭，按需）
-newapi-customization/  new-api 前端换肤 + 裁剪的落地说明与补丁
-docs/                  接口示例 / 排障 runbook
+scripts/               发卡 glue（建卡 / 续卡 / 开闭）
+newapi-customization/  前端换肤 + 裁剪的落地记录（升级上游时按此重放）
+docs/                  日卡接口速查 / 排障 runbook
 PLAN.md                完整实施计划（9 节）
 ```
 
@@ -42,4 +44,4 @@ PLAN.md                完整实施计划（9 节）
 
 ## 状态
 
-规划中（v1 规划稿）。实施分 Phase 0–5,见 [PLAN.md §7](./PLAN.md#7-分阶段实施计划)。
+实施中。**本机可做的 Phase 3（前端换肤+裁剪）与 Phase 4（发卡脚本）已完成**；`deploy/` 模板齐备,等待在 claude-tri 上执行 Phase 0/1/2（部署）与 Phase 5（上线验收）,见 [PLAN.md §7](./PLAN.md#7-分阶段实施计划)。

@@ -1,5 +1,8 @@
 {
   "translation": {
+    "+1 Day": "+1 天",
+    "+3 Days": "+3 天",
+    "+7 Days": "+7 天",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -3449,6 +3452,7 @@
     "preset.forest-whisper": "森林低語",
     "preset.lake-view": "湖光",
     "preset.lavender-dream": "薰衣草夢",
+    "preset.notion": "Notion",
     "preset.ocean-breeze": "海風",
     "preset.rose-garden": "玫瑰花園",
     "preset.simple-large": "超大字體簡易",

@@ -1,5 +1,8 @@
 {
   "translation": {
+    "+1 Day": "+1 Day",
+    "+3 Days": "+3 Days",
+    "+7 Days": "+7 Days",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -3449,6 +3452,7 @@
     "preset.forest-whisper": "Forest Whisper",
     "preset.lake-view": "Lake View",
     "preset.lavender-dream": "Lavender Dream",
+    "preset.notion": "Notion",
     "preset.ocean-breeze": "Ocean Breeze",
     "preset.rose-garden": "Rose Garden",
     "preset.simple-large": "Simple Large-font",
