@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { TopNavLink } from '../types'
 import { PublicHeader, type PublicHeaderProps } from './public-header'
 
 type PublicLayoutProps = {
@@ -24,7 +23,6 @@ type PublicLayoutProps = {
   showMainContainer?: boolean
   navContent?: React.ReactNode
   headerProps?: Omit<PublicHeaderProps, 'navContent'>
-  navLinks?: TopNavLink[]
   showAuthButtons?: boolean
   showNotifications?: boolean
   logo?: React.ReactNode
@@ -36,7 +34,6 @@ export function PublicLayout(props: PublicLayoutProps) {
     <div className='bg-background text-foreground relative min-h-svh overflow-x-clip'>
       <PublicHeader
         navContent={props.navContent}
-        navLinks={props.navLinks}
         showAuthButtons={props.showAuthButtons}
         showNotifications={props.showNotifications}
         logo={props.logo}

@@ -16,10 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { Home } from '@/features/home'
+import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/')({
+  // A signed-in user has no use for the marketing page — for them the product
+  // *is* the console, so land them there. Anonymous visitors still get Home.
+  beforeLoad: () => {
+    const { auth } = useAuthStore.getState()
+    if (auth.user) {
+      throw redirect({ to: '/dashboard' })
+    }
+  },
   component: Home,
 })

@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -26,7 +25,6 @@ import {
 } from '@/components/ui/sidebar'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { cn } from '@/lib/utils'
 
 type SystemBrandProps = {
   defaultName?: string
@@ -55,16 +53,12 @@ export function SystemBrand(props: SystemBrandProps) {
   const version =
     status?.version || props.defaultVersion || t('Unknown version')
 
+  // Inside the console the brand is a label, not a link. It used to navigate
+  // to the marketing home page, which is a dead end for a signed-in user —
+  // and `/` now redirects them straight back here anyway.
   if (variant === 'inline') {
     return (
-      <Link
-        to='/'
-        aria-label={t('Go to home')}
-        className={cn(
-          'text-foreground inline-flex h-7 items-center gap-1.5 rounded-md px-1.5 text-sm font-medium transition-colors outline-none select-none',
-          'hover:bg-accent focus-visible:ring-ring/40 focus-visible:ring-2'
-        )}
-      >
+      <div className='text-foreground inline-flex h-7 items-center gap-1.5 px-1.5 text-sm font-medium select-none'>
         <div className='flex size-5 items-center justify-center overflow-hidden rounded-md'>
           <img
             src={logo}
@@ -73,7 +67,7 @@ export function SystemBrand(props: SystemBrandProps) {
           />
         </div>
         <span className='max-w-[12rem] truncate'>{name}</span>
-      </Link>
+      </div>
     )
   }
 
