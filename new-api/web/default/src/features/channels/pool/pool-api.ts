@@ -59,27 +59,76 @@ function normalizeList(data: unknown): PoolAuthFile[] {
   return []
 }
 
-export async function listPoolAuthFiles(): Promise<PoolAuthFile[]> {
-  const res = await api.get<ApiEnvelope<unknown>>('/api/pool/auth-files')
+export type PoolInfo = { id: string; label: string }
+
+export type ImportResult = {
+  imported: number
+  skipped: { name: string; reason: string }[]
+  failed: { name: string; error: string }[]
+}
+
+/**
+ * xju-api runs isolated pools (default + k12). Every management call carries the
+ * target pool as `?pool=`; the backend routes it to that pool's CLIProxyAPI
+ * management API. An empty pool means the primary (default) pool.
+ */
+function poolQuery(pool: string): string {
+  return pool ? `?pool=${encodeURIComponent(pool)}` : ''
+}
+
+export async function listPools(): Promise<PoolInfo[]> {
+  const res = await api.get<ApiEnvelope<PoolInfo[]>>('/api/pool/pools')
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to load pools')
+  }
+  return Array.isArray(res.data.data) ? res.data.data : []
+}
+
+export async function listPoolAuthFiles(pool: string): Promise<PoolAuthFile[]> {
+  const res = await api.get<ApiEnvelope<unknown>>(
+    `/api/pool/auth-files${poolQuery(pool)}`
+  )
   if (!res.data.success) {
     throw new Error(res.data.message || 'Failed to load pool auth files')
   }
   return normalizeList(res.data.data)
 }
 
-export async function addPoolAuthFile(args: {
-  name: string
-  content: string
-}): Promise<void> {
-  const res = await api.post<ApiEnvelope<unknown>>('/api/pool/auth-files', args)
+export async function addPoolAuthFile(
+  pool: string,
+  args: { name: string; content: string }
+): Promise<void> {
+  const res = await api.post<ApiEnvelope<unknown>>(
+    `/api/pool/auth-files${poolQuery(pool)}`,
+    args
+  )
   if (!res.data.success) {
     throw new Error(res.data.message || 'Failed to add pool auth file')
   }
 }
 
-export async function deletePoolAuthFile(name: string): Promise<void> {
+export async function importPoolAuthFiles(
+  pool: string,
+  file: File
+): Promise<ImportResult> {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await api.post<ApiEnvelope<ImportResult>>(
+    `/api/pool/auth-files/import${poolQuery(pool)}`,
+    form
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to import accounts')
+  }
+  return res.data.data
+}
+
+export async function deletePoolAuthFile(
+  pool: string,
+  name: string
+): Promise<void> {
   const res = await api.delete<ApiEnvelope<unknown>>('/api/pool/auth-files', {
-    params: { name },
+    params: { name, pool },
   })
   if (!res.data.success) {
     throw new Error(res.data.message || 'Failed to delete pool auth file')
@@ -87,11 +136,12 @@ export async function deletePoolAuthFile(name: string): Promise<void> {
 }
 
 export async function setPoolAuthFileDisabled(
+  pool: string,
   name: string,
   disabled: boolean
 ): Promise<void> {
   const res = await api.patch<ApiEnvelope<unknown>>(
-    '/api/pool/auth-files/status',
+    `/api/pool/auth-files/status${poolQuery(pool)}`,
     { name, disabled }
   )
   if (!res.data.success) {
@@ -99,9 +149,9 @@ export async function setPoolAuthFileDisabled(
   }
 }
 
-export async function cleanPoolAuthFilesNow(): Promise<number> {
+export async function cleanPoolAuthFilesNow(pool: string): Promise<number> {
   const res = await api.post<ApiEnvelope<{ disabled?: number }>>(
-    '/api/pool/auth-files/clean'
+    `/api/pool/auth-files/clean${poolQuery(pool)}`
   )
   if (!res.data.success) {
     throw new Error(res.data.message || 'Failed to clean the pool')

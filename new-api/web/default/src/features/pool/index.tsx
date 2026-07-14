@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ClipboardPaste,
+  FileArchive,
   Loader2,
   Play,
   Plus,
@@ -44,15 +45,20 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
   addPoolAuthFile,
   cleanPoolAuthFilesNow,
   deletePoolAuthFile,
   deriveAuthFileName,
+  importPoolAuthFiles,
   listPoolAuthFiles,
+  listPools,
   setPoolAuthFileDisabled,
+  type ImportResult,
   type PoolAuthFile,
+  type PoolInfo,
 } from '@/features/channels/pool/pool-api'
 import { useStatus } from '@/hooks/use-status'
 import { api } from '@/lib/api'
@@ -79,19 +85,31 @@ export function Pool() {
   const queryClient = useQueryClient()
   const { status } = useStatus()
   const [content, setContent] = useState('')
+  const [pool, setPool] = useState('default')
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const zipInputRef = useRef<HTMLInputElement>(null)
 
   const autoCleanEnabled = Boolean(status?.pool_auto_clean_enabled)
   const autoCleanHours = Number(status?.pool_auto_clean_hours ?? 24)
 
+  const poolsQuery = useQuery({
+    queryKey: ['pool', 'pools'],
+    queryFn: listPools,
+    staleTime: 60_000,
+  })
+  const pools: PoolInfo[] = poolsQuery.data ?? [
+    { id: 'default', label: 'Default' },
+  ]
+
   const listQuery = useQuery({
-    queryKey: ['pool', 'auth-files'],
-    queryFn: listPoolAuthFiles,
+    queryKey: ['pool', 'auth-files', pool],
+    queryFn: () => listPoolAuthFiles(pool),
     staleTime: 10_000,
   })
 
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['pool', 'auth-files'] })
+    queryClient.invalidateQueries({ queryKey: ['pool', 'auth-files', pool] })
 
   const addMutation = useMutation({
     mutationFn: async () => {
@@ -102,7 +120,7 @@ export function Pool() {
       } catch {
         throw new Error(t('That is not valid JSON'))
       }
-      await addPoolAuthFile({
+      await addPoolAuthFile(pool, {
         name: deriveAuthFileName(trimmed),
         content: trimmed,
       })
@@ -116,7 +134,7 @@ export function Pool() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (name: string) => deletePoolAuthFile(name),
+    mutationFn: (name: string) => deletePoolAuthFile(pool, name),
     onSuccess: async () => {
       toast.success(t('Account removed'))
       await invalidate()
@@ -126,13 +144,29 @@ export function Pool() {
 
   const toggleMutation = useMutation({
     mutationFn: (args: { name: string; disabled: boolean }) =>
-      setPoolAuthFileDisabled(args.name, args.disabled),
+      setPoolAuthFileDisabled(pool, args.name, args.disabled),
     onSuccess: async () => await invalidate(),
     onError: (error: Error) => toast.error(error.message),
   })
 
+  const importMutation = useMutation({
+    mutationFn: (file: File) => importPoolAuthFiles(pool, file),
+    onSuccess: async (result) => {
+      setImportResult(result)
+      toast.success(
+        t('Imported {{imported}} · skipped {{skipped}} · failed {{failed}}', {
+          imported: result.imported,
+          skipped: result.skipped.length,
+          failed: result.failed.length,
+        })
+      )
+      await invalidate()
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+
   const cleanMutation = useMutation({
-    mutationFn: cleanPoolAuthFilesNow,
+    mutationFn: () => cleanPoolAuthFilesNow(pool),
     onSuccess: async (disabled) => {
       toast.success(
         disabled > 0
@@ -179,6 +213,15 @@ export function Pool() {
     }
   }
 
+  const handleZipImport = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    // Reset so selecting the same file again still fires onChange.
+    event.target.value = ''
+    if (!file) return
+    setImportResult(null)
+    importMutation.mutate(file)
+  }
+
   const files = listQuery.data ?? []
   const listReady = !listQuery.isLoading && !listQuery.isError
   const activeCount = files.filter((f) => accountState(f) === 'ok').length
@@ -194,6 +237,24 @@ export function Pool() {
         </span>
       </SectionPageLayout.Title>
       <SectionPageLayout.Content>
+        {pools.length > 1 && (
+          <Tabs
+            value={pool}
+            onValueChange={(value) => {
+              setPool(String(value))
+              setImportResult(null)
+            }}
+            className='mb-4'
+          >
+            <TabsList>
+              {pools.map((p) => (
+                <TabsTrigger key={p.id} value={p.id}>
+                  {p.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
         <div className='grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
           {/* Accounts list */}
           <Card data-card-hover='false'>
@@ -318,12 +379,19 @@ export function Pool() {
                 <CardTitle className='text-base'>{t('Add account')}</CardTitle>
                 <CardDescription>
                   {t(
-                    'Paste a codex auth JSON — a single account or an export bundle. The pool reloads instantly.'
+                    'Paste a codex auth JSON, or import a .zip of many accounts. The pool reloads instantly.'
                   )}
                 </CardDescription>
               </CardHeader>
               <CardContent className='grid gap-2'>
                 <div className='flex justify-end gap-2'>
+                  <input
+                    ref={zipInputRef}
+                    type='file'
+                    accept='.zip'
+                    className='hidden'
+                    onChange={handleZipImport}
+                  />
                   <input
                     ref={fileInputRef}
                     type='file'
@@ -331,6 +399,20 @@ export function Pool() {
                     className='hidden'
                     onChange={handleFileUpload}
                   />
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    onClick={() => zipInputRef.current?.click()}
+                    disabled={importMutation.isPending}
+                  >
+                    {importMutation.isPending ? (
+                      <Loader2 className='animate-spin' />
+                    ) : (
+                      <FileArchive />
+                    )}
+                    {t('Import .zip')}
+                  </Button>
                   <Button
                     type='button'
                     variant='outline'
@@ -369,6 +451,38 @@ export function Pool() {
                   )}
                   {t('Add to pool')}
                 </Button>
+                {importResult && (
+                  <div className='border-border mt-1 rounded-md border p-2 text-xs'>
+                    <p className='font-medium'>
+                      {t(
+                        'Imported {{imported}} · skipped {{skipped}} · failed {{failed}}',
+                        {
+                          imported: importResult.imported,
+                          skipped: importResult.skipped.length,
+                          failed: importResult.failed.length,
+                        }
+                      )}
+                    </p>
+                    {importResult.failed.length > 0 && (
+                      <ul className='text-destructive mt-1 max-h-24 overflow-auto'>
+                        {importResult.failed.map((f) => (
+                          <li key={f.name} className='truncate font-mono'>
+                            {f.name}: {f.error}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {importResult.skipped.length > 0 && (
+                      <ul className='text-muted-foreground mt-1 max-h-24 overflow-auto'>
+                        {importResult.skipped.map((s) => (
+                          <li key={s.name} className='truncate font-mono'>
+                            {s.name}: {s.reason}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
