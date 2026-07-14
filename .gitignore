@@ -7,7 +7,10 @@
 # --- 真实密钥 / 运行期配置（绝不提交；模板 *.example.* 保留）---
 **/config.yaml
 **/config.local.yaml
+**/config.k12.yaml
 **/auths/
+**/auths-k12/
+**/logs-k12/
 **/auth.json
 .env
 .env.local
@@ -35,5 +38,7 @@ logs/
 .idea/
 .vscode/
 
-# 号池管理明文密钥(deploy/setup-pool-mgmt.sh 生成,永不入库)
+# 号池管理明文密钥(deploy/setup-pool-mgmt*.sh 生成,永不入库)
 deploy/.pool-mgmt.env
+deploy/.pool-mgmt-k12.env
+**/.pool-mgmt-k12.env

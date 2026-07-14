@@ -31,6 +31,26 @@ services:
     networks:
       - xju-net
 
+  # K12 独立号池（第二实例）: 与 default 池完全隔离——独立 auth-dir / 内部 key / 管理密钥 / 端口。
+  # new-api 靠渠道 group 字段路由: k12 卡只命中指向本实例的 cliproxy-pool-k12 渠道。
+  cli-proxy-api-k12:
+    image: eceasy/cli-proxy-api:latest # 与 default 池同镜像/同 tag
+    container_name: cli-proxy-api-k12
+    ports:
+      # 仅绑回环；K12 池无公网入口，只由 new-api 经 xju-net 内网访问
+      - "127.0.0.1:8318:8318"
+    volumes:
+      - ./config.k12.yaml:/CLIProxyAPI/config.yaml
+      - ./auths-k12:/root/.cli-proxy-api
+      - ./logs-k12:/CLIProxyAPI/logs
+    # 独立管理密钥: .pool-mgmt-k12.env 里 MANAGEMENT_PASSWORD 给本容器做 Bearer 鉴权,
+    # POOL_K12_MGMT_SECRET 给 new-api。由 setup-pool-mgmt-k12.sh 生成,被 .gitignore 挡。
+    env_file:
+      - ./.pool-mgmt-k12.env
+    restart: unless-stopped
+    networks:
+      - xju-net
+
 networks:
   # L1↔L2 专用网络: new-api 也接入本网络,用容器名 cli-proxy-api:8317 访问,
   # 因为宿主的 127.0.0.1:8317 在 new-api 容器内不可见。不发布端口,无公网暴露面。

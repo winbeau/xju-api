@@ -1,0 +1,38 @@
+# deploy/config.k12.example.yaml — K12 独立号池配置样板（xju-api）
+# 复制为部署机 /opt/cli-proxy-api/config.k12.yaml 后填真实值；真实文件被 .gitignore 排除，永不入库。
+# 与 default 池（config.yaml / 8317 / auths/）完全隔离：独立 auth-dir、内部 key、管理密钥、端口。
+
+host: "" # 容器内绑全部接口；宿主侧由 compose 限定 127.0.0.1:8318
+
+port: 8318
+
+tls:
+  enable: false # TLS 一律在 Caddy 层终止
+
+remote-management:
+  allow-remote: false # 管理接口仅 localhost（设了 MANAGEMENT_PASSWORD 后 new-api 内网可调）
+  secret-key: "__MANAGEMENT_SECRET_K12__" # $(openssl rand -hex 32)；与 default 池不同值
+
+auth-dir: "~/.cli-proxy-api" # 容器内路径，对应宿主 ./auths-k12（K12 号池 *.json）
+
+# L1 new-api「OpenAI 兼容」k12 渠道 Key 填这里的值
+api-keys:
+  - "__INTERNAL_API_KEY_K12__" # $(openssl rand -hex 32)；与 default 池不同值
+
+debug: false
+
+# 磁盘紧，限日志总量
+logging-to-file: true
+logs-max-total-size-mb: 256
+error-logs-max-files: 10
+
+usage-statistics-enabled: false # 记账在 L1 new-api 做
+
+request-retry: 3
+
+quota-exceeded:
+  switch-project: true
+  switch-preview-model: true
+
+routing:
+  strategy: "round-robin" # 号池轮换
