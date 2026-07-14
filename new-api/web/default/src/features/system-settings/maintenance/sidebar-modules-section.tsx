@@ -108,6 +108,10 @@ export function SidebarModulesSection({
         title: t('Channels'),
         description: t('Configure upstream providers and routing.'),
       },
+      pool: {
+        title: t('Account Pool'),
+        description: t('Manage upstream codex accounts in the shared pool.'),
+      },
       models: {
         title: t('Models'),
         description: t('Manage catalog visibility and pricing.'),

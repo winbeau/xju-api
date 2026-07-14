@@ -55,6 +55,7 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
   admin: {
     enabled: true,
     channel: true,
+    pool: true,
     models: true,
     user: true,
   },

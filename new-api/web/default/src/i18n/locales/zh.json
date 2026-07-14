@@ -1,5 +1,9 @@
 {
   "translation": {
+    "Upstream codex accounts behind the shared pool.": "共享号池背后的上游 codex 账号。",
+    "Paste a codex auth JSON — a single account or an export bundle. The pool reloads instantly.": "粘贴 codex 认证 JSON —— 单账号或导出捆绑包。号池即时热重载。",
+    "Enable auto-clean": "开启自动清理",
+    "Manage upstream codex accounts in the shared pool.": "管理共享号池里的上游 codex 账号。",
     "Unavailable": "不可用",
     "Auto-clean": "自动清理",
     "Hourly: disable accounts that stay unavailable past {{hours}}h.": "每小时:把超过 {{hours}} 小时仍不可用的账号禁用。",

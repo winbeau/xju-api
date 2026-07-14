@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import {
   Activity,
   Box,
+  Boxes,
   FileText,
   Key,
   LayoutDashboard,
@@ -91,6 +92,11 @@ export function useSidebarData(): SidebarData {
             title: t('Channels'),
             url: '/channels',
             icon: Radio,
+          },
+          {
+            title: t('Account Pool'),
+            url: '/pool',
+            icon: Boxes,
           },
           {
             title: t('Models'),

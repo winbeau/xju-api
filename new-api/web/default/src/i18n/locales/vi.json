@@ -1,5 +1,9 @@
 {
   "translation": {
+    "Upstream codex accounts behind the shared pool.": "Upstream codex accounts behind the shared pool.",
+    "Paste a codex auth JSON — a single account or an export bundle. The pool reloads instantly.": "Paste a codex auth JSON — a single account or an export bundle. The pool reloads instantly.",
+    "Enable auto-clean": "Enable auto-clean",
+    "Manage upstream codex accounts in the shared pool.": "Manage upstream codex accounts in the shared pool.",
     "Unavailable": "Unavailable",
     "Auto-clean": "Auto-clean",
     "Hourly: disable accounts that stay unavailable past {{hours}}h.": "Hourly: disable accounts that stay unavailable past {{hours}}h.",

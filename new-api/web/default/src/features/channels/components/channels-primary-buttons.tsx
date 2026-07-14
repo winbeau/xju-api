@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import {
   Boxes,
   Plus,
@@ -57,7 +58,6 @@ import {
   ADMIN_PERMISSION_RESOURCES,
   hasPermission,
 } from '@/lib/admin-permissions'
-import { PoolAuthDialog } from '../pool/pool-auth-dialog'
 import { useAuthStore } from '@/stores/auth-store'
 
 import {
@@ -69,7 +69,6 @@ import {
 import { useChannels } from './channels-provider'
 
 export function ChannelsPrimaryButtons() {
-  const [poolAuthOpen, setPoolAuthOpen] = useState(false)
   const { t } = useTranslation()
   const {
     setOpen,
@@ -156,7 +155,7 @@ export function ChannelsPrimaryButtons() {
         <Button
           variant='outline'
           size='sm'
-          onClick={() => setPoolAuthOpen(true)}
+          render={<Link to='/pool' />}
         >
           <Boxes className='h-4 w-4' />
           <span className='max-sm:hidden'>{t('Account Pool')}</span>
@@ -340,7 +339,6 @@ export function ChannelsPrimaryButtons() {
           }
         }}
       />
-      <PoolAuthDialog open={poolAuthOpen} onOpenChange={setPoolAuthOpen} />
     </>
   )
 }
