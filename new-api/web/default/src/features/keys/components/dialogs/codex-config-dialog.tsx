@@ -30,6 +30,8 @@ import {
 } from '@/components/ui/dialog'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 
+import { getPublicServerAddress } from '../../lib/server-address'
+
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -37,23 +39,6 @@ type Props = {
   tokenKey: string
 }
 
-/**
- * Read the deployment's public address. `server_address` is what the admin
- * configured under System Settings; the current origin is the honest fallback
- * for a deployment that never set it (the user is, after all, talking to it).
- */
-function getServerAddress(): string {
-  try {
-    const raw = localStorage.getItem('status')
-    if (raw) {
-      const status = JSON.parse(raw)
-      if (status.server_address) return String(status.server_address)
-    }
-  } catch {
-    /* fall through to the origin */
-  }
-  return window.location.origin
-}
 
 function buildConfigToml(baseUrl: string): string {
   return `model_provider = "OpenAI"
@@ -75,7 +60,10 @@ goals = true`
 }
 
 function buildAuthJson(tokenKey: string): string {
-  return JSON.stringify({ OPENAI_API_KEY: `sk-${tokenKey}` }, null, 2)
+  // The resolver already prefixes `sk-` (see api-keys-provider), so only add
+  // it when it is somehow missing — never blindly, or the key comes out `sk-sk-`.
+  const key = tokenKey.startsWith('sk-') ? tokenKey : `sk-${tokenKey}`
+  return JSON.stringify({ OPENAI_API_KEY: key }, null, 2)
 }
 
 function CopyBlock(props: { title: string; hint: string; content: string }) {
@@ -121,7 +109,7 @@ function CopyBlock(props: { title: string; hint: string; content: string }) {
  */
 export function CodexConfigDialog(props: Props) {
   const { t } = useTranslation()
-  const baseUrl = getServerAddress()
+  const baseUrl = getPublicServerAddress()
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
