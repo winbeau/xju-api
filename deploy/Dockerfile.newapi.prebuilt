@@ -1,0 +1,40 @@
+# deploy/Dockerfile.newapi.prebuilt — Go-only 构建，复用「已在本机编好的前端产物」
+#
+# 何时用: 当本机(claude-vps)docker 坏了、无法在本机打完整镜像时，退而在 claude-tri 上
+# 只编 Go(内存占用小，不跑 rspack，不会 OOM 拖垮生产)。前端 dist 由本机 `bun run build`
+# 产出后经 tar/scp 搬到 tri，放进构建上下文的 prebuilt/ 目录(context 的 .dockerignore
+# 排除了 web/*/dist，所以另置于 prebuilt/ 再显式 COPY 覆盖)。
+#
+# 构建(上下文 = new-api/):
+#   docker build -f deploy/Dockerfile.newapi.prebuilt -t winbeau/xju-newapi:<tag> new-api
+# 前置: new-api/prebuilt/default-dist(本机产物解包) 与 new-api/prebuilt/classic-dist(占位)。
+#
+# 护栏: 未改动 new-api/QuantumNous 品牌/归属;仅换构建方式，产物等价。
+
+FROM golang:1.26.1-alpine AS builder
+ENV GO111MODULE=on CGO_ENABLED=0
+ARG TARGETOS
+ARG TARGETARCH
+ENV GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64}
+ENV GOEXPERIMENT=greenteagc
+
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# 用预构建产物填充 go:embed 需要的两个 dist(context 的 .dockerignore 排除了源 dist)
+COPY prebuilt/default-dist ./web/default/dist
+COPY prebuilt/classic-dist ./web/classic/dist
+# -p 2 限制并行编译，压低 tri 上的峰值内存
+RUN go build -p 2 -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o new-api
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates tzdata libasan8 wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-ca-certificates
+COPY --from=builder /build/new-api /
+COPY LICENSE NOTICE THIRD-PARTY-LICENSES.md /licenses/
+EXPOSE 3000
+WORKDIR /data
+ENTRYPOINT ["/new-api"]
