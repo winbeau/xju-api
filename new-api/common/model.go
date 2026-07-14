@@ -12,7 +12,10 @@ var (
 	ImageGenerationModels = []string{
 		"dall-e-3",
 		"dall-e-2",
-		"gpt-image-1",
+		// "gpt-image" (无版本号后缀) 覆盖 gpt-image-1 / gpt-image-1-mini /
+		// gpt-image-1.5 / gpt-image-2 等全部变体;上游号池现役即含 gpt-image-2、
+		// gpt-image-1.5,只匹配 "gpt-image-1" 会漏掉 gpt-image-2。
+		"gpt-image",
 		"prefix:imagen-",
 		"flux-",
 		"flux.1-",

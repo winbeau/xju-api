@@ -145,6 +145,14 @@ func testChannel(ctx context.Context, channel *model.Channel, testUserID int, te
 			requestPath = "/v1/responses"
 		}
 
+		// 图像生成模型(gpt-image / dall-e / flux / imagen 等)必须走 images 端点。
+		// 用默认的 chat/completions 探测会被上游拒绝(“model X is only supported on
+		// /v1/images/generations”),导致这些其实可用的模型在渠道测试里误判为不可用。
+		// 放在 codex 判断之后,确保图像模型优先命中 images 端点。
+		if common.IsImageGenerationModel(testModel) {
+			requestPath = "/v1/images/generations"
+		}
+
 		// responses compaction models (must use /v1/responses/compact)
 		if strings.HasSuffix(testModel, ratio_setting.CompactModelSuffix) {
 			requestPath = "/v1/responses/compact"
@@ -792,6 +800,16 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 			Model:  model,
 			Input:  json.RawMessage(`[{"role":"user","content":"hi"}]`),
 			Stream: lo.ToPtr(isStream),
+		}
+	}
+
+	// 图像生成模型 - 返回 ImageRequest,走 /v1/images/generations
+	if common.IsImageGenerationModel(model) {
+		return &dto.ImageRequest{
+			Model:  model,
+			Prompt: "a cute cat",
+			N:      lo.ToPtr(uint(1)),
+			Size:   "1024x1024",
 		}
 	}
 
