@@ -25,6 +25,22 @@
 机制已留位（`expired_time = max(原到期, now) + 30*86400`），前端快捷按钮**未上架**（PLAN.md §9-3）。
 上架方法：在 `api-keys-mutate-drawer.tsx` 的快捷按钮行加一个 `handleAddDays(30)` 按钮 + 各语言 `"+30 Days"` i18n 键。
 
+## 构建加速（BuildKit 缓存挂载）
+
+每次改代码重建镜像的痛点已解决。用 **`deploy/build-newapi.sh`** 代替裸 `docker build`：
+
+```bash
+./deploy/build-newapi.sh v0.5.0     # tag 后缀可选，默认 latest
+```
+
+它走 `deploy/Dockerfile.newapi`（等价于 new-api/Dockerfile，只多了 BuildKit 缓存挂载）。
+
+- 依赖层本就被 docker 层缓存命中；真正每次重跑的只有 `go build` 和 default 前端 build。
+- `go build` 在容器内**无持久编译缓存** → 原来每次把全部依赖从头重编（~40-60s）。挂载 `/root/.cache/go-build` + `/go/pkg/mod` 后变**增量编译**。
+- **实测**：只改一行后端，`go build` 从 ~40-60s 降到 **7.1s**；整体热构建从 ~2.5min 降到十几秒（前端不改则 CACHED）。
+- 首次冷构建仍需完整时间（在建缓存）；之后都是增量。缓存持久在构建机 buildkit 里，依赖变了自动更新 —— 比手工维护 base 镜像省心。
+- 只改前端 → 只重跑前端 rspack（这是不可再降的地板，~60-90s）；只改后端 → go build 增量 ~10s。
+
 ## 部署方式（前端产物如何进容器）
 
 new-api 的 Go 二进制用 `go:embed web/default/dist` **编译期内嵌**前端（见 `new-api/main.go:43`），
