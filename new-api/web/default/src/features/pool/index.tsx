@@ -26,8 +26,9 @@ import {
   RefreshCw,
   Sparkles,
   Trash2,
+  Upload,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -78,6 +79,7 @@ export function Pool() {
   const queryClient = useQueryClient()
   const { status } = useStatus()
   const [content, setContent] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const autoCleanEnabled = Boolean(status?.pool_auto_clean_enabled)
   const autoCleanHours = Number(status?.pool_auto_clean_hours ?? 24)
@@ -161,6 +163,19 @@ export function Pool() {
       if (text.trim()) setContent(text)
     } catch {
       toast.error(t('Clipboard not available — paste manually'))
+    }
+  }
+
+  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    // Reset so selecting the same file again still fires onChange.
+    event.target.value = ''
+    if (!file) return
+    try {
+      const text = await file.text()
+      if (text.trim()) setContent(text)
+    } catch {
+      toast.error(t('Could not read that file'))
     }
   }
 
@@ -308,7 +323,23 @@ export function Pool() {
                 </CardDescription>
               </CardHeader>
               <CardContent className='grid gap-2'>
-                <div className='flex justify-end'>
+                <div className='flex justify-end gap-2'>
+                  <input
+                    ref={fileInputRef}
+                    type='file'
+                    accept='.json,application/json'
+                    className='hidden'
+                    onChange={handleFileUpload}
+                  />
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload />
+                    {t('Upload')}
+                  </Button>
                   <Button
                     type='button'
                     variant='outline'

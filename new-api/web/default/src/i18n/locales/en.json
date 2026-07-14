@@ -23,6 +23,7 @@
     "Account added to the pool": "Account added to the pool",
     "Account removed": "Account removed",
     "Paste an auth JSON first": "Paste an auth JSON first",
+    "Could not read that file": "Could not read that file",
     "That is not valid JSON": "That is not valid JSON",
     "Clipboard not available — paste manually": "Clipboard not available — paste manually",
     "Remove": "Remove",

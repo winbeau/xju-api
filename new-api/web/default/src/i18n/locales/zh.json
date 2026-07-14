@@ -23,6 +23,7 @@
     "Account added to the pool": "账号已加入号池",
     "Account removed": "账号已移除",
     "Paste an auth JSON first": "请先粘贴认证 JSON",
+    "Could not read that file": "无法读取该文件",
     "That is not valid JSON": "这不是有效的 JSON",
     "Clipboard not available — paste manually": "剪贴板不可用 —— 请手动粘贴",
     "Remove": "移除",
