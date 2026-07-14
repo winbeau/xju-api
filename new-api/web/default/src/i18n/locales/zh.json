@@ -1,5 +1,18 @@
 {
   "translation": {
+    "Account Pool": "号池",
+    "Paste a codex auth JSON to add an upstream account. The pool reloads instantly — no restart, no channel edits.": "粘贴一个 codex 认证 JSON 即可新增上游账号。号池即时热重载 —— 无需重启、无需改渠道。",
+    "Add account": "新增账号",
+    "Paste": "粘贴",
+    "Add to pool": "加入号池",
+    "Accounts in pool": "号池内账号",
+    "No accounts yet.": "还没有账号。",
+    "Account added to the pool": "账号已加入号池",
+    "Account removed": "账号已移除",
+    "Paste an auth JSON first": "请先粘贴认证 JSON",
+    "That is not valid JSON": "这不是有效的 JSON",
+    "Clipboard not available — paste manually": "剪贴板不可用 —— 请手动粘贴",
+    "Remove": "移除",
     "Codex Config": "Codex 配置",
     "Codex CLI Configuration": "Codex CLI 配置",
     "Paste these into your Codex config. The API key below is this key, in full — treat it as a secret.": "把下面的内容粘进你的 Codex 配置。下方是这把密钥的完整值 —— 请当作机密对待。",

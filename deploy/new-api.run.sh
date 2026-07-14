@@ -29,6 +29,15 @@ docker network inspect xju-net >/dev/null 2>&1 || docker network create xju-net
 # 僵尸,「系统信息」页很快就攒出一堆死节点。固定 NODE_NAME 后,重部署会 upsert
 # 同一行。
 
+# 号池管理代理(前端「号池认证」入口): new-api 后端凭 POOL_MGMT_SECRET 转发到
+# CLIProxyAPI 的 /v0/management/auth-files。密钥从号池 config.yaml 里那条
+# remote-management.secret-key 读出,只进 new-api 后端环境,不落前端。留空则该
+# 功能自动关闭(端点返回 503),不影响其余部署。
+POOL_CFG="${POOL_CFG:-/opt/cli-proxy-api/config.yaml}"
+POOL_MGMT_SECRET="${POOL_MGMT_SECRET:-$(
+	awk '/^remote-management:/{f=1;next} f&&/secret-key:/{print $2;exit}' "$POOL_CFG" 2>/dev/null
+)}"
+
 docker rm -f new-api 2>/dev/null || true
 docker run -d \
 	--name new-api \
@@ -40,6 +49,8 @@ docker run -d \
 	-e SESSION_COOKIE_SECURE=true \
 	-e SESSION_COOKIE_TRUSTED_URL=https://api.selab.top \
 	-e NODE_NAME="${NODE_NAME:-xju-newapi}" \
+	-e POOL_MGMT_URL="${POOL_MGMT_URL:-http://cli-proxy-api:8317}" \
+	-e POOL_MGMT_SECRET="$POOL_MGMT_SECRET" \
 	-v "$DATA_DIR":/data \
 	-v "$LOG_DIR":/app/logs \
 	"$IMAGE"

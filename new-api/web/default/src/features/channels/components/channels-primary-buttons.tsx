@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
 import {
+  Boxes,
   Plus,
   MoreHorizontal,
   Settings2,
@@ -56,6 +57,7 @@ import {
   ADMIN_PERMISSION_RESOURCES,
   hasPermission,
 } from '@/lib/admin-permissions'
+import { PoolAuthDialog } from '../pool/pool-auth-dialog'
 import { useAuthStore } from '@/stores/auth-store'
 
 import {
@@ -67,6 +69,7 @@ import {
 import { useChannels } from './channels-provider'
 
 export function ChannelsPrimaryButtons() {
+  const [poolAuthOpen, setPoolAuthOpen] = useState(false)
   const { t } = useTranslation()
   const {
     setOpen,
@@ -146,6 +149,18 @@ export function ChannelsPrimaryButtons() {
             onCheckedChange={handleIdSortToggle}
           />
         </div>
+
+        {/* xju-api: account-pool auth. Sits next to Create Channel because an
+            operator thinks of "add an account" as "add a channel", even though
+            it actually writes into the CLIProxyAPI pool, not new-api channels. */}
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() => setPoolAuthOpen(true)}
+        >
+          <Boxes className='h-4 w-4' />
+          <span className='max-sm:hidden'>{t('Account Pool')}</span>
+        </Button>
 
         {/* Create Channel */}
         <Tooltip>
@@ -325,6 +340,7 @@ export function ChannelsPrimaryButtons() {
           }
         }}
       />
+      <PoolAuthDialog open={poolAuthOpen} onOpenChange={setPoolAuthOpen} />
     </>
   )
 }

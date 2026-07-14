@@ -1,5 +1,18 @@
 {
   "translation": {
+    "Account Pool": "Account Pool",
+    "Paste a codex auth JSON to add an upstream account. The pool reloads instantly — no restart, no channel edits.": "Paste a codex auth JSON to add an upstream account. The pool reloads instantly — no restart, no channel edits.",
+    "Add account": "Add account",
+    "Paste": "Paste",
+    "Add to pool": "Add to pool",
+    "Accounts in pool": "Accounts in pool",
+    "No accounts yet.": "No accounts yet.",
+    "Account added to the pool": "Account added to the pool",
+    "Account removed": "Account removed",
+    "Paste an auth JSON first": "Paste an auth JSON first",
+    "That is not valid JSON": "That is not valid JSON",
+    "Clipboard not available — paste manually": "Clipboard not available — paste manually",
+    "Remove": "Remove",
     "Codex Config": "Codex Config",
     "Codex CLI Configuration": "Codex CLI Configuration",
     "Paste these into your Codex config. The API key below is this key, in full — treat it as a secret.": "Paste these into your Codex config. The API key below is this key, in full — treat it as a secret.",
