@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -33,17 +32,6 @@ const poolCleanupInterval = time.Hour
 
 var poolCleanupClient = &http.Client{Timeout: 20 * time.Second}
 
-func poolMgmtBaseURL() string {
-	if v := strings.TrimSpace(os.Getenv("POOL_MGMT_URL")); v != "" {
-		return strings.TrimRight(v, "/")
-	}
-	return "http://cli-proxy-api:8317"
-}
-
-func poolMgmtSecret() string {
-	return strings.TrimSpace(os.Getenv("POOL_MGMT_SECRET"))
-}
-
 // StartPoolAutoCleanTask launches the hourly sweep. It always starts; each tick
 // checks PoolAutoCleanEnabled, so the admin toggle takes effect without a restart.
 func StartPoolAutoCleanTask() {
@@ -62,7 +50,7 @@ func runPoolAutoCleanOnce() {
 	if !common.PoolAutoCleanEnabled {
 		return
 	}
-	if poolMgmtSecret() == "" {
+	if _, _, ok := common.ResolvePoolMgmt("default"); !ok {
 		return
 	}
 	disabled, err := SweepPoolOnce(common.PoolAutoCleanHours)
@@ -87,14 +75,24 @@ type poolListResponse struct {
 	Files []poolAuthEntry `json:"files"`
 }
 
-// SweepPoolOnce disables every pool account that is unavailable and whose last
-// activity is older than `hours`. Returns the number newly disabled. Exposed so
-// the manual "clean now" button can trigger the same logic.
+// SweepPoolOnce sweeps the default pool. Kept for the hourly auto-clean task.
 func SweepPoolOnce(hours int) (int, error) {
+	return SweepPoolOnceForPool("default", hours)
+}
+
+// SweepPoolOnceForPool disables every account in the given pool that is
+// unavailable and whose last activity is older than `hours`. Returns the number
+// newly disabled. Exposed so the manual "clean now" button can trigger the same
+// logic against any configured pool.
+func SweepPoolOnceForPool(poolID string, hours int) (int, error) {
+	baseURL, secret, ok := common.ResolvePoolMgmt(poolID)
+	if !ok {
+		return 0, fmt.Errorf("pool management is not configured for pool: %s", poolID)
+	}
 	if hours <= 0 {
 		hours = 24
 	}
-	entries, err := listPoolEntries()
+	entries, err := listPoolEntries(baseURL, secret)
 	if err != nil {
 		return 0, err
 	}
@@ -114,7 +112,7 @@ func SweepPoolOnce(hours int) (int, error) {
 		if last.IsZero() || last.After(cutoff) {
 			continue
 		}
-		if err := disablePoolEntry(e.Name); err != nil {
+		if err := disablePoolEntry(baseURL, secret, e.Name); err != nil {
 			common.SysError("pool auto-clean: failed to disable " + e.Name + ": " + err.Error())
 			continue
 		}
@@ -136,8 +134,8 @@ func parsePoolTimestamp(v string) time.Time {
 	return time.Time{}
 }
 
-func listPoolEntries() ([]poolAuthEntry, error) {
-	body, err := poolMgmtRequest(http.MethodGet, "/v0/management/auth-files", nil)
+func listPoolEntries(baseURL, secret string) ([]poolAuthEntry, error) {
+	body, err := poolMgmtRequest(baseURL, secret, http.MethodGet, "/v0/management/auth-files", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -148,21 +146,21 @@ func listPoolEntries() ([]poolAuthEntry, error) {
 	return parsed.Files, nil
 }
 
-func disablePoolEntry(name string) error {
+func disablePoolEntry(baseURL, secret, name string) error {
 	payload, err := common.Marshal(map[string]any{"name": name, "disabled": true})
 	if err != nil {
 		return err
 	}
-	_, err = poolMgmtRequest(http.MethodPatch, "/v0/management/auth-files/status", strings.NewReader(string(payload)))
+	_, err = poolMgmtRequest(baseURL, secret, http.MethodPatch, "/v0/management/auth-files/status", strings.NewReader(string(payload)))
 	return err
 }
 
-func poolMgmtRequest(method, path string, body io.Reader) ([]byte, error) {
-	req, err := http.NewRequestWithContext(context.Background(), method, poolMgmtBaseURL()+path, body)
+func poolMgmtRequest(baseURL, secret, method, path string, body io.Reader) ([]byte, error) {
+	req, err := http.NewRequestWithContext(context.Background(), method, baseURL+path, body)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+poolMgmtSecret())
+	req.Header.Set("Authorization", "Bearer "+secret)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
