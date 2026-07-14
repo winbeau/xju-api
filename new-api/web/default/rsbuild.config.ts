@@ -65,6 +65,10 @@ export default defineConfig(({ envMode }) => {
     },
     html: {
       template: './index.html',
+      // Don't auto-inject an unversioned <link rel="icon" href="/favicon.ico">.
+      // index.html already declares versioned favicon links (?v=…) so browsers
+      // re-fetch the icon instead of serving a hard-cached old one.
+      favicon: false,
     },
     server: {
       host: '0.0.0.0',
