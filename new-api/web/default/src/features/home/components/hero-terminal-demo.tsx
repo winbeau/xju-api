@@ -112,53 +112,6 @@ const API_DEMOS: ApiDemoConfig[] = [
     latency: 168,
     accent: 'amber',
   },
-  {
-    id: 'claude',
-    label: 'Claude',
-    method: 'POST',
-    endpoint: '/v1/messages',
-    headers: ['"x-api-key: sk-••••"', '"anthropic-version: 2023-06-01"'],
-    request: [
-      '"model": "your-model",',
-      '"max_tokens": 1024,',
-      '"messages": [',
-      '  { "role": "user", "content": "..." }',
-      ']',
-    ],
-    response: [
-      '{',
-      '  "content": [{ "type": "text", "text": <text> }],',
-      '  "usage": { "input_tokens": <in>, "output_tokens": <out> }',
-      '}',
-    ],
-    responseHighlights: ['<text>', '<in>', '<out>'],
-    tokens: 29,
-    latency: 156,
-    accent: 'blue',
-  },
-  {
-    id: 'gemini',
-    label: 'Gemini',
-    method: 'POST',
-    endpoint: '/v1beta/models/{model}:generateContent',
-    headers: ['"x-goog-api-key: sk-••••"'],
-    request: [
-      '"contents": [',
-      '  { "role": "user",',
-      '    "parts": [{ "text": "..." }] }',
-      ']',
-    ],
-    response: [
-      '{',
-      '  "candidates": [{ "content": { "parts": [{ "text": <text> }] } }],',
-      '  "usageMetadata": { "totalTokenCount": <tokens> }',
-      '}',
-    ],
-    responseHighlights: ['<text>', '<tokens>'],
-    tokens: 25,
-    latency: 93,
-    accent: 'violet',
-  },
 ]
 
 const CYCLE_INTERVAL = 4500
@@ -450,8 +403,6 @@ function truncateResponse(demo: ApiDemoConfig): string {
   const map: Record<string, string> = {
     'gpt-chat': 'Chat request routed.',
     responses: 'Response workflow ready.',
-    claude: 'Claude message routed.',
-    gemini: 'Gemini request served.',
   }
   return map[demo.id] ?? '...'
 }

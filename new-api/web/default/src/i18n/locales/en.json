@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Point any OpenAI-compatible client at the gateway.": "Point any OpenAI-compatible client at the gateway.",
+    "Track your requests and remaining card time.": "Track your requests and remaining card time.",
     "An OpenAI-compatible AI API relay": "An OpenAI-compatible AI API relay",
     "Buy a day, three-day, or week card, get an API key, and use it in clients like Codex and Cherry Studio — the same OpenAI API you already use.": "Buy a day, three-day, or week card, get an API key, and use it in clients like Codex and Cherry Studio — the same OpenAI API you already use.",
     "Works with": "Works with",

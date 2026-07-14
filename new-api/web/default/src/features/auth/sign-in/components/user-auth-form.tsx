@@ -106,6 +106,8 @@ export function UserAuthForm({
   )
   const hasAlternativeLogin =
     passkeyLoginEnabled || hasWeChatLogin || hasOAuthLogin
+  const registerEnabled =
+    status?.register_enabled !== false && !status?.self_use_mode_enabled
 
   useEffect(() => {
     if (requiresLegalConsent) {
@@ -372,15 +374,27 @@ export function UserAuthForm({
               )}
             />
 
-            {/* Submit Button */}
-            <Button
-              type='submit'
-              className='mt-2 w-full justify-center gap-2'
-              disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
-            >
-              {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
-              {t('Sign in')}
-            </Button>
+            {/* Sign in + Register side by side */}
+            <div className='mt-2 flex gap-2'>
+              <Button
+                type='submit'
+                className='flex-1 justify-center gap-2'
+                disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+              >
+                {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
+                {t('Sign in')}
+              </Button>
+              {registerEnabled && (
+                <Button
+                  type='button'
+                  variant='outline'
+                  className='flex-1 justify-center'
+                  render={<Link to='/sign-up' />}
+                >
+                  {t('Sign up')}
+                </Button>
+              )}
+            </div>
 
             {/* Turnstile */}
             {isTurnstileEnabled && (

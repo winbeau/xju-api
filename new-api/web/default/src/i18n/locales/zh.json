@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Point any OpenAI-compatible client at the gateway.": "把任意兼容 OpenAI 的客户端指向本服务即可。",
+    "Track your requests and remaining card time.": "查看请求记录和剩余卡时间。",
     "An OpenAI-compatible AI API relay": "兼容 OpenAI 的 AI API 中转",
     "Buy a day, three-day, or week card, get an API key, and use it in clients like Codex and Cherry Studio — the same OpenAI API you already use.": "买一张时间卡(日 / 三天 / 周),拿到 API key,在 Codex、Cherry Studio 等客户端里用,还是你熟悉的那套 OpenAI API。",
     "Works with": "支持的客户端",

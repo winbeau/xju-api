@@ -36,15 +36,13 @@ export function HowItWorks() {
     {
       num: '2',
       title: t('Connect'),
-      desc: t(
-        'Connect through OpenAI, Claude, Gemini, and other compatible API routes'
-      ),
+      desc: t('Point any OpenAI-compatible client at the gateway.'),
       icon: <Zap className='size-6' strokeWidth={1.5} />,
     },
     {
       num: '3',
       title: t('Monitor'),
-      desc: t('Track usage, costs and performance with real-time analytics'),
+      desc: t('Track your requests and remaining card time.'),
       icon: <BarChart3 className='size-6' strokeWidth={1.5} />,
     },
   ]

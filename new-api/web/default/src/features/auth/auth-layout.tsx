@@ -50,72 +50,55 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         />
 
         <div className='relative z-10 max-w-lg'>
-          <div className='mb-10 flex items-center gap-2.5'>
+          <div className='flex items-center gap-3'>
             {loading ? (
-              <Skeleton className='size-7 rounded-md' />
+              <Skeleton className='size-9 rounded-md' />
             ) : (
               <img
                 src={logo}
                 alt={t('Logo')}
-                className='size-7 rounded-md object-cover'
+                className='size-9 rounded-md object-cover'
               />
             )}
             {loading ? (
-              <Skeleton className='h-5 w-24' />
+              <Skeleton className='h-7 w-28' />
             ) : (
-              <span className='text-[17px] font-semibold tracking-tight'>
+              <span className='text-2xl font-semibold tracking-tight'>
                 {systemName}
               </span>
             )}
           </div>
 
-          <h1 className='text-[clamp(1.6rem,2.4vw,2.1rem)] leading-[1.25] font-semibold tracking-tight text-balance'>
-            {t('An OpenAI-compatible AI API relay')}
-          </h1>
-          <p className='text-muted-foreground mt-4 max-w-md text-[15px] leading-relaxed'>
-            {t(
-              'Buy a day, three-day, or week card, get an API key, and use it in clients like Codex and Cherry Studio — the same OpenAI API you already use.'
-            )}
-          </p>
-
-          {/* Supported clients — plain logos, no numbers, no slogans. */}
-          <div className='mt-10'>
-            <p className='text-muted-foreground/70 mb-3 text-[11px] font-medium tracking-[0.08em] uppercase'>
-              {t('Works with')}
-            </p>
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='border-border/60 bg-background/40 text-foreground/80 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-medium'>
-                <IconCodex className='size-4' />
-                Codex
-              </span>
-              <span className='border-border/60 bg-background/40 text-foreground/80 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-medium'>
-                <img
-                  src='https://cherry-ai.com/favicon.ico'
-                  alt=''
-                  aria-hidden
-                  className='size-4 rounded object-contain'
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-                Cherry Studio
-              </span>
-              <span className='border-border/60 bg-background/40 text-foreground/80 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-medium'>
-                <img
-                  src='https://ccswitch.io/favicon.png'
-                  alt=''
-                  aria-hidden
-                  className='size-4 rounded object-contain'
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-                CC Switch
-              </span>
-              <span className='text-muted-foreground/70 inline-flex items-center rounded-full px-2 py-1.5 text-[13px]'>
-                {t('and other OpenAI-compatible clients')}
-              </span>
-            </div>
+          {/* Just the supported clients — no headline, no blurb. */}
+          <div className='mt-8 flex flex-wrap items-center gap-2'>
+            <span className='border-border/60 bg-background/40 text-foreground/80 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-medium'>
+              <IconCodex className='size-4' />
+              Codex
+            </span>
+            <span className='border-border/60 bg-background/40 text-foreground/80 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-medium'>
+              <img
+                src='https://cherry-ai.com/favicon.ico'
+                alt=''
+                aria-hidden
+                className='size-4 rounded object-contain'
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+              Cherry Studio
+            </span>
+            <span className='border-border/60 bg-background/40 text-foreground/80 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-medium'>
+              <img
+                src='https://ccswitch.io/favicon.png'
+                alt=''
+                aria-hidden
+                className='size-4 rounded object-contain'
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+              CC Switch
+            </span>
           </div>
         </div>
       </aside>
