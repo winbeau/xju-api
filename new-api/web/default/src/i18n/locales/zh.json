@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Codex Config": "Codex 配置",
+    "Codex CLI Configuration": "Codex CLI 配置",
+    "Paste these into your Codex config. The API key below is this key, in full — treat it as a secret.": "把下面的内容粘进你的 Codex 配置。下方是这把密钥的完整值 —— 请当作机密对待。",
+    "config.toml": "config.toml",
+    "auth.json": "auth.json",
+    "Paste at the top of ~/.codex/config.toml": "粘贴到 ~/.codex/config.toml 的开头部分",
+    "Save as ~/.codex/auth.json": "保存为 ~/.codex/auth.json",
     "One key.": "一把钥匙。",
     "Every model.": "所有模型。",
     "A time-based key to a shared pool of frontier models. Bring your own client — the gateway speaks the API you already use.": "按时间计费的密钥，接入共享的前沿模型号池。用你惯用的客户端——网关说的就是你已经在用的那套 API。",

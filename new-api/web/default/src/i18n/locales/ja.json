@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Codex Config": "Codex Config",
+    "Codex CLI Configuration": "Codex CLI Configuration",
+    "Paste these into your Codex config. The API key below is this key, in full — treat it as a secret.": "Paste these into your Codex config. The API key below is this key, in full — treat it as a secret.",
+    "config.toml": "config.toml",
+    "auth.json": "auth.json",
+    "Paste at the top of ~/.codex/config.toml": "Paste at the top of ~/.codex/config.toml",
+    "Save as ~/.codex/auth.json": "Save as ~/.codex/auth.json",
     "One key.": "One key.",
     "Every model.": "Every model.",
     "A time-based key to a shared pool of frontier models. Bring your own client — the gateway speaks the API you already use.": "A time-based key to a shared pool of frontier models. Bring your own client — the gateway speaks the API you already use.",
