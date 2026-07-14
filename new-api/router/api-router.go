@@ -208,6 +208,8 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			poolRoute.GET("/auth-files", controller.ListPoolAuthFiles)
 			poolRoute.POST("/auth-files", controller.AddPoolAuthFile)
+			poolRoute.POST("/auth-files/clean", controller.CleanPoolAuthFilesNow)
+			poolRoute.PATCH("/auth-files/status", controller.SetPoolAuthFileStatus)
 			poolRoute.DELETE("/auth-files", controller.DeletePoolAuthFile)
 		}
 

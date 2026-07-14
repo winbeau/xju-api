@@ -26,8 +26,15 @@ import { api } from '@/lib/api'
 
 export type PoolAuthFile = {
   name: string
-  // The management API returns extra metadata (status, type, last-seen, ...);
-  // keep it open so the list view can surface whatever it sends.
+  email?: string
+  account?: string
+  disabled?: boolean
+  unavailable?: boolean
+  failed?: number
+  status_message?: string
+  last_refresh?: string
+  updated_at?: string
+  // The management API returns yet more metadata; keep it open.
   [key: string]: unknown
 }
 
@@ -77,6 +84,29 @@ export async function deletePoolAuthFile(name: string): Promise<void> {
   if (!res.data.success) {
     throw new Error(res.data.message || 'Failed to delete pool auth file')
   }
+}
+
+export async function setPoolAuthFileDisabled(
+  name: string,
+  disabled: boolean
+): Promise<void> {
+  const res = await api.patch<ApiEnvelope<unknown>>(
+    '/api/pool/auth-files/status',
+    { name, disabled }
+  )
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to update account status')
+  }
+}
+
+export async function cleanPoolAuthFilesNow(): Promise<number> {
+  const res = await api.post<ApiEnvelope<{ disabled?: number }>>(
+    '/api/pool/auth-files/clean'
+  )
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to clean the pool')
+  }
+  return res.data.data?.disabled ?? 0
 }
 
 /**

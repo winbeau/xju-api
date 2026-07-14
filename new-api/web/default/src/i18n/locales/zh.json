@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Unavailable": "不可用",
+    "Auto-clean": "自动清理",
+    "Hourly: disable accounts that stay unavailable past {{hours}}h.": "每小时:把超过 {{hours}} 小时仍不可用的账号禁用。",
+    "Clean now": "立即清理",
+    "Disabled {{count}} stale account(s)": "已禁用 {{count}} 个失效账号",
+    "Nothing to clean — all accounts are healthy": "没有需要清理的 —— 账号都正常",
+    "{{count}} recent failures": "{{count}} 次近期失败",
+    "Paste a codex auth JSON (single account or an export bundle) to add an upstream account. The pool reloads instantly — no restart, no channel edits.": "粘贴一个 codex 认证 JSON(单账号或导出捆绑包)即可新增上游账号。号池即时热重载 —— 无需重启、无需改渠道。",
     "Works for both the Codex CLI and the Codex GUI — the config is the same. The API key below is this key, in full — treat it as a secret.": "CLI 和 GUI 都适用 —— 配置完全一样。下方是这把密钥的完整值，请当作机密对待。",
     "Account Pool": "号池",
     "Paste a codex auth JSON to add an upstream account. The pool reloads instantly — no restart, no channel edits.": "粘贴一个 codex 认证 JSON 即可新增上游账号。号池即时热重载 —— 无需重启、无需改渠道。",

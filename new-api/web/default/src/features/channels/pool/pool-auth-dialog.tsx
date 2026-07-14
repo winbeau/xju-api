@@ -17,11 +17,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ClipboardPaste, Loader2, Plus, Trash2 } from 'lucide-react'
+import {
+  ClipboardPaste,
+  Loader2,
+  Play,
+  Plus,
+  Power,
+  Sparkles,
+  Trash2,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -30,13 +39,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useStatus } from '@/hooks/use-status'
+import { api } from '@/lib/api'
 
 import {
   addPoolAuthFile,
+  cleanPoolAuthFilesNow,
   deletePoolAuthFile,
   deriveAuthFileName,
   listPoolAuthFiles,
+  setPoolAuthFileDisabled,
   type PoolAuthFile,
 } from './pool-api'
 
@@ -45,15 +59,31 @@ type Props = {
   onOpenChange: (open: boolean) => void
 }
 
-function poolFileStatus(file: PoolAuthFile): string | null {
-  const status = file.status ?? file.state
-  return typeof status === 'string' ? status : null
+type AccountState = 'ok' | 'disabled' | 'unavailable'
+
+function accountState(file: PoolAuthFile): AccountState {
+  if (file.disabled) return 'disabled'
+  if (file.unavailable) return 'unavailable'
+  return 'ok'
+}
+
+const STATE_META: Record<
+  AccountState,
+  { labelKey: string; variant: 'success' | 'neutral' | 'danger' }
+> = {
+  ok: { labelKey: 'Active', variant: 'success' },
+  disabled: { labelKey: 'Disabled', variant: 'neutral' },
+  unavailable: { labelKey: 'Unavailable', variant: 'danger' },
 }
 
 export function PoolAuthDialog({ open, onOpenChange }: Props) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const { status } = useStatus()
   const [content, setContent] = useState('')
+
+  const autoCleanEnabled = Boolean(status?.pool_auto_clean_enabled)
+  const autoCleanHours = Number(status?.pool_auto_clean_hours ?? 24)
 
   const listQuery = useQuery({
     queryKey: ['pool', 'auth-files'],
@@ -69,7 +99,6 @@ export function PoolAuthDialog({ open, onOpenChange }: Props) {
     mutationFn: async () => {
       const trimmed = content.trim()
       if (!trimmed) throw new Error(t('Paste an auth JSON first'))
-      // Fail fast on a bad paste, with the cursor still on the textarea.
       try {
         JSON.parse(trimmed)
       } catch {
@@ -97,6 +126,41 @@ export function PoolAuthDialog({ open, onOpenChange }: Props) {
     onError: (error: Error) => toast.error(error.message),
   })
 
+  const toggleMutation = useMutation({
+    mutationFn: (args: { name: string; disabled: boolean }) =>
+      setPoolAuthFileDisabled(args.name, args.disabled),
+    onSuccess: async () => await invalidate(),
+    onError: (error: Error) => toast.error(error.message),
+  })
+
+  const cleanMutation = useMutation({
+    mutationFn: cleanPoolAuthFilesNow,
+    onSuccess: async (disabled) => {
+      toast.success(
+        disabled > 0
+          ? t('Disabled {{count}} stale account(s)', { count: disabled })
+          : t('Nothing to clean — all accounts are healthy')
+      )
+      await invalidate()
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+
+  const autoCleanMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      api.put('/api/option/', {
+        key: 'PoolAutoCleanEnabled',
+        value: String(enabled),
+      }),
+    onSuccess: () => {
+      // /api/status is the source of truth for the toggle; refetch it so the
+      // switch reflects the persisted value rather than optimistic local state.
+      queryClient.invalidateQueries({ queryKey: ['status'] })
+      toast.success(t('Saved successfully'))
+    },
+    onError: () => toast.error(t('Save failed')),
+  })
+
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText()
@@ -107,6 +171,7 @@ export function PoolAuthDialog({ open, onOpenChange }: Props) {
   }
 
   const files = listQuery.data ?? []
+  const listReady = !listQuery.isLoading && !listQuery.isError
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -115,12 +180,12 @@ export function PoolAuthDialog({ open, onOpenChange }: Props) {
           <DialogTitle>{t('Account Pool')}</DialogTitle>
           <DialogDescription>
             {t(
-              'Paste a codex auth JSON to add an upstream account. The pool reloads instantly — no restart, no channel edits.'
+              'Paste a codex auth JSON (single account or an export bundle) to add an upstream account. The pool reloads instantly — no restart, no channel edits.'
             )}
           </DialogDescription>
         </DialogHeader>
 
-        <div className='grid gap-5'>
+        <div className='grid max-h-[65vh] gap-5 overflow-y-auto pr-1'>
           {/* Paste + add */}
           <div className='grid gap-2'>
             <div className='flex items-center justify-between'>
@@ -139,7 +204,7 @@ export function PoolAuthDialog({ open, onOpenChange }: Props) {
               value={content}
               onChange={(event) => setContent(event.target.value)}
               placeholder='{ "email": "...", "OPENAI_API_KEY": "..." }'
-              className='h-40 font-mono text-xs'
+              className='h-32 font-mono text-xs'
               spellCheck={false}
             />
             <Button
@@ -148,8 +213,50 @@ export function PoolAuthDialog({ open, onOpenChange }: Props) {
               disabled={addMutation.isPending || !content.trim()}
               className='justify-self-start'
             >
-              {addMutation.isPending ? <Loader2 className='animate-spin' /> : <Plus />}
+              {addMutation.isPending ? (
+                <Loader2 className='animate-spin' />
+              ) : (
+                <Plus />
+              )}
               {t('Add to pool')}
+            </Button>
+          </div>
+
+          {/* Auto-clean controls */}
+          <div className='border-border bg-muted/40 grid gap-3 rounded-md border p-3'>
+            <div className='flex items-center justify-between gap-3'>
+              <div className='min-w-0'>
+                <p className='flex items-center gap-1.5 text-sm font-medium'>
+                  <Sparkles className='size-4' />
+                  {t('Auto-clean')}
+                </p>
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Hourly: disable accounts that stay unavailable past {{hours}}h.',
+                    { hours: autoCleanHours }
+                  )}
+                </p>
+              </div>
+              <Switch
+                checked={autoCleanEnabled}
+                disabled={autoCleanMutation.isPending}
+                onCheckedChange={(v) => autoCleanMutation.mutate(v)}
+              />
+            </div>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              className='justify-self-start'
+              onClick={() => cleanMutation.mutate()}
+              disabled={cleanMutation.isPending}
+            >
+              {cleanMutation.isPending ? (
+                <Loader2 className='animate-spin' />
+              ) : (
+                <Play />
+              )}
+              {t('Clean now')}
             </Button>
           </div>
 
@@ -171,41 +278,75 @@ export function PoolAuthDialog({ open, onOpenChange }: Props) {
                   {(listQuery.error as Error).message}
                 </div>
               )}
-              {!listQuery.isLoading && !listQuery.isError && files.length === 0 && (
+              {listReady && files.length === 0 && (
                 <div className='text-muted-foreground p-4 text-sm'>
                   {t('No accounts yet.')}
                 </div>
               )}
-              {!listQuery.isLoading && !listQuery.isError && files.length > 0 && (
+              {listReady && files.length > 0 && (
                 <ul className='divide-border divide-y'>
                   {files.map((file) => {
-                    const status = poolFileStatus(file)
+                    const state = accountState(file)
+                    const meta = STATE_META[state]
+                    const label = file.email || file.account || file.name
                     return (
                       <li
                         key={file.name}
                         className='hover:bg-muted flex items-center justify-between gap-3 px-3 py-2 transition-colors'
                       >
                         <div className='min-w-0'>
-                          <p className='truncate font-mono text-xs'>
-                            {file.name}
-                          </p>
-                          {status && (
-                            <p className='text-muted-foreground text-xs'>
-                              {status}
-                            </p>
-                          )}
+                          <div className='flex items-center gap-2'>
+                            <span className='truncate font-mono text-xs'>
+                              {label}
+                            </span>
+                            <StatusBadge
+                              label={t(meta.labelKey)}
+                              variant={meta.variant}
+                              copyable={false}
+                            />
+                          </div>
+                          {typeof file.failed === 'number' &&
+                            file.failed > 0 && (
+                              <p className='text-muted-foreground text-xs'>
+                                {t('{{count}} recent failures', {
+                                  count: file.failed,
+                                })}
+                              </p>
+                            )}
                         </div>
-                        <Button
-                          type='button'
-                          variant='ghost'
-                          size='icon-sm'
-                          className='text-destructive hover:text-destructive shrink-0'
-                          onClick={() => deleteMutation.mutate(file.name)}
-                          disabled={deleteMutation.isPending}
-                          aria-label={t('Remove')}
-                        >
-                          <Trash2 className='size-4' />
-                        </Button>
+                        <div className='flex shrink-0 items-center gap-1'>
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='icon-sm'
+                            aria-label={
+                              file.disabled ? t('Enable') : t('Disable')
+                            }
+                            title={file.disabled ? t('Enable') : t('Disable')}
+                            className={file.disabled ? 'text-success' : ''}
+                            onClick={() =>
+                              toggleMutation.mutate({
+                                name: file.name,
+                                disabled: !file.disabled,
+                              })
+                            }
+                            disabled={toggleMutation.isPending}
+                          >
+                            <Power className='size-4' />
+                          </Button>
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='icon-sm'
+                            className='text-destructive hover:text-destructive'
+                            aria-label={t('Remove')}
+                            title={t('Remove')}
+                            onClick={() => deleteMutation.mutate(file.name)}
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className='size-4' />
+                          </Button>
+                        </div>
                       </li>
                     )
                   })}

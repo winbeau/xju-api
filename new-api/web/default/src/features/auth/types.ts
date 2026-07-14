@@ -129,6 +129,8 @@ export interface SystemStatus {
     password_login_enabled?: boolean
     password_register_enabled?: boolean
     invite_code_required?: boolean
+    pool_auto_clean_enabled?: boolean
+    pool_auto_clean_hours?: number
     custom_oauth_providers?: CustomOAuthProviderInfo[]
     [key: string]: unknown
   }

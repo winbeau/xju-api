@@ -46,6 +46,8 @@ func InitOptionMap() {
 	common.OptionMap["TurnstileCheckEnabled"] = strconv.FormatBool(common.TurnstileCheckEnabled)
 	common.OptionMap["RegisterEnabled"] = strconv.FormatBool(common.RegisterEnabled)
 	common.OptionMap["InviteCodeRequired"] = strconv.FormatBool(common.InviteCodeRequired)
+	common.OptionMap["PoolAutoCleanEnabled"] = strconv.FormatBool(common.PoolAutoCleanEnabled)
+	common.OptionMap["PoolAutoCleanHours"] = strconv.Itoa(common.PoolAutoCleanHours)
 	common.OptionMap["AutomaticDisableChannelEnabled"] = strconv.FormatBool(common.AutomaticDisableChannelEnabled)
 	common.OptionMap["AutomaticEnableChannelEnabled"] = strconv.FormatBool(common.AutomaticEnableChannelEnabled)
 	common.OptionMap["LogConsumeEnabled"] = strconv.FormatBool(common.LogConsumeEnabled)
@@ -278,10 +280,15 @@ func updateOptionMap(key string, value string) (err error) {
 			common.ImageDownloadPermission = intValue
 		}
 	}
+	if key == "PoolAutoCleanHours" {
+		if intValue, err := strconv.Atoi(value); err == nil && intValue > 0 {
+			common.PoolAutoCleanHours = intValue
+		}
+	}
 	// NOTE: this guard is an allowlist — a key that neither ends in "Enabled"
 	// nor appears here never reaches the bool switch below, so its option is
 	// persisted but never applied to the in-memory var.
-	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" || key == "SMTPForceAuthLogin" || key == "SMTPInsecureSkipVerify" || key == "InviteCodeRequired" {
+	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" || key == "SMTPForceAuthLogin" || key == "SMTPInsecureSkipVerify" || key == "InviteCodeRequired" || key == "PoolAutoCleanEnabled" {
 		boolValue := value == "true"
 		switch key {
 		case "PasswordRegisterEnabled":
@@ -304,6 +311,8 @@ func updateOptionMap(key string, value string) (err error) {
 			common.RegisterEnabled = boolValue
 		case "InviteCodeRequired":
 			common.InviteCodeRequired = boolValue
+		case "PoolAutoCleanEnabled":
+			common.PoolAutoCleanEnabled = boolValue
 		case "EmailDomainRestrictionEnabled":
 			common.EmailDomainRestrictionEnabled = boolValue
 		case "EmailAliasRestrictionEnabled":

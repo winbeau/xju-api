@@ -93,6 +93,8 @@ func GetStatus(c *gin.Context) {
 		"password_login_enabled":        common.PasswordLoginEnabled,
 		"password_register_enabled":     common.PasswordRegisterEnabled,
 		"invite_code_required":          common.InviteCodeRequired,
+		"pool_auto_clean_enabled":       common.PoolAutoCleanEnabled,
+		"pool_auto_clean_hours":         common.PoolAutoCleanHours,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
 
 		"usd_exchange_rate": operation_setting.USDExchangeRate,

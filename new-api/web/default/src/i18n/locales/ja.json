@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Unavailable": "Unavailable",
+    "Auto-clean": "Auto-clean",
+    "Hourly: disable accounts that stay unavailable past {{hours}}h.": "Hourly: disable accounts that stay unavailable past {{hours}}h.",
+    "Clean now": "Clean now",
+    "Disabled {{count}} stale account(s)": "Disabled {{count}} stale account(s)",
+    "Nothing to clean — all accounts are healthy": "Nothing to clean — all accounts are healthy",
+    "{{count}} recent failures": "{{count}} recent failures",
+    "Paste a codex auth JSON (single account or an export bundle) to add an upstream account. The pool reloads instantly — no restart, no channel edits.": "Paste a codex auth JSON (single account or an export bundle) to add an upstream account. The pool reloads instantly — no restart, no channel edits.",
     "Works for both the Codex CLI and the Codex GUI — the config is the same. The API key below is this key, in full — treat it as a secret.": "Works for both the Codex CLI and the Codex GUI — the config is the same. The API key below is this key, in full — treat it as a secret.",
     "Account Pool": "Account Pool",
     "Paste a codex auth JSON to add an upstream account. The pool reloads instantly — no restart, no channel edits.": "Paste a codex auth JSON to add an upstream account. The pool reloads instantly — no restart, no channel edits.",

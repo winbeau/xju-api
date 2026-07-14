@@ -133,6 +133,10 @@ func main() {
 	// all currently alive nodes in multi-instance deployments.
 	service.StartSystemInstanceReporter()
 
+	// xju-api: hourly sweep that disables stale/unavailable account-pool entries
+	// when PoolAutoCleanEnabled is on (see service/pool_cleanup.go).
+	service.StartPoolAutoCleanTask()
+
 	// Wire task polling adaptor factory (breaks service -> relay import cycle).
 	// Must run before the system task runner starts: the async_task_poll handler
 	// calls service.RunTaskPollingOnce, which needs this factory set.

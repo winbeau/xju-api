@@ -99,6 +99,14 @@ var RegisterEnabled = true
 // cards to a known audience, so registration must be invite-only.
 var InviteCodeRequired = false
 
+// PoolAutoCleanEnabled turns on the hourly sweep that disables account-pool
+// entries which have gone unavailable (depleted/auth-failed) and stayed that
+// way past PoolAutoCleanHours. Off by default — an operator opts in.
+var PoolAutoCleanEnabled = false
+
+// PoolAutoCleanHours is the staleness threshold for the auto-clean sweep.
+var PoolAutoCleanHours = 24
+
 var EmailDomainRestrictionEnabled = false // 是否启用邮箱域名限制
 var EmailAliasRestrictionEnabled = false  // 是否启用邮箱别名限制
 var EmailDomainWhitelist = []string{

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -159,13 +160,107 @@ func AddPoolAuthFile(c *gin.Context) {
 		return
 	}
 
-	name := sanitizePoolAuthName(reqBody.Name)
+	// A pasted export can be a single codex auth object OR an exporter bundle
+	// (`{accounts:[{credentials:{...}}]}`). Unwrap the bundle to the inner
+	// credential the pool actually understands.
+	content, name := unwrapPoolAuthContent(content, reqBody.Name)
+
 	poolMgmtProxy(
 		c, http.MethodPost,
 		"/v0/management/auth-files?name="+url.QueryEscape(name),
 		strings.NewReader(content),
 		"application/json",
 	)
+}
+
+// unwrapPoolAuthContent normalizes a pasted auth blob into (single-account JSON,
+// filename). A bare codex object passes through; an exporter bundle's first
+// account's `credentials` is extracted. Name is derived from the account email
+// when the caller didn't supply one.
+func unwrapPoolAuthContent(content, rawName string) (string, string) {
+	var obj map[string]any
+	if err := common.UnmarshalJsonStr(content, &obj); err != nil {
+		return content, sanitizePoolAuthName(rawName)
+	}
+
+	// Exporter bundle: {exported_at, proxies, accounts:[{credentials:{...}}]}
+	if accounts, ok := obj["accounts"].([]any); ok && len(accounts) > 0 {
+		if first, ok := accounts[0].(map[string]any); ok {
+			if creds, ok := first["credentials"].(map[string]any); ok {
+				if inner, err := common.Marshal(creds); err == nil {
+					n := rawName
+					if n == "" {
+						n = stringField(creds, "email")
+					}
+					return string(inner), sanitizePoolAuthName(n)
+				}
+			}
+		}
+	}
+
+	// Single codex object — derive a readable name from its email if none given.
+	n := rawName
+	if n == "" {
+		n = stringField(obj, "email")
+	}
+	return content, sanitizePoolAuthName(n)
+}
+
+func stringField(m map[string]any, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+type patchPoolAuthStatusRequest struct {
+	Name     string `json:"name"`
+	Disabled *bool  `json:"disabled"`
+}
+
+// SetPoolAuthFileStatus PATCH /api/pool/auth-files/status — disable/enable one
+// account without deleting it (a depleted account can be re-enabled after top-up).
+func SetPoolAuthFileStatus(c *gin.Context) {
+	var reqBody patchPoolAuthStatusRequest
+	if err := common.DecodeJson(c.Request.Body, &reqBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request body"})
+		return
+	}
+	if strings.TrimSpace(reqBody.Name) == "" || reqBody.Disabled == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "name and disabled are required"})
+		return
+	}
+	body, err := common.Marshal(map[string]any{
+		"name":     sanitizePoolAuthName(reqBody.Name),
+		"disabled": *reqBody.Disabled,
+	})
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	poolMgmtProxy(
+		c, http.MethodPatch, "/v0/management/auth-files/status",
+		strings.NewReader(string(body)), "application/json",
+	)
+}
+
+// CleanPoolAuthFilesNow POST /api/pool/auth-files/clean — run the stale-account
+// sweep on demand (same logic as the hourly auto-clean), using the current
+// PoolAutoCleanHours threshold. Returns how many accounts were disabled.
+func CleanPoolAuthFilesNow(c *gin.Context) {
+	if poolMgmtSecret() == "" {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"success": false,
+			"message": "pool management is not configured (POOL_MGMT_SECRET unset)",
+		})
+		return
+	}
+	disabled, err := service.SweepPoolOnce(common.PoolAutoCleanHours)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"disabled": disabled}})
 }
 
 // DeletePoolAuthFile DELETE /api/pool/auth-files?name=xxx — remove one account.
