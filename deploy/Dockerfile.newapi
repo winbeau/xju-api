@@ -25,8 +25,12 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
 COPY ./web/default ./default
 COPY ./VERSION /build/VERSION
-RUN --mount=type=cache,target=/build/web/default/node_modules/.cache \
-    cd default && DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat /build/VERSION) bun run build
+# NO cache mount on the frontend build. rspack's persistent cache keys on its
+# own content hashes, and inside a docker layer a stale cache can silently win
+# even after the source changed — which shipped an old bundle (missing the
+# codex icon entirely). The full rspack build is the irreducible floor; the Go
+# cache mount is where the real speedup is, and that one is safe.
+RUN cd default && DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat /build/VERSION) bun run build
 
 # ── classic 前端(不上架,但 go:embed 需要它的 dist) ──────────────────────
 FROM oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7 AS builder-classic
