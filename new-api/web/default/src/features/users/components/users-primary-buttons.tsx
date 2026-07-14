@@ -16,16 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Plus } from 'lucide-react'
+import { Plus, Ticket } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { InviteCodeDialog } from '@/features/invite-codes/invite-code-dialog'
 
 import { useUsers } from './users-provider'
 
 export function UsersPrimaryButtons() {
   const { t } = useTranslation()
   const { setOpen, setCurrentRow } = useUsers()
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   const handleCreate = () => {
     setCurrentRow(null)
@@ -34,10 +37,19 @@ export function UsersPrimaryButtons() {
 
   return (
     <div className='flex gap-2'>
+      <Button
+        size='sm'
+        variant='outline'
+        onClick={() => setInviteOpen(true)}
+      >
+        <Ticket className='h-4 w-4' />
+        {t('Generate invite code')}
+      </Button>
       <Button size='sm' onClick={handleCreate}>
         <Plus className='h-4 w-4' />
         {t('Add User')}
       </Button>
+      <InviteCodeDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>
   )
 }

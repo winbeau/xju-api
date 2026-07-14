@@ -279,6 +279,12 @@ const (
 )
 
 const (
+	InviteCodeStatusEnabled  = 1 // unused, valid — don't use 0 (default value)
+	InviteCodeStatusDisabled = 2 // manually disabled by an admin
+	InviteCodeStatusUsed     = 3 // consumed by a registration
+)
+
+const (
 	ChannelStatusUnknown          = 0
 	ChannelStatusEnabled          = 1 // don't use 0, 0 is the default value!
 	ChannelStatusManuallyDisabled = 2 // also don't use 0

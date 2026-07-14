@@ -237,12 +237,23 @@ func Register(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserExists)
 		return
 	}
-	affCode := user.AffCode // this code is the inviter's code, not the user's own code
-	inviterId, errAffCode := model.GetUserIdByAffCode(affCode)
-	if common.InviteCodeRequired && (errAffCode != nil || inviterId == 0) {
-		common.ApiErrorI18n(c, i18n.MsgUserInviteCodeRequired)
-		return
+	// The submitted code doubles as a referral aff_code (for inviter tracking)
+	// and, when invite-only registration is on, as the single-use invite code
+	// that must be consumed to register.
+	affCode := user.AffCode
+	inviterId, _ := model.GetUserIdByAffCode(affCode)
+
+	inviteConsumed := false
+	if common.InviteCodeRequired {
+		// Consume atomically up front so a valid code can't be spent twice by
+		// two concurrent registrations; released again if account creation fails.
+		if err := model.ConsumeInviteCode(affCode, 0); err != nil {
+			common.ApiErrorI18n(c, i18n.MsgUserInviteCodeRequired)
+			return
+		}
+		inviteConsumed = true
 	}
+
 	cleanUser := model.User{
 		Username:    user.Username,
 		Password:    user.Password,
@@ -254,6 +265,9 @@ func Register(c *gin.Context) {
 		cleanUser.Email = user.Email
 	}
 	if err := cleanUser.Insert(inviterId); err != nil {
+		if inviteConsumed {
+			_ = model.ReleaseInviteCode(affCode)
+		}
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
 			common.ApiErrorI18n(c, i18n.MsgUserEmailAlreadyTaken)
 			return
@@ -265,8 +279,14 @@ func Register(c *gin.Context) {
 	// 获取插入后的用户ID
 	var insertedUser model.User
 	if err := model.DB.Where("username = ?", cleanUser.Username).First(&insertedUser).Error; err != nil {
+		if inviteConsumed {
+			_ = model.ReleaseInviteCode(affCode)
+		}
 		common.ApiErrorI18n(c, i18n.MsgUserRegisterFailed)
 		return
+	}
+	if inviteConsumed {
+		_ = model.SetInviteCodeUser(affCode, insertedUser.Id)
 	}
 	// 生成默认令牌
 	if constant.GenerateDefaultToken {

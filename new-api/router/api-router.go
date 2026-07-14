@@ -277,6 +277,17 @@ func SetApiRouter(router *gin.Engine) {
 			redemptionRoute.DELETE("/invalid", controller.DeleteInvalidRedemption)
 			redemptionRoute.DELETE("/:id", controller.DeleteRedemption)
 		}
+
+		inviteCodeRoute := apiRouter.Group("/invite_code")
+		inviteCodeRoute.Use(middleware.AdminAuth())
+		{
+			inviteCodeRoute.GET("/", controller.GetInviteCodes)
+			inviteCodeRoute.POST("/generate", controller.GenerateInviteCodes)
+			inviteCodeRoute.PUT("/status", controller.UpdateInviteCodeStatus)
+			inviteCodeRoute.DELETE("/invalid", controller.DeleteInvalidInviteCodes)
+			inviteCodeRoute.DELETE("/:id", controller.DeleteInviteCode)
+		}
+
 		logRoute := apiRouter.Group("/log")
 		logRoute.GET("/", middleware.AdminAuth(), controller.GetAllLogs)
 		// Legacy synchronous direct-delete route used only by the classic frontend.
