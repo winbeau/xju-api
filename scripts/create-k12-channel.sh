@@ -37,6 +37,7 @@ if [[ -n "$EXIST" ]]; then
 	echo "渠道 cliproxy-pool-k12 已存在 (id=$EXIST),跳过创建"
 else
 	BODY="$(jq -nc --arg key "$K12_INTERNAL_KEY" --arg models "$MODELS" '{
+		mode: "single",
 		channel: {
 			type: 1,
 			name: "cliproxy-pool-k12",
