@@ -111,7 +111,7 @@ export function Hero(props: HeroProps) {
               <span className='bg-primary/60 absolute inline-flex h-full w-full animate-ping rounded-full opacity-75' />
               <span className='bg-primary relative inline-flex size-1.5 rounded-full' />
             </span>
-            <span>{t('AI Application Infrastructure Foundation')}</span>
+            <span>{t('OpenAI-compatible')}</span>
           </div>
 
           {/* Notion-style hero (PLAN.md §5.1): editorial serif headline on
@@ -120,16 +120,16 @@ export function Hero(props: HeroProps) {
             className='landing-animate-fade-up font-serif text-[clamp(2.25rem,4.5vw,3.25rem)] leading-[1.15] font-semibold tracking-tight'
             style={{ animationDelay: '60ms' }}
           >
-            {t('Unified API Gateway for')}
+            {t('Access AI models')}
             <br />
-            <span className='text-primary'>{t('Vast Range of AI Models')}</span>
+            <span className='text-primary'>{t('with one API key')}</span>
           </h1>
           <p
             className='landing-animate-fade-up text-muted-foreground/80 mt-5 max-w-xl text-base leading-relaxed opacity-0 md:text-[15px]'
             style={{ animationDelay: '120ms' }}
           >
             {t(
-              'Access a vast selection of models via a standard, unified API protocol. Power AI applications, manage digital assets, and connect the Future.'
+              'Buy a day, three-day, or week card, get an API key, and use it in the OpenAI-compatible clients you already have.'
             )}
           </p>
 

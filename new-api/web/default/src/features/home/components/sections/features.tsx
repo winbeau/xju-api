@@ -41,15 +41,15 @@ export function Features(_props: FeaturesProps) {
     {
       id: 'fast',
       num: '01',
-      title: t('Lightning Fast'),
+      title: t('OpenAI-compatible'),
       desc: t(
-        'Optimized network architecture ensures millisecond response times'
+        'Point any OpenAI client at the gateway — same endpoints, same request format.'
       ),
       span: 'md:col-span-2',
       icon: <Zap className='size-4 text-blue-400' />,
       visual: (
         <div className='mt-4 grid grid-cols-3 gap-2'>
-          {['OpenAI', 'Claude', 'Gemini', 'DeepSeek', 'Qwen', 'Llama'].map(
+          {['GPT-5.6', 'GPT-5.5', 'GPT-5.4', 'GPT-5.4-mini', 'Codex', 'gpt-image'].map(
             (name) => (
               <div
                 key={name}
@@ -65,10 +65,8 @@ export function Features(_props: FeaturesProps) {
     {
       id: 'secure',
       num: '02',
-      title: t('Secure & Reliable'),
-      desc: t(
-        'Enterprise-grade security with comprehensive permission management'
-      ),
+      title: t('Per-user keys'),
+      desc: t('Every user gets their own API key and usage view.'),
       span: 'md:col-span-1',
       icon: <Shield className='size-4 text-emerald-400' />,
       visual: (
@@ -102,8 +100,8 @@ export function Features(_props: FeaturesProps) {
     {
       id: 'global',
       num: '03',
-      title: t('Global Coverage'),
-      desc: t('Multi-region deployment for stable global access'),
+      title: t('Pooled upstreams'),
+      desc: t('Requests route across a shared pool of upstream accounts.'),
       span: 'md:col-span-1',
       icon: <Globe className='size-4 text-violet-400' />,
       visual: (
@@ -131,8 +129,8 @@ export function Features(_props: FeaturesProps) {
     {
       id: 'developer',
       num: '04',
-      title: t('Developer Friendly'),
-      desc: t('Compatible API routes for common AI application workflows'),
+      title: t('Works with your tools'),
+      desc: t('Standard OpenAI API — use curl, an SDK, or any CLI client.'),
       span: 'md:col-span-2',
       icon: <Code className='size-4 text-amber-400' />,
       visual: (
@@ -149,7 +147,7 @@ export function Features(_props: FeaturesProps) {
           </div>
           <div className='text-muted-foreground flex items-center gap-1.5 text-xs'>
             <Code className='size-3.5 text-blue-500' />
-            {t('Multi-protocol Compatible')}
+            {t('OpenAI-compatible')}
           </div>
         </div>
       ),
@@ -159,23 +157,23 @@ export function Features(_props: FeaturesProps) {
   const additionalFeatures = [
     {
       icon: <Gauge className='size-5' strokeWidth={1.5} />,
-      title: t('High Performance'),
-      desc: t('Support for high concurrency with automatic load balancing'),
+      title: t('Nothing to install'),
+      desc: t('Use curl or any OpenAI client — no SDK required.'),
     },
     {
       icon: <DollarSign className='size-5' strokeWidth={1.5} />,
-      title: t('Transparent Billing'),
-      desc: t('Pay-as-you-go with real-time usage monitoring'),
+      title: t('Flat time cards'),
+      desc: t('You pay for time, not per token.'),
     },
     {
       icon: <Users className='size-5' strokeWidth={1.5} />,
-      title: t('Team Collaboration'),
-      desc: t('Multi-user management with flexible permission allocation'),
+      title: t('Your own usage view'),
+      desc: t('See your requests and how much card time is left.'),
     },
     {
       icon: <HeartHandshake className='size-5' strokeWidth={1.5} />,
-      title: t('Open Source'),
-      desc: t('Community driven, self-hosted, and extensible'),
+      title: t('Open source'),
+      desc: t('Built on New API, self-hosted.'),
     },
   ]
 
@@ -184,12 +182,12 @@ export function Features(_props: FeaturesProps) {
       <div className='mx-auto max-w-6xl'>
         <AnimateInView className='mb-16 max-w-lg'>
           <p className='text-muted-foreground mb-3 text-xs font-medium tracking-widest uppercase'>
-            {t('Core Features')}
+            {t('What you get')}
           </p>
           <h2 className='font-serif text-2xl leading-tight font-semibold tracking-tight md:text-3xl'>
-            {t('Built for developers,')}
+            {t('Nothing to install.')}
             <br />
-            {t('designed for scale')}
+            {t('Just an API key.')}
           </h2>
         </AnimateInView>
 
