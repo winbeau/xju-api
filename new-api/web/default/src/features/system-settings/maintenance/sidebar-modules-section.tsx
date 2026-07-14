@@ -112,10 +112,6 @@ export function SidebarModulesSection({
         title: t('Account Pool'),
         description: t('Manage upstream codex accounts in the shared pool.'),
       },
-      models: {
-        title: t('Models'),
-        description: t('Manage catalog visibility and pricing.'),
-      },
       user: {
         title: t('Users'),
         description: t('Administer user accounts and roles.'),
