@@ -39,6 +39,13 @@ POOL_MGMT_SECRET="${POOL_MGMT_SECRET:-$(
 	awk -F= '/^POOL_MGMT_SECRET=/{print $2;exit}' "$POOL_MGMT_ENV" 2>/dev/null
 )}"
 
+# K12 独立号池管理密钥(池感知批量导入 / 号池管理的 k12 目标)。从 .pool-mgmt-k12.env 读,
+# 留空则 new-api 的 k12 端点自动 503、前端不显示 k12 tab,老部署零影响。
+POOL_MGMT_K12_ENV="${POOL_MGMT_K12_ENV:-/opt/cli-proxy-api/.pool-mgmt-k12.env}"
+POOL_K12_MGMT_SECRET="${POOL_K12_MGMT_SECRET:-$(
+	awk -F= '/^POOL_K12_MGMT_SECRET=/{print $2;exit}' "$POOL_MGMT_K12_ENV" 2>/dev/null
+)}"
+
 docker rm -f new-api 2>/dev/null || true
 docker run -d \
 	--name new-api \
@@ -52,6 +59,8 @@ docker run -d \
 	-e NODE_NAME="${NODE_NAME:-xju-newapi}" \
 	-e POOL_MGMT_URL="${POOL_MGMT_URL:-http://cli-proxy-api:8317}" \
 	-e POOL_MGMT_SECRET="$POOL_MGMT_SECRET" \
+	-e POOL_K12_MGMT_URL="${POOL_K12_MGMT_URL:-http://cli-proxy-api-k12:8318}" \
+	-e POOL_K12_MGMT_SECRET="$POOL_K12_MGMT_SECRET" \
 	-v "$DATA_DIR":/data \
 	-v "$LOG_DIR":/app/logs \
 	"$IMAGE"
