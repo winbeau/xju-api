@@ -9,6 +9,12 @@
     <!-- Primary Meta Tags -->
     <title>New API</title>
     <meta name="title" content="New API" />
+    <script>
+      /* The app renames the tab to the configured system name once React
+         mounts; set it up front so the browser tab never flashes the default
+         title on first load. The <title>/<meta> above are left intact. */
+      document.title = 'XJU API'
+    </script>
     <meta
       name="description"
       content="Unified AI API gateway and admin dashboard."
