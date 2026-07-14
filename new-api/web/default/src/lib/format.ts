@@ -49,6 +49,18 @@ export function formatCompactNumber(
   }).format(value as number)
 }
 
+/**
+ * Format a token count with a fixed k/M unit and 3 decimals:
+ *   < 10M tokens -> thousands, e.g. "2.592k"
+ *   >= 10M tokens -> millions, e.g. "15.000M"
+ * The trailing " tokens" word is added by the caller (kept translatable).
+ */
+export function formatTokenCount(value: number | null | undefined): string {
+  const n = Number(value) || 0
+  if (n >= 10_000_000) return `${(n / 1_000_000).toFixed(3)}M`
+  return `${(n / 1_000).toFixed(3)}k`
+}
+
 export function formatPercent(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value as number)) return '-'
   return Intl.NumberFormat(undefined, {

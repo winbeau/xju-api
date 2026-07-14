@@ -27,7 +27,7 @@ import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { useStatus } from '@/hooks/use-status'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
-import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
+import { formatNumber, formatQuota, formatTokenCount } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -242,8 +242,8 @@ export function SummaryCards() {
       ),
     [historicalTokensQuery.data?.data]
   )
-  const tokens24hDisplay = formatCompactNumber(recent24hTokens)
-  const totalTokensDisplay = formatCompactNumber(totalTokens)
+  const tokens24hDisplay = formatTokenCount(recent24hTokens)
+  const totalTokensDisplay = formatTokenCount(totalTokens)
 
   const healthLevel = getHealthLevel(remainQuota, recentUsage)
   const healthCfg = HEALTH_CONFIG[healthLevel]
@@ -356,7 +356,7 @@ export function SummaryCards() {
                 <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
                   {formatQuota(recentUsage)}
                 </div>
-                <div className='text-muted-foreground truncate text-[10px] tabular-nums'>
+                <div className='text-primary truncate text-xs font-semibold tabular-nums'>
                   {t('{{value}} tokens', { value: tokens24hDisplay })}
                 </div>
               </div>

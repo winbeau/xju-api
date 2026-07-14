@@ -106,14 +106,22 @@ export function useSummaryCardsConfig(totals: {
       key: 'todayUsage',
       title: t('Last 24h usage'),
       value: totals.todayUsageDisplay,
-      description: t('{{value}} tokens', { value: totals.tokens24hDisplay }),
+      description: (
+        <span className='text-primary text-xs font-semibold sm:text-sm'>
+          {t('{{value}} tokens', { value: totals.tokens24hDisplay })}
+        </span>
+      ),
       icon: Flame,
     },
     {
       key: 'usage',
       title: t('Historical Usage'),
       value: totals.usedDisplay,
-      description: t('{{value}} tokens', { value: totals.totalTokensDisplay }),
+      description: (
+        <span className='text-primary text-xs font-semibold sm:text-sm'>
+          {t('{{value}} tokens', { value: totals.totalTokensDisplay })}
+        </span>
+      ),
       icon: TrendingUp,
     },
     {

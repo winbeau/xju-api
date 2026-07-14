@@ -41,7 +41,7 @@ export interface StatCardDetail {
 interface StatCardProps {
   title: string
   value: string | number
-  description: string
+  description: ReactNode
   icon: LucideIcon
   sparkline?: number[]
   sparklineVariant?: StatCardSparklineVariant
