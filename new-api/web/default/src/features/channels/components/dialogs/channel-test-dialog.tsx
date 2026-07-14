@@ -92,6 +92,7 @@ import {
   channelsQueryKeys,
   formatResponseTime,
   handleTestChannel,
+  isImageGenerationModel,
 } from '../../lib'
 import type {
   Channel,
@@ -131,18 +132,17 @@ type BatchProgress = {
 }
 
 type ChannelTestCachePatch = {
-  responseTime: number
+  responseTime?: number
+  responseTimeImage?: number
   testTime: number
 }
 
-type LatestChannelTestCachePatch = {
-  patch: ChannelTestCachePatch
-  completedAt: number
-}
+type BatchResultEntry = { model: string; result: TestResult }
 
 type ChannelListCache = GetChannelsResponse | SearchChannelsResponse
 
 function createChannelTestCachePatch(
+  model: string,
   responseTime?: number,
   completedAt = Date.now()
 ): ChannelTestCachePatch | undefined {
@@ -150,32 +150,42 @@ function createChannelTestCachePatch(
     return undefined
   }
 
-  return {
-    responseTime,
-    testTime: Math.floor(completedAt / 1000),
-  }
+  const testTime = Math.floor(completedAt / 1000)
+  return isImageGenerationModel(model)
+    ? { responseTimeImage: responseTime, testTime }
+    : { responseTime, testTime }
 }
 
+// After a batch test, keep the most recent chat-model latency and the most
+// recent image-model latency separate, so a channel serving both models keeps
+// two distinct numbers instead of one overwriting the other.
 function getLatestChannelTestCachePatch(
-  results: TestResult[]
+  entries: BatchResultEntry[]
 ): ChannelTestCachePatch | undefined {
-  const latest = results.reduce<LatestChannelTestCachePatch | undefined>(
-    (latestPatch, result) => {
-      const completedAt = result.completedAt ?? 0
-      const patch = createChannelTestCachePatch(
-        result.responseTime,
-        completedAt
-      )
-      if (!patch) return latestPatch
-      if (!latestPatch || completedAt >= latestPatch.completedAt) {
-        return { patch, completedAt }
+  let chat: { responseTime: number; completedAt: number } | undefined
+  let image: { responseTime: number; completedAt: number } | undefined
+  for (const { model, result } of entries) {
+    const responseTime = result.responseTime
+    if (typeof responseTime !== 'number' || !Number.isFinite(responseTime)) {
+      continue
+    }
+    const completedAt = result.completedAt ?? 0
+    if (isImageGenerationModel(model)) {
+      if (!image || completedAt >= image.completedAt) {
+        image = { responseTime, completedAt }
       }
-      return latestPatch
-    },
-    undefined
-  )
-
-  return latest?.patch
+    } else if (!chat || completedAt >= chat.completedAt) {
+      chat = { responseTime, completedAt }
+    }
+  }
+  if (!chat && !image) return undefined
+  return {
+    responseTime: chat?.responseTime,
+    responseTimeImage: image?.responseTime,
+    testTime: Math.floor(
+      Math.max(chat?.completedAt ?? 0, image?.completedAt ?? 0) / 1000
+    ),
+  }
 }
 
 const endpointTypeOptions: Array<{ value: string; label: string }> = [
@@ -511,7 +521,12 @@ function ChannelTestDialogContent({
             changed = true
             return {
               ...channel,
-              response_time: patch.responseTime,
+              ...(patch.responseTime !== undefined
+                ? { response_time: patch.responseTime }
+                : {}),
+              ...(patch.responseTimeImage !== undefined
+                ? { response_time_image: patch.responseTimeImage }
+                : {}),
               test_time: patch.testTime,
             }
           })
@@ -588,6 +603,7 @@ function ChannelTestDialogContent({
         if (refreshList) {
           refreshChannelLists(
             createChannelTestCachePatch(
+              model,
               finalResult?.responseTime,
               finalResult?.completedAt
             )
@@ -632,7 +648,7 @@ function ChannelTestDialogContent({
       })
 
       let resultPatch: ChannelTestCachePatch | undefined
-      const results: TestResult[] = []
+      const results: BatchResultEntry[] = []
       let completedCount = 0
       let successCount = 0
       let failedCount = 0
@@ -644,8 +660,8 @@ function ChannelTestDialogContent({
           error: error instanceof Error ? error.message : t('Test failed'),
         })
 
-        const recordBatchResult = (result: TestResult) => {
-          results.push(result)
+        const recordBatchResult = (model: string, result: TestResult) => {
+          results.push({ model, result })
           completedCount += 1
           if (result.status === 'success') {
             successCount += 1
@@ -680,12 +696,12 @@ function ChannelTestDialogContent({
               if (!result) {
                 updateTestResult(modelName, finalResult)
               }
-              recordBatchResult(finalResult)
+              recordBatchResult(modelName, finalResult)
               return finalResult
             } catch (error: unknown) {
               const fallbackResult = createFallbackResult(error)
               updateTestResult(modelName, fallbackResult)
-              recordBatchResult(fallbackResult)
+              recordBatchResult(modelName, fallbackResult)
               return fallbackResult
             }
           })

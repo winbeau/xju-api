@@ -31,7 +31,8 @@ type Channel struct {
 	Weight             *uint   `json:"weight" gorm:"default:0"`
 	CreatedTime        int64   `json:"created_time" gorm:"bigint"`
 	TestTime           int64   `json:"test_time" gorm:"bigint"`
-	ResponseTime       int     `json:"response_time"` // in milliseconds
+	ResponseTime       int     `json:"response_time"`       // chat-model test latency, in milliseconds
+	ResponseTimeImage  int     `json:"response_time_image"` // image-model test latency, in milliseconds
 	BaseURL            *string `json:"base_url" gorm:"column:base_url;default:''"`
 	Other              string  `json:"other"`
 	Balance            float64 `json:"balance"` // in USD
@@ -579,6 +580,19 @@ func (channel *Channel) UpdateResponseTime(responseTime int64) {
 	}).Error
 	if err != nil {
 		common.SysLog(fmt.Sprintf("failed to update response time: channel_id=%d, error=%v", channel.Id, err))
+	}
+}
+
+// UpdateResponseTimeImage records the latency of an image-model channel test in
+// a separate column, so a channel serving both chat and image models keeps the
+// two latencies distinct instead of overwriting one with the other.
+func (channel *Channel) UpdateResponseTimeImage(responseTime int64) {
+	err := DB.Model(channel).Select("response_time_image", "test_time").Updates(Channel{
+		TestTime:          common.GetTimestamp(),
+		ResponseTimeImage: int(responseTime),
+	}).Error
+	if err != nil {
+		common.SysLog(fmt.Sprintf("failed to update image response time: channel_id=%d, error=%v", channel.Id, err))
 	}
 }
 

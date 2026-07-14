@@ -85,6 +85,7 @@ var channelReadOnlyFields = map[string]struct{}{
 	"created_time":         {},
 	"test_time":            {},
 	"response_time":        {},
+	"response_time_image":  {},
 	"balance":              {},
 	"balance_updated_time": {},
 	"used_quota":           {},
@@ -99,6 +100,9 @@ func clearChannelReadOnlyFields(channel *PatchChannel, requestData map[string]an
 	}
 	if _, ok := requestData["response_time"]; ok {
 		channel.ResponseTime = 0
+	}
+	if _, ok := requestData["response_time_image"]; ok {
+		channel.ResponseTimeImage = 0
 	}
 	if _, ok := requestData["balance"]; ok {
 		channel.Balance = 0

@@ -72,6 +72,26 @@ func resolveChannelTestUserID(c *gin.Context) (int, error) {
 	return rootUser.Id, nil
 }
 
+// resolveChannelTestModel mirrors the model-selection testChannel does when no
+// explicit model is given, so callers can determine which model was actually
+// tested (e.g. to route the measured latency to the chat vs image column).
+func resolveChannelTestModel(channel *model.Channel, testModel string) string {
+	testModel = strings.TrimSpace(testModel)
+	if testModel != "" {
+		return testModel
+	}
+	if channel.TestModel != nil && *channel.TestModel != "" {
+		return strings.TrimSpace(*channel.TestModel)
+	}
+	models := channel.GetModels()
+	if len(models) > 0 {
+		if m := strings.TrimSpace(models[0]); m != "" {
+			return m
+		}
+	}
+	return "gpt-4o-mini"
+}
+
 func testChannel(ctx context.Context, channel *model.Channel, testUserID int, testModel string, endpointType string, isStream bool) testResult {
 	if ctx == nil {
 		ctx = context.Background()
@@ -95,20 +115,7 @@ func testChannel(ctx context.Context, channel *model.Channel, testUserID int, te
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
-	testModel = strings.TrimSpace(testModel)
-	if testModel == "" {
-		if channel.TestModel != nil && *channel.TestModel != "" {
-			testModel = strings.TrimSpace(*channel.TestModel)
-		} else {
-			models := channel.GetModels()
-			if len(models) > 0 {
-				testModel = strings.TrimSpace(models[0])
-			}
-			if testModel == "" {
-				testModel = "gpt-4o-mini"
-			}
-		}
-	}
+	testModel = resolveChannelTestModel(channel, testModel)
 
 	endpointType = normalizeChannelTestEndpoint(channel, testModel, endpointType)
 
@@ -890,7 +897,11 @@ func TestChannel(c *gin.Context) {
 	}
 	tok := time.Now()
 	milliseconds := tok.Sub(tik).Milliseconds()
-	go channel.UpdateResponseTime(milliseconds)
+	if common.IsImageGenerationModel(resolveChannelTestModel(channel, testModel)) {
+		go channel.UpdateResponseTimeImage(milliseconds)
+	} else {
+		go channel.UpdateResponseTime(milliseconds)
+	}
 	consumedTime := float64(milliseconds) / 1000.0
 	if result.newAPIError != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -985,7 +996,11 @@ func performChannelTests(ctx context.Context, channels []*model.Channel, testUse
 			summary.Enabled++
 		}
 
-		channel.UpdateResponseTime(milliseconds)
+		if common.IsImageGenerationModel(resolveChannelTestModel(channel, "")) {
+			channel.UpdateResponseTimeImage(milliseconds)
+		} else {
+			channel.UpdateResponseTime(milliseconds)
+		}
 		if common.RequestInterval > 0 {
 			if ctx == nil {
 				time.Sleep(common.RequestInterval)

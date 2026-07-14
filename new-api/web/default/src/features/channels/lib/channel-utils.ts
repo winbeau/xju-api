@@ -360,6 +360,20 @@ export function getBalanceVariant(
 /** Optional i18n: (key, options) => string, e.g. useTranslation().t */
 type TFunction = (key: string, options?: { value?: number | string }) => string
 
+// Image-generation model matchers, mirroring the backend common.ImageGenerationModels
+// list so the frontend can split a channel test's chat vs image latency the same way.
+const IMAGE_MODEL_SUBSTRINGS = ['dall-e-3', 'dall-e-2', 'gpt-image', 'flux-', 'flux.1-']
+const IMAGE_MODEL_PREFIXES = ['imagen-']
+
+/** Whether a model name is an image-generation model (chat vs image latency split). */
+export function isImageGenerationModel(model: string): boolean {
+  const m = model.toLowerCase()
+  return (
+    IMAGE_MODEL_SUBSTRINGS.some((s) => m.includes(s)) ||
+    IMAGE_MODEL_PREFIXES.some((p) => m.startsWith(p))
+  )
+}
+
 /**
  * Format response time in milliseconds to human-readable.
  * Pass `t` from useTranslation() for i18n (e.g. "Not tested", "{{value}}ms", "{{value}}s").

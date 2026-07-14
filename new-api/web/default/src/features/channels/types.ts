@@ -45,7 +45,8 @@ export const channelSchema = z.object({
   weight: z.number().nullish(),
   created_time: z.number(),
   test_time: z.number(),
-  response_time: z.number(), // in milliseconds
+  response_time: z.number(), // chat-model test latency, in milliseconds
+  response_time_image: z.number().default(0), // image-model test latency, in milliseconds
   base_url: z.string().nullish(),
   other: z.string().default(''),
   balance: z.number().default(0), // in USD

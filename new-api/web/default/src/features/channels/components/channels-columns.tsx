@@ -1072,19 +1072,42 @@ export function useChannelsColumns(
         meta: { mobileHidden: true },
         cell: ({ row }) => {
           const responseTime = row.getValue('response_time') as number
-          const config = getResponseTimeConfig(responseTime)
+          const imageTime = (row.original.response_time_image as number) || 0
+          const chatConfig = getResponseTimeConfig(responseTime)
 
+          if (!imageTime) {
+            return (
+              <StatusBadge
+                label={formatResponseTime(responseTime, t)}
+                variant={chatConfig.variant}
+                size='sm'
+                copyable={false}
+                className='-ml-1.5'
+              />
+            )
+          }
+
+          // Channel serves both chat and image models — show the two latencies
+          // separately instead of letting one overwrite the other.
+          const imageConfig = getResponseTimeConfig(imageTime)
           return (
-            <StatusBadge
-              label={formatResponseTime(responseTime, t)}
-              variant={config.variant}
-              size='sm'
-              copyable={false}
-              className='-ml-1.5'
-            />
+            <div className='-ml-1.5 flex flex-col items-start gap-0.5'>
+              <StatusBadge
+                label={`${t('Chat')} · ${formatResponseTime(responseTime, t)}`}
+                variant={chatConfig.variant}
+                size='sm'
+                copyable={false}
+              />
+              <StatusBadge
+                label={`${t('Image')} · ${formatResponseTime(imageTime, t)}`}
+                variant={imageConfig.variant}
+                size='sm'
+                copyable={false}
+              />
+            </div>
           )
         },
-        size: 110,
+        size: 130,
       },
 
       // Test Time column
