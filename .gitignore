@@ -34,3 +34,6 @@ logs/
 *.swp
 .idea/
 .vscode/
+
+# 号池管理明文密钥(deploy/setup-pool-mgmt.sh 生成,永不入库)
+deploy/.pool-mgmt.env

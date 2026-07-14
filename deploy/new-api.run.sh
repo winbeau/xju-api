@@ -29,13 +29,14 @@ docker network inspect xju-net >/dev/null 2>&1 || docker network create xju-net
 # 僵尸,「系统信息」页很快就攒出一堆死节点。固定 NODE_NAME 后,重部署会 upsert
 # 同一行。
 
-# 号池管理代理(前端「号池认证」入口): new-api 后端凭 POOL_MGMT_SECRET 转发到
-# CLIProxyAPI 的 /v0/management/auth-files。密钥从号池 config.yaml 里那条
-# remote-management.secret-key 读出,只进 new-api 后端环境,不落前端。留空则该
-# 功能自动关闭(端点返回 503),不影响其余部署。
-POOL_CFG="${POOL_CFG:-/opt/cli-proxy-api/config.yaml}"
+# 号池管理代理(前端「号池认证 / 自动清理」入口): new-api 后端凭 POOL_MGMT_SECRET
+# 转发到 CLIProxyAPI 的 /v0/management/auth-files。密钥从 .pool-mgmt.env 读(由
+# setup-pool-mgmt.sh 生成的明文,与注入 cli-proxy 容器的 MANAGEMENT_PASSWORD 同值),
+# 只进 new-api 后端环境,不落前端。留空则该功能自动关闭(端点 503),不影响其余部署。
+# 注意: config.yaml 里的 secret-key 是 bcrypt 哈希、不能当 Bearer 用,故必须走明文 env。
+POOL_MGMT_ENV="${POOL_MGMT_ENV:-/opt/cli-proxy-api/.pool-mgmt.env}"
 POOL_MGMT_SECRET="${POOL_MGMT_SECRET:-$(
-	awk '/^remote-management:/{f=1;next} f&&/secret-key:/{print $2;exit}' "$POOL_CFG" 2>/dev/null
+	awk -F= '/^POOL_MGMT_SECRET=/{print $2;exit}' "$POOL_MGMT_ENV" 2>/dev/null
 )}"
 
 docker rm -f new-api 2>/dev/null || true

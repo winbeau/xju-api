@@ -20,6 +20,13 @@ services:
       - ./config.yaml:/CLIProxyAPI/config.yaml
       - ./auths:/root/.cli-proxy-api
       - ./logs:/CLIProxyAPI/logs
+    # MANAGEMENT_PASSWORD: 明文管理密钥,CLIProxyAPI 用它做 Bearer 鉴权
+    # (与 config.yaml 里 bcrypt 哈希的 secret-key 并列,明文走 ConstantTimeCompare)。
+    # 设了它还会自动解除 allow-remote:false 的限制,让 new-api 从 docker 内网调管理 API。
+    # 该 env 文件由 setup-pool-mgmt.sh 生成(同一个明文既写 MANAGEMENT_PASSWORD 给
+    # 本容器、也写 POOL_MGMT_SECRET 给 new-api),被仓库 .gitignore 挡,永不入库。
+    env_file:
+      - ./.pool-mgmt.env
     restart: unless-stopped
     networks:
       - xju-net
