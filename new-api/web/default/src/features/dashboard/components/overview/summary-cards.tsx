@@ -27,7 +27,7 @@ import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-
 import type { QuotaDataItem } from '@/features/dashboard/types'
 import { useStatus } from '@/hooks/use-status'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
-import { formatNumber, formatQuota } from '@/lib/format'
+import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -204,6 +204,45 @@ export function SummaryCards() {
     [usageTrendQuery.data?.data]
   )
 
+  // Token consumption alongside the quota/USD figures — "don't show only USD".
+  const recent24hTokens = useMemo(
+    () =>
+      (usageTrendQuery.data?.data ?? []).reduce(
+        (total, item) => total + (Number(item.token_used) || 0),
+        0
+      ),
+    [usageTrendQuery.data?.data]
+  )
+
+  // All-time token total for the "Historical Usage" card (daily aggregation
+  // over a wide window so it matches the lifetime quota figure beside it).
+  const historicalTimeRange = useMemo(() => computeTimeRange(3650), [])
+  const historicalTokensQuery = useQuery({
+    queryKey: [
+      'dashboard',
+      'overview',
+      'historical-tokens',
+      historicalTimeRange.start_timestamp,
+    ],
+    queryFn: async () =>
+      getUserQuotaDates({
+        start_timestamp: historicalTimeRange.start_timestamp,
+        end_timestamp: historicalTimeRange.end_timestamp,
+        default_time: 'day',
+      }),
+    staleTime: 5 * 60 * 1000,
+  })
+  const totalTokens = useMemo(
+    () =>
+      (historicalTokensQuery.data?.data ?? []).reduce(
+        (total, item) => total + (Number(item.token_used) || 0),
+        0
+      ),
+    [historicalTokensQuery.data?.data]
+  )
+  const tokens24hDisplay = formatCompactNumber(recent24hTokens)
+  const totalTokensDisplay = formatCompactNumber(totalTokens)
+
   const healthLevel = getHealthLevel(remainQuota, recentUsage)
   const healthCfg = HEALTH_CONFIG[healthLevel]
   const runwayDays = getRunwayDays(remainQuota, recentUsage)
@@ -229,6 +268,8 @@ export function SummaryCards() {
     todayUsageDisplay,
     currencyEnabled,
     currencyLabel,
+    tokens24hDisplay,
+    totalTokensDisplay,
   }).map((config, index) => {
     const tones = ['accent-1', 'accent-2', 'accent-3'] as const
 
@@ -312,6 +353,9 @@ export function SummaryCards() {
                 </div>
                 <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
                   {formatQuota(recentUsage)}
+                </div>
+                <div className='text-muted-foreground truncate text-[10px] tabular-nums'>
+                  {t('{{value}} tokens', { value: tokens24hDisplay })}
                 </div>
               </div>
               <div className='bg-background/60 rounded-lg px-2.5 py-2'>

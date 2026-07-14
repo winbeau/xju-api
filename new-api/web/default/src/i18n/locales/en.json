@@ -1,5 +1,6 @@
 {
   "translation": {
+    "{{value}} tokens": "{{value}} tokens",
     "Point any OpenAI-compatible client at the gateway.": "Point any OpenAI-compatible client at the gateway.",
     "Track your requests and remaining card time.": "Track your requests and remaining card time.",
     "An OpenAI-compatible AI API relay": "An OpenAI-compatible AI API relay",

@@ -1,5 +1,6 @@
 {
   "translation": {
+    "{{value}} tokens": "{{value}} tokens",
     "Generate invite code": "產生邀請碼",
     "Invite Codes": "邀請碼",
     "Generate single-use invite codes and manage their validity. Share a code with the person you invite — they enter it on the sign-up page (or use a /register?aff=CODE link).": "產生一次性邀請碼並管理其有效性。把邀請碼發給你要邀請的人 —— 對方在註冊頁填入(或用 /register?aff=邀請碼 連結)。",

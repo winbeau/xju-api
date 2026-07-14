@@ -1,5 +1,6 @@
 {
   "translation": {
+    "{{value}} tokens": "{{value}} tokens",
     "Point any OpenAI-compatible client at the gateway.": "把任意兼容 OpenAI 的客户端指向本服务即可。",
     "Track your requests and remaining card time.": "查看请求记录和剩余卡时间。",
     "An OpenAI-compatible AI API relay": "兼容 OpenAI 的 AI API 中转",
