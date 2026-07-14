@@ -214,9 +214,11 @@ export function SummaryCards() {
     [usageTrendQuery.data?.data]
   )
 
-  // All-time token total for the "Historical Usage" card (daily aggregation
-  // over a wide window so it matches the lifetime quota figure beside it).
-  const historicalTimeRange = useMemo(() => computeTimeRange(3650), [])
+  // Token total for the "Historical Usage" card. The self data endpoint caps a
+  // query at one month (时间跨度不能超过 1 个月), so we use the widest window it
+  // allows (29 days, daily aggregation) — which is the full history while the
+  // platform is under a month old, and a rolling 30-day window afterwards.
+  const historicalTimeRange = useMemo(() => computeTimeRange(29), [])
   const historicalTokensQuery = useQuery({
     queryKey: [
       'dashboard',
