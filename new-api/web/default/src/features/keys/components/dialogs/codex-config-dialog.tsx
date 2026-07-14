@@ -115,10 +115,10 @@ export function CodexConfigDialog(props: Props) {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className='sm:max-w-2xl'>
         <DialogHeader>
-          <DialogTitle>{t('Codex CLI Configuration')}</DialogTitle>
+          <DialogTitle>{t('Codex Config')}</DialogTitle>
           <DialogDescription>
             {t(
-              'Paste these into your Codex config. The API key below is this key, in full — treat it as a secret.'
+              'Works for both the Codex CLI and the Codex GUI — the config is the same. The API key below is this key, in full — treat it as a secret.'
             )}
           </DialogDescription>
         </DialogHeader>

@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Works for both the Codex CLI and the Codex GUI — the config is the same. The API key below is this key, in full — treat it as a secret.": "Works for both the Codex CLI and the Codex GUI — the config is the same. The API key below is this key, in full — treat it as a secret.",
     "Account Pool": "Account Pool",
     "Paste a codex auth JSON to add an upstream account. The pool reloads instantly — no restart, no channel edits.": "Paste a codex auth JSON to add an upstream account. The pool reloads instantly — no restart, no channel edits.",
     "Add account": "Add account",

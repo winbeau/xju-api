@@ -1,5 +1,6 @@
 {
   "translation": {
+    "Works for both the Codex CLI and the Codex GUI — the config is the same. The API key below is this key, in full — treat it as a secret.": "CLI 和 GUI 都適用 —— 設定完全一樣。下方是這把金鑰的完整值，請當作機密對待。",
     "Account Pool": "號池",
     "Paste a codex auth JSON to add an upstream account. The pool reloads instantly — no restart, no channel edits.": "貼上一個 codex 認證 JSON 即可新增上游帳號。號池即時熱重載 —— 無需重啟、無需改通道。",
     "Add account": "新增帳號",
