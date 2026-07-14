@@ -1,7 +1,9 @@
 # xju-api 实施计划
 
 > 三层 AI API 代理平台 · 面向下游用户的「日卡 / 三天卡 / 周卡」发卡系统
-> 仓库：`winbeau/xju-api`（公开）｜部署机：`claude-tri`｜状态：规划中
+> 仓库：`winbeau/xju-api`（公开）｜部署机：`claude-tri`｜状态：**✅ 已上线运行中**（[api.selab.top](https://api.selab.top)）
+>
+> **本文是设计与实施的事实来源(source of truth)。Phase 0–5 已全部完成、平台已上线;上线后的功能迭代(号池管理页 / 邀请码系统 / 用量看板 / 品牌换新等)记录在 [CHANGELOG.md](./CHANGELOG.md),不在此重复展开。下文保留作为架构与机制的权威说明。**
 >
 > ⚠️ 本仓库为**公开仓库**。全文所有密钥、Token、api-key、secret 一律使用 `__PLACEHOLDER__` 占位符，**严禁提交任何真实凭证**。真实值只写在部署机本地、被 `.gitignore` 排除的文件里。
 
@@ -86,7 +88,7 @@
 | 组件 | 版本 / 镜像 | 部署方式 | 监听 | 数据卷 / 关键文件 | 是否改造 |
 |---|---|---|---|---|---|
 | Caddy | 官方最新 | 系统服务（apt / 二进制） | `0.0.0.0:80,443` | `/etc/caddy/Caddyfile`、`caddy_data/`（ACME 证书） | 新写配置 |
-| new-api (L1) | `calciumion/new-api:latest`（建议 pin 具体 tag） | Docker 单容器 | `127.0.0.1:3000` | `/opt/new-api/data`（SQLite）、`/opt/new-api/logs` | **前端改造** |
+| new-api (L1) | `winbeau/xju-newapi:<tag>`（**自建定制镜像**,见 [deploy/build-newapi.sh](./deploy/build-newapi.sh);前端有换肤/裁剪,不能用上游镜像） | Docker 单容器 | `127.0.0.1:3000` | `/opt/new-api/data`（SQLite）、`/opt/new-api/logs` | **前端改造** |
 | CLIProxyAPI (L2/L3) | `eceasy/cli-proxy-api:latest`（建议 pin） | Docker 单容器 | `127.0.0.1:8317` | `config.yaml`、`auths/`、`logs/` | **默认零改动（按需适配）** |
 
 > 说明：new-api 不起自带 `docker-compose.yml` 的 `postgres:15` + `redis:latest`（部署机内存/磁盘紧张，且不设 `SQL_DSN` 即自动落 SQLite、不设 `REDIS_CONN_STRING` 即退化内存缓存）。
@@ -473,4 +475,4 @@ xju-api/
 
 ---
 
-> 文档版本：v1（规划稿）｜维护：技术负责人｜所有凭证均为占位符，真实值不入库。
+> 文档版本：v2（已上线）｜Phase 0–5 全部完成,平台运行中｜上线后迭代见 [CHANGELOG.md](./CHANGELOG.md)｜所有凭证均为占位符,真实值不入库。

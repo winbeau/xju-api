@@ -12,19 +12,22 @@
 
 ## 升级（先 pin tag，勿追 latest）
 
-```bash
-# new-api: 数据在宿主 volume,换镜像不丢
-docker pull calciumion/new-api:<新tag>
-IMAGE=calciumion/new-api:<新tag> bash /opt/xju-api/deploy/new-api.run.sh   # 脚本内含 rm -f 旧容器
-curl -fsS http://127.0.0.1:3000/api/status   # 验活
+> ⚠️ new-api 前端已做换肤 + 裁剪 + 功能增强,**不能 `docker pull` 上游镜像**(会丢定制),必须**自建镜像** `winbeau/xju-newapi:<tag>`。
 
-# CLIProxyAPI
+```bash
+# new-api: 仓库在 /home/winbeau/opt/xju-api;数据在宿主 volume,换镜像不丢
+cd /home/winbeau/opt/xju-api && git pull --ff-only origin main    # 拉最新定制代码(勿 reset --hard)
+bash deploy/build-newapi.sh v0.5.x                               # 构建定制镜像(BuildKit 缓存,go build ~7s)
+IMAGE=winbeau/xju-newapi:v0.5.x bash deploy/new-api.run.sh        # 脚本内含 rm -f 旧容器
+curl -fsS http://127.0.0.1:3000/api/status                       # 验活
+
+# CLIProxyAPI(默认零改动,可直接换上游 tag)
 cd /opt/cli-proxy-api && sed -i 's|cli-proxy-api:.*|cli-proxy-api:<新tag>|' docker-compose.yml
 docker compose pull && docker compose up -d
 curl -fsS http://127.0.0.1:8317/v1/models -H "Authorization: Bearer <内部api-key>"
 ```
 
-**回滚** = 把 tag 换回旧值重跑同样命令（升级前记下旧 tag；数据在宿主 volume 不受影响）。
+**回滚** = 用上一版镜像 tag 重跑 `IMAGE=winbeau/xju-newapi:<旧tag> bash deploy/new-api.run.sh`(旧镜像仍在本机;数据在宿主 volume 不受影响)。升级前记下当前 tag。
 
 ## 备份 / 恢复
 
