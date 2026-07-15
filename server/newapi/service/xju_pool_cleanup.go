@@ -71,16 +71,28 @@ type poolAuthEntry struct {
 	Unavailable bool   `json:"unavailable"`
 	UpdatedAt   string `json:"updated_at"`
 	LastRefresh string `json:"last_refresh"`
+	// xju-api:new — codex accounts carry their ChatGPT subscription window here;
+	// an expired subscription is a certain death the sweep can act on directly.
+	IDToken struct {
+		SubscriptionActiveUntil string `json:"chatgpt_subscription_active_until"`
+	} `json:"id_token"`
+}
+
+// subscriptionExpired reports whether a codex account's ChatGPT subscription
+// window has already closed. Non-codex accounts (no id_token) return false.
+func (e poolAuthEntry) subscriptionExpired(now time.Time) bool {
+	until := parsePoolTimestamp(e.IDToken.SubscriptionActiveUntil)
+	return !until.IsZero() && until.Before(now)
 }
 
 type poolListResponse struct {
 	Files []poolAuthEntry `json:"files"`
 }
 
-// SweepPoolOnceForPool disables every account in the given pool that is
-// unavailable and whose last activity is older than `hours`. Returns the number
-// newly disabled. Exposed so the manual "clean now" button can trigger the same
-// logic against any configured pool.
+// SweepPoolOnceForPool disables accounts in the given pool that are either
+// (a) unavailable and idle past `hours`, or (b) on an expired subscription. It
+// returns how many were newly disabled. Exposed so the manual "clean now"
+// button can trigger the same logic against any configured pool.
 func SweepPoolOnceForPool(poolID string, hours int) (int, error) {
 	baseURL, secret, ok := common.ResolvePoolMgmt(poolID)
 	if !ok {
@@ -94,19 +106,28 @@ func SweepPoolOnceForPool(poolID string, hours int) (int, error) {
 		return 0, err
 	}
 
-	cutoff := time.Now().Add(-time.Duration(hours) * time.Hour)
+	now := time.Now()
+	cutoff := now.Add(-time.Duration(hours) * time.Hour)
 	disabled := 0
 	for _, e := range entries {
-		if e.Disabled || !e.Unavailable {
+		if e.Disabled {
 			continue
 		}
-		last := parsePoolTimestamp(e.LastRefresh)
-		if last.IsZero() {
-			last = parsePoolTimestamp(e.UpdatedAt)
-		}
-		// No usable timestamp → don't touch it; better to leave a possibly-fine
-		// account than to disable on missing data.
-		if last.IsZero() || last.After(cutoff) {
+		switch {
+		// xju-api:new — expired subscription is a certain death: disable
+		// immediately, regardless of cooldown or idle time.
+		case e.subscriptionExpired(now):
+		case e.Unavailable:
+			last := parsePoolTimestamp(e.LastRefresh)
+			if last.IsZero() {
+				last = parsePoolTimestamp(e.UpdatedAt)
+			}
+			// No usable timestamp, or still within the idle window → leave it;
+			// better a possibly-fine account than disabling on missing data.
+			if last.IsZero() || last.After(cutoff) {
+				continue
+			}
+		default:
 			continue
 		}
 		if err := disablePoolEntry(baseURL, secret, e.Name); err != nil {

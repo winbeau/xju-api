@@ -24,16 +24,35 @@ import { api } from '@/lib/api'
  * dropping an auth JSON into the pool — the pool hot-reloads, no restart.
  */
 
+/** One 10-minute bucket of the account's recent request outcomes. */
+type RecentRequestBucket = {
+  time: string
+  success: number
+  failed: number
+}
+
 export type PoolAuthFile = {
   name: string
   email?: string
   account?: string
+  account_type?: string
   disabled?: boolean
   unavailable?: boolean
   failed?: number
+  success?: number
   status_message?: string
   last_refresh?: string
   updated_at?: string
+  next_retry_after?: string
+  // auth_index is the stable runtime id the management api-call pins a probe to.
+  auth_index?: string
+  recent_requests?: RecentRequestBucket[]
+  // Codex accounts carry their ChatGPT subscription window + plan in the id_token.
+  id_token?: {
+    chatgpt_subscription_active_until?: string
+    plan_type?: string
+    chatgpt_account_id?: string
+  }
   // The management API returns yet more metadata; keep it open.
   [key: string]: unknown
 }

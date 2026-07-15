@@ -51,3 +51,6 @@ logs/
 deploy/.pool-mgmt.env
 deploy/.pool-mgmt-k12.env
 **/.pool-mgmt-k12.env
+
+# Playwright MCP 会话产物(截图/快照/日志),永不入库
+.playwright-mcp/

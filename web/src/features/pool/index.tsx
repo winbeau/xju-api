@@ -63,21 +63,75 @@ import {
 import { useStatus } from '@/hooks/use-status'
 import { api } from '@/lib/api'
 
-type AccountState = 'ok' | 'disabled' | 'unavailable'
+type AccountState = 'ok' | 'disabled' | 'expired' | 'unavailable'
+
+// xju-api:new — parse the codex subscription window carried in id_token. An
+// expired subscription is a certain death (no cooldown will bring it back),
+// so it ranks above the transient `unavailable` cooldown state.
+function subscriptionUntil(file: PoolAuthFile): Date | null {
+  const raw = file.id_token?.chatgpt_subscription_active_until
+  if (!raw) return null
+  const parsed = new Date(raw)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function isSubscriptionExpired(file: PoolAuthFile): boolean {
+  const until = subscriptionUntil(file)
+  return until !== null && until.getTime() < Date.now()
+}
 
 function accountState(file: PoolAuthFile): AccountState {
   if (file.disabled) return 'disabled'
+  if (isSubscriptionExpired(file)) return 'expired'
   if (file.unavailable) return 'unavailable'
   return 'ok'
 }
 
 const STATE_META: Record<
   AccountState,
-  { labelKey: string; variant: 'success' | 'neutral' | 'danger' }
+  { labelKey: string; variant: 'success' | 'neutral' | 'danger' | 'warning' }
 > = {
   ok: { labelKey: 'Active', variant: 'success' },
   disabled: { labelKey: 'Disabled', variant: 'neutral' },
-  unavailable: { labelKey: 'Unavailable', variant: 'danger' },
+  expired: { labelKey: 'Subscription expired', variant: 'danger' },
+  // Transient cooldown that self-heals when NextRetryAfter passes — amber, not red.
+  unavailable: { labelKey: 'Unavailable', variant: 'warning' },
+}
+
+// xju-api:new — aggregate the 10-minute recent-request buckets into a success
+// rate + total, so the operator sees "is this account actually being used and
+// succeeding" without opening logs. Returns null when there was no activity.
+function recentActivity(
+  file: PoolAuthFile
+): { total: number; rate: number } | null {
+  const buckets = file.recent_requests
+  if (!Array.isArray(buckets) || buckets.length === 0) return null
+  let ok = 0
+  let bad = 0
+  for (const b of buckets) {
+    ok += b.success || 0
+    bad += b.failed || 0
+  }
+  const total = ok + bad
+  if (total === 0) return null
+  return { total, rate: Math.round((ok / total) * 100) }
+}
+
+// xju-api:new — human-readable time left on the account's cooldown
+// (NextRetryAfter), e.g. "8m" or "2h 5m". Null when there is no active
+// cooldown. Refreshed each time the list refetches. Codex cooldowns run up to
+// 12h (404), so minutes alone read poorly — roll into hours past 60 minutes.
+function cooldownLabel(file: PoolAuthFile): string | null {
+  const raw = file.next_retry_after
+  if (!raw) return null
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) return null
+  const min = Math.ceil((parsed.getTime() - Date.now()) / 60000)
+  if (min <= 0) return null
+  if (min < 60) return `${min}m`
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
 }
 
 export function Pool() {
@@ -307,6 +361,10 @@ export function Pool() {
                       const state = accountState(file)
                       const meta = STATE_META[state]
                       const label = file.email || file.account || file.name
+                      const plan = file.id_token?.plan_type
+                      const subUntil = subscriptionUntil(file)
+                      const activity = recentActivity(file)
+                      const cooldown = cooldownLabel(file)
                       return (
                         <li
                           key={file.name}
@@ -322,13 +380,62 @@ export function Pool() {
                                 variant={meta.variant}
                                 copyable={false}
                               />
+                              {plan && (
+                                <Badge
+                                  variant='outline'
+                                  className='shrink-0 uppercase'
+                                >
+                                  {plan}
+                                </Badge>
+                              )}
                             </div>
                             <p className='text-muted-foreground truncate font-mono text-xs'>
                               {file.name}
-                              {typeof file.failed === 'number' && file.failed > 0
-                                ? ` · ${t('{{count}} recent failures', { count: file.failed })}`
-                                : ''}
                             </p>
+                            <div className='text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs'>
+                              {subUntil && (
+                                <span
+                                  className={
+                                    state === 'expired' ? 'text-destructive' : ''
+                                  }
+                                >
+                                  {state === 'expired'
+                                    ? t('Expired {{date}}', {
+                                        date: subUntil.toLocaleDateString(),
+                                      })
+                                    : t('Subscription until {{date}}', {
+                                        date: subUntil.toLocaleDateString(),
+                                      })}
+                                </span>
+                              )}
+                              {activity && (
+                                <span
+                                  className={
+                                    activity.rate < 100 ? 'text-warning' : ''
+                                  }
+                                >
+                                  {t('{{rate}}% ok · {{total}} recent', {
+                                    rate: activity.rate,
+                                    total: activity.total,
+                                  })}
+                                </span>
+                              )}
+                              {cooldown !== null && (
+                                <span className='text-warning'>
+                                  {t('cooldown · retries in {{time}}', {
+                                    time: cooldown,
+                                  })}
+                                </span>
+                              )}
+                              {file.status_message && (
+                                <span
+                                  className='truncate'
+                                  title={file.status_message}
+                                >
+                                  {file.status_message}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className='flex shrink-0 items-center gap-1'>
                             <Button
