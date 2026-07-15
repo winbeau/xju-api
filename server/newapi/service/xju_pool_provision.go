@@ -135,7 +135,38 @@ func PollPoolProvision(poolID string) (string, error) {
 		}
 		return "", err
 	}
+	// Phase C: route the pool's group to its cliproxy instance. The mgmt URL and
+	// the relay base URL are the same host:port. A channel failure leaves the
+	// pool registered (importable/verifiable) but unrouted — log, don't unwind.
+	if chID, err := createPoolChannel(r.PoolID, r.InternalKey, r.MgmtURL, label); err != nil {
+		common.SysError("pool " + r.PoolID + " registered but channel creation failed: " + err.Error())
+	} else {
+		_ = common.SetPoolChannelID(r.PoolID, chID)
+	}
 	return "ready", nil
+}
+
+// DeletePoolInstance tears down a dynamic pool: it asks the host watcher to
+// remove the container, deletes the routing channel + group options, and drops
+// the pool from the registry. Built-in pools (default/k12) are refused.
+func DeletePoolInstance(poolID string) error {
+	dir := provisionDir()
+	if dir == "" {
+		return fmt.Errorf("pool provisioning is not enabled")
+	}
+	poolID = strings.TrimSpace(poolID)
+	if common.IsReservedPoolID(poolID) {
+		return fmt.Errorf("cannot delete a built-in pool: %s", poolID)
+	}
+	entry, ok := common.GetPoolEntry(poolID)
+	if !ok {
+		return fmt.Errorf("pool not found: %s", poolID)
+	}
+	if err := writeProvisionRequest(dir, poolID, map[string]any{"action": "delete", "pool_id": poolID}); err != nil {
+		return err
+	}
+	deletePoolChannel(poolID, entry.ChannelID)
+	return common.RemovePoolFromRegistry(poolID)
 }
 
 func writeProvisionRequest(dir, id string, req map[string]any) error {

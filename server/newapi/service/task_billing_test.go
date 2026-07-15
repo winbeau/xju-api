@@ -38,6 +38,9 @@ func TestMain(m *testing.M) {
 	common.RedisEnabled = false
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
+	if common.OptionMap == nil {
+		common.OptionMap = make(map[string]string)
+	}
 
 	if err := db.AutoMigrate(
 		&model.Task{},
@@ -50,6 +53,8 @@ func TestMain(m *testing.M) {
 		&model.SystemTask{},
 		&model.SystemTaskLock{},
 		&model.InviteCode{},
+		&model.Ability{},
+		&model.Option{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}

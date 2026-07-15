@@ -397,6 +397,31 @@ func CreatePoolInstance(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pool_id": poolID, "status": "provisioning"}})
 }
 
+type deletePoolInstanceRequest struct {
+	PoolID string `json:"pool_id"`
+}
+
+// DeletePoolInstance POST /api/pool/delete — tear down a dynamically-created
+// pool (container + routing channel + registry). Built-in pools are refused.
+func DeletePoolInstance(c *gin.Context) {
+	if !service.ProvisionEnabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "pool provisioning is not enabled on this deployment"})
+		return
+	}
+	var reqBody deletePoolInstanceRequest
+	if err := common.DecodeJson(c.Request.Body, &reqBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request body"})
+		return
+	}
+	poolID := strings.TrimSpace(reqBody.PoolID)
+	if err := service.DeletePoolInstance(poolID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	recordManageAudit(c, "pool_auth.delete_pool", map[string]interface{}{"pool": poolID})
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
 // GetPoolCreateStatus GET /api/pool/create/status?id=xxx — poll provisioning
 // progress. On success the pool is registered and status becomes "ready".
 func GetPoolCreateStatus(c *gin.Context) {

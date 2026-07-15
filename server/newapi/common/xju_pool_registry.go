@@ -210,6 +210,31 @@ func AddPoolToRegistry(entry PoolEntry) error {
 	return SavePoolRegistry(entries)
 }
 
+// GetPoolEntry returns a dynamic pool's full record (incl. channel id) by id.
+func GetPoolEntry(id string) (PoolEntry, bool) {
+	id = strings.TrimSpace(id)
+	for _, e := range loadPoolRegistry() {
+		if e.ID == id {
+			return e, true
+		}
+	}
+	return PoolEntry{}, false
+}
+
+// SetPoolChannelID records the new-api channel that routes a dynamic pool, so a
+// later delete can remove it. No-op-safe: errors if the pool is unknown.
+func SetPoolChannelID(id string, channelID int) error {
+	id = strings.TrimSpace(id)
+	entries := append([]PoolEntry(nil), loadPoolRegistry()...)
+	for i := range entries {
+		if entries[i].ID == id {
+			entries[i].ChannelID = channelID
+			return SavePoolRegistry(entries)
+		}
+	}
+	return fmt.Errorf("pool not found: %s", id)
+}
+
 // RemovePoolFromRegistry drops a dynamic pool by id.
 func RemovePoolFromRegistry(id string) error {
 	id = strings.TrimSpace(id)

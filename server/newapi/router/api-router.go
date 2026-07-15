@@ -209,6 +209,7 @@ func SetApiRouter(router *gin.Engine) {
 			poolRoute.GET("/pools", controller.ListPools)
 			poolRoute.POST("/create", controller.CreatePoolInstance)
 			poolRoute.GET("/create/status", controller.GetPoolCreateStatus)
+			poolRoute.POST("/delete", controller.DeletePoolInstance)
 			poolRoute.GET("/auth-files", controller.ListPoolAuthFiles)
 			poolRoute.POST("/auth-files", controller.AddPoolAuthFile)
 			poolRoute.POST("/auth-files/import", controller.ImportPoolAuthFiles)
