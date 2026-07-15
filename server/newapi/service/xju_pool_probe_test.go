@@ -54,6 +54,16 @@ func TestProbeVerdict_Dead(t *testing.T) {
 	assert.False(t, VerdictUnknown.dead())
 }
 
+func TestProbeJobSnapshotResultsNeverNil(t *testing.T) {
+	// An empty job (just started / all accounts disabled) must snapshot Results
+	// as a non-nil slice so it marshals as [] not null — the frontend iterates
+	// it and reads .length, and a null crashes the pool page.
+	j := &probeJob{}
+	snap := j.Snapshot()
+	assert.NotNil(t, snap.Results)
+	assert.Len(t, snap.Results, 0)
+}
+
 func TestSubscriptionExpiredAt(t *testing.T) {
 	now := time.Date(2026, 7, 15, 12, 0, 0, 0, time.UTC)
 	assert.True(t, subscriptionExpiredAt("2026-07-01T00:00:00Z", now))

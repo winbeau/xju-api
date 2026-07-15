@@ -253,8 +253,8 @@ export async function getVerifyProgress(
 
 // xju-api:new — one-click pool creation (#4 Phase D). Reserved pools
 // (default/k12) are env-managed; everything else is created here.
-const RESERVED_POOL_IDS = ['default', 'k12']
-export const isDynamicPool = (id: string) => !RESERVED_POOL_IDS.includes(id)
+const RESERVED_POOL_IDS = new Set(['default', 'k12'])
+export const isDynamicPool = (id: string) => !RESERVED_POOL_IDS.has(id)
 
 export type PoolCreateStatus = {
   pool_id: string

@@ -398,12 +398,15 @@ func (j *probeJob) finish(err error) {
 	}
 }
 
-// Snapshot returns a copy of the job state safe to serialize.
+// Snapshot returns a copy of the job state safe to serialize. Results is always
+// a non-nil slice so it marshals as a JSON array (never null) — the frontend
+// reads `.length`/iterates it, so a null here (empty pool / job just started /
+// all accounts disabled) would crash the page.
 func (j *probeJob) Snapshot() ProbeJobSnapshot {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	snap := j.snap
-	snap.Results = append([]ProbeResult(nil), j.snap.Results...)
+	snap.Results = append([]ProbeResult{}, j.snap.Results...)
 	return snap
 }
 

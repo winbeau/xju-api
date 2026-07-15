@@ -361,7 +361,7 @@ export function Pool() {
   // read, and refresh the list once when a run finishes (auto-disable may have
   // changed account state).
   const jobRunning = progress?.running ?? false
-  const jobResultCount = progress?.results.length ?? 0
+  const jobResultCount = progress?.results?.length ?? 0
   const prevRunning = useRef(false)
   useEffect(() => {
     if (!progress?.results?.length) return
@@ -471,46 +471,45 @@ export function Pool() {
           </Badge>
         </span>
       </SectionPageLayout.Title>
-      <SectionPageLayout.Content>
-        {/* xju-api:edit — pool tab nav: aligned with the pool cards below and
-            enlarged so switching pools reads as a top-level action. The
-            create-pool action (#4 Phase D) sits at the end of the nav row. */}
-        <div className='mb-4 flex flex-wrap items-center gap-2'>
-          {pools.length > 1 && (
-            <Tabs
-              value={pool}
-              onValueChange={(value) => {
-                setPool(String(value))
-                setImportResult(null)
-              }}
-            >
-              <TabsList className='h-auto gap-1 p-1'>
-                {pools.map((p) => (
-                  <TabsTrigger
-                    key={p.id}
-                    value={p.id}
-                    className='px-4 py-1.5 text-base font-medium'
-                  >
-                    {p.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          )}
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            onClick={() => setCreateOpen(true)}
+      {/* xju-api:edit — pool tab nav + create action share the title row, so
+          switching/creating pools reads as a top-level action. */}
+      <SectionPageLayout.Actions>
+        {pools.length > 1 && (
+          <Tabs
+            value={pool}
+            onValueChange={(value) => {
+              setPool(String(value))
+              setImportResult(null)
+            }}
           >
-            <Plus className='size-4' />
-            {t('New pool')}
-          </Button>
-        </div>
+            <TabsList className='h-auto gap-1 p-1'>
+              {pools.map((p) => (
+                <TabsTrigger
+                  key={p.id}
+                  value={p.id}
+                  className='px-3 py-1 text-sm font-medium'
+                >
+                  {p.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          onClick={() => setCreateOpen(true)}
+        >
+          <Plus className='size-4' />
+          {t('New pool')}
+        </Button>
+      </SectionPageLayout.Actions>
+      <SectionPageLayout.Content>
         <div className='grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
           {/* Accounts list */}
           <Card data-card-hover='false'>
-            <CardHeader className='flex-row items-center justify-between gap-3 space-y-0'>
+            <CardHeader className='flex flex-row items-start justify-between gap-3 space-y-0'>
               <div className='min-w-0'>
                 <CardTitle className='text-base'>
                   {t('Accounts in pool')}
@@ -518,10 +517,14 @@ export function Pool() {
                 <CardDescription>
                   {t('Upstream codex accounts behind the shared pool.')}
                 </CardDescription>
-                {/* xju-api:edit — three orthogonal stats: total / enabled
-                    (operator toggle) / online (health), no longer conflated. */}
+              </div>
+              {/* xju-api:edit — stats + actions live on the card's right,
+                  balancing the title/description on the left. Stats are three
+                  orthogonal dimensions: total / enabled (operator toggle) /
+                  online (health), no longer conflated. */}
+              <div className='flex shrink-0 flex-col items-end gap-2'>
                 {files.length > 0 && (
-                  <div className='mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs'>
+                  <div className='flex flex-wrap items-center justify-end gap-x-3 gap-y-0.5 text-xs'>
                     <span className='text-muted-foreground'>
                       <span className='text-foreground font-semibold'>
                         {stats.total}
@@ -540,41 +543,41 @@ export function Pool() {
                     </span>
                   </div>
                 )}
-              </div>
-              <div className='flex shrink-0 items-center gap-2'>
-                {/* xju-api:new — delete a dynamically-created pool (#4 Phase D);
-                    the env-seeded default/k12 pools cannot be removed here. */}
-                {isDynamicPool(pool) && (
+                <div className='flex items-center gap-2'>
+                  {/* xju-api:new — delete a dynamically-created pool; the
+                      env-seeded default/k12 pools cannot be removed here. */}
+                  {isDynamicPool(pool) && (
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      className='text-destructive hover:text-destructive'
+                      onClick={() =>
+                        setDeleteTarget(
+                          pools.find((p) => p.id === pool) ?? {
+                            id: pool,
+                            label: pool,
+                          }
+                        )
+                      }
+                    >
+                      <Trash2 className='size-4' />
+                      {t('Delete pool')}
+                    </Button>
+                  )}
                   <Button
                     type='button'
                     variant='outline'
                     size='sm'
-                    className='text-destructive hover:text-destructive'
-                    onClick={() =>
-                      setDeleteTarget(
-                        pools.find((p) => p.id === pool) ?? {
-                          id: pool,
-                          label: pool,
-                        }
-                      )
-                    }
+                    onClick={() => invalidate()}
+                    disabled={listQuery.isFetching}
                   >
-                    <Trash2 className='size-4' />
-                    {t('Delete pool')}
+                    <RefreshCw
+                      className={listQuery.isFetching ? 'animate-spin' : ''}
+                    />
+                    {t('Refresh')}
                   </Button>
-                )}
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  onClick={() => invalidate()}
-                  disabled={listQuery.isFetching}
-                >
-                  <RefreshCw
-                    className={listQuery.isFetching ? 'animate-spin' : ''}
-                  />
-                  {t('Refresh')}
-                </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -977,7 +980,7 @@ export function Pool() {
                       </p>
                     )}
                     <div className='text-muted-foreground mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5'>
-                      {verdictBreakdown(progress.results).map(
+                      {verdictBreakdown(progress.results ?? []).map(
                         ([verdict, count]) => (
                           <span key={verdict}>
                             {t(VERDICT_META[verdict].labelKey)}: {count}
