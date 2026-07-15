@@ -364,6 +364,55 @@ func GetVerifyPoolProgress(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": snap})
 }
 
+// xju-api:new — one-click pool creation (#4 Phase B). CreatePoolInstance drops a
+// provisioning request for the host watcher; the frontend then polls
+// GetPoolCreateStatus until the new pool is registered. Both are root-only.
+
+type createPoolRequest struct {
+	Label string `json:"label"`
+}
+
+// CreatePoolInstance POST /api/pool/create — start provisioning a new isolated
+// pool from a display label. Returns the derived pool id; the actual container
+// is brought up asynchronously by the host watcher.
+func CreatePoolInstance(c *gin.Context) {
+	if !service.ProvisionEnabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "pool provisioning is not enabled on this deployment"})
+		return
+	}
+	var reqBody createPoolRequest
+	if err := common.DecodeJson(c.Request.Body, &reqBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request body"})
+		return
+	}
+	poolID, err := service.RequestPoolProvision(reqBody.Label)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	recordManageAudit(c, "pool_auth.create", map[string]interface{}{
+		"pool":  poolID,
+		"label": strings.TrimSpace(reqBody.Label),
+	})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pool_id": poolID, "status": "provisioning"}})
+}
+
+// GetPoolCreateStatus GET /api/pool/create/status?id=xxx — poll provisioning
+// progress. On success the pool is registered and status becomes "ready".
+func GetPoolCreateStatus(c *gin.Context) {
+	poolID := strings.TrimSpace(c.Query("id"))
+	if poolID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "id is required"})
+		return
+	}
+	status, err := service.PollPoolProvision(poolID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pool_id": poolID, "status": "error", "error": err.Error()}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pool_id": poolID, "status": status}})
+}
+
 // auditPoolID normalizes the pool query param for audit entries ("" resolves
 // to the default pool, mirroring common.ResolvePoolMgmt).
 func auditPoolID(poolID string) string {

@@ -63,6 +63,27 @@ tri 上迁移步骤:
 5. **构建 + 换容器**:`SKIP_WEB=1 bash deploy/build-newapi.sh <tag>` → `IMAGE=winbeau/xju-newapi:<tag> bash deploy/run-newapi.sh` → 验活。
 6. **回滚**:布局回滚 = `git checkout d02c62c`(重组前最后一个 commit,旧脚本名照旧用)+ 旧镜像 tag 重跑;数据不涉及。
 
+## 号池一键开池 host helper(#4 Phase B,一次性安装)
+
+前端「新建号池」→ new-api(容器内,**不碰 docker socket**)写开通请求 → 宿主 watcher 接单起独立 cliproxy 实例。安全边界:new-api 只读写共享目录,docker 操作全在宿主 watcher(以有 docker 权限的 winbeau 跑)。
+
+**安装(在 claude-tri 上,一次性)**:
+```bash
+# 1) 共享目录(watcher 属主,new-api 容器 root 写请求进来它也能 mv)
+sudo install -d -o winbeau -g winbeau /opt/xju-api/provision/{requests,results,processed}
+# 2) systemd unit(按需改 ExecStart 仓库路径)
+sudo cp /home/winbeau/opt/xju-api/deploy/xju-provision.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now xju-provision.service
+systemctl status xju-provision.service          # 应 active (running)
+# 3) new-api 容器要挂 /provision(run-newapi.sh 已含 -v /opt/xju-api/provision:/provision
+#    + POOL_PROVISION_DIR=/provision),重跑一次换上即可
+IMAGE=winbeau/xju-newapi:<tag> bash deploy/run-newapi.sh
+```
+
+**契约**:请求 `provision/requests/<id>.json`(new-api 写,644,无密钥)→ watcher 起 `cli-proxy-api-<id>` 容器(新端口、接 xju-net、config 克隆自 `config.k12.example.yaml`)→ 结果 `provision/results/<id>.json`(watcher 写,600,含 mgmt_secret/internal_key)→ new-api 轮询后写动态注册表 `/opt/new-api/data/xju-pools.json`。
+
+**排障**:`journalctl -u xju-provision -f` 看 watcher 日志;`docker ps | grep cli-proxy-api-` 看新实例;`docker logs cli-proxy-api-<id>` 看 cliproxy 起没起。开通卡在 provisioning:多半 watcher 没跑或 xju-net/端口冲突。**删池**:前端删或写 `{"action":"delete","pool_id":"<id>"}` 到 requests/(停容器+删 config/env,保留 auths-<id>/ 号不丢)。
+
 ## 备份 / 恢复
 
 - 备份：[deploy/backup.sh](../deploy/backup.sh)，cron 每日 04:30，滚动保 7 份于 `/opt/backups/xju-api/`。

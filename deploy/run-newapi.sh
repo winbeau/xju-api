@@ -62,6 +62,8 @@ docker run -d \
 	-e POOL_K12_MGMT_URL="${POOL_K12_MGMT_URL:-http://cli-proxy-api-k12:8318}" \
 	-e POOL_K12_MGMT_SECRET="$POOL_K12_MGMT_SECRET" \
 	-e POOL_REGISTRY_FILE="${POOL_REGISTRY_FILE:-/data/xju-pools.json}" \
+	-e POOL_PROVISION_DIR="${POOL_PROVISION_DIR:-/provision}" \
+	-v "${PROVISION_DIR:-/opt/xju-api/provision}":/provision \
 	-v "$DATA_DIR":/data \
 	-v "$LOG_DIR":/app/logs \
 	"$IMAGE"

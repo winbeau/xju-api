@@ -1,0 +1,29 @@
+# deploy/xju-provision.service — 号池开通 watcher(#4 Phase B,B2 宿主 helper)
+#
+# 安装(一次性,在 claude-tri 上):
+#   sudo cp deploy/xju-provision.service /etc/systemd/system/xju-provision.service
+#   # 按需改 User= 与 ExecStart 路径(仓库 clone 位置)
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now xju-provision.service
+#   systemctl status xju-provision.service
+#
+# 该 daemon 以有 docker 权限的用户跑,是 new-api(容器内不碰 docker socket)开通
+# 独立 cliproxy 号池实例的唯一执行者。契约见 provision-poold.sh 头注释。
+
+[Unit]
+Description=xju-api pool provisioning watcher
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=winbeau
+# 仓库 clone 路径按实际改(claude-tri 现为 /home/winbeau/opt/xju-api)
+ExecStart=/home/winbeau/opt/xju-api/deploy/provision-poold.sh
+Environment=PROVISION_DIR=/opt/xju-api/provision
+Environment=CLIPROXY_DIR=/opt/cli-proxy-api
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
