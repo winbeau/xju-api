@@ -50,15 +50,16 @@ export function formatCompactNumber(
 }
 
 /**
- * Format a token count with a fixed k/M unit and 3 decimals:
- *   < 10M tokens -> thousands, e.g. "2.592k"
- *   >= 10M tokens -> millions, e.g. "15.000M"
+ * Format a token count, identically in every locale:
+ *   < 10M tokens  -> plain integer with comma thousands separators, e.g. "2,592,000"
+ *   >= 10M tokens -> millions with 2 decimals, e.g. "15.00M"
  * The trailing " tokens" word is added by the caller (kept translatable).
  */
 export function formatTokenCount(value: number | null | undefined): string {
   const n = Number(value) || 0
-  if (n >= 10_000_000) return `${(n / 1_000_000).toFixed(3)}M`
-  return `${(n / 1_000).toFixed(3)}k`
+  if (n >= 10_000_000) return `${(n / 1_000_000).toFixed(2)}M`
+  // Fixed en-US grouping so all languages render the same "1,234,567".
+  return Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)
 }
 
 export function formatPercent(value: number | null | undefined): string {
@@ -223,16 +224,6 @@ export function formatLogQuota(quota: number): string {
     digitsSmall: 6,
     abbreviate: false,
   })
-}
-
-/**
- * Format tokens count with K/M suffixes
- */
-export function formatTokens(tokens: number): string {
-  if (tokens === 0) return '-'
-  if (tokens < 1000) return tokens.toString()
-  if (tokens < 1000000) return `${(tokens / 1000).toFixed(1)}K`
-  return `${(tokens / 1000000).toFixed(2)}M`
 }
 
 /**

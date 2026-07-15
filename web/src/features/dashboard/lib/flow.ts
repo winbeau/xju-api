@@ -32,6 +32,7 @@ import type {
   FlowSummary,
   ProcessedFlowData,
 } from '@/features/dashboard/types'
+import { formatTokenCount } from '@/lib/format'
 
 import { getDashboardChartColors } from './charts'
 
@@ -834,6 +835,12 @@ function formatNumber(value: number): string {
   )
 }
 
+// Token counts follow the shared site-wide token format; other metrics keep
+// the plain grouped integer.
+function formatMetricLabel(value: number, metric: FlowMetric): string {
+  return metric === 'tokens' ? formatTokenCount(value) : formatNumber(value)
+}
+
 function buildUserFilterOptions(
   rows: FlowQuotaDataItem[],
   metric: FlowMetric = 'quota',
@@ -870,7 +877,7 @@ function buildUserFilterOptions(
     .map(([value, user]) => ({
       value,
       label: user.label,
-      valueLabel: formatNumber(user.value),
+      valueLabel: formatMetricLabel(user.value, metric),
       valueRaw: user.value,
       color: user.color,
     }))
@@ -931,7 +938,7 @@ function buildNodeFilterOptions(
         kind: rank.node.kind,
         value: rank.node.id,
         label: rank.node.label,
-        valueLabel: formatNumber(rank.value),
+        valueLabel: formatMetricLabel(rank.value, metric),
         valueRaw: rank.value,
         color: colors.get(rank.node.id) ?? colorAt(0, palette),
       })
@@ -1099,7 +1106,7 @@ function tooltipMetricLines(
     {
       key: labels.tokens,
       value: (datum: Record<string, unknown>) =>
-        formattedNumber(datum, 'tokens'),
+        formatTokenCount(metricValue(datum, 'tokens')),
     },
     {
       key: labels.requests,

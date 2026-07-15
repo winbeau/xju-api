@@ -42,7 +42,11 @@ import { Label } from '@/components/ui/label'
 import { DynamicPricingBreakdown } from '@/features/pricing/components/dynamic-pricing-breakdown'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
-import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
+import {
+  formatLogQuota,
+  formatTokenCount,
+  formatUseTime,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { UsageLog } from '../../data/schema'
@@ -399,44 +403,44 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
 
   const rows: Array<{ label: string; value: string }> = []
 
-  rows.push({ label: t('Input Tokens'), value: promptTokens.toLocaleString() })
+  rows.push({ label: t('Input Tokens'), value: formatTokenCount(promptTokens) })
   rows.push({
     label: t('Output Tokens'),
-    value: completionTokens.toLocaleString(),
+    value: formatTokenCount(completionTokens),
   })
 
   if (cacheRead > 0) {
     rows.push({
       label: t('Cache Read'),
-      value: cacheRead.toLocaleString(),
+      value: formatTokenCount(cacheRead),
     })
   }
 
   if (cacheWrite > 0 && cacheWrite5m === 0 && cacheWrite1h === 0) {
     rows.push({
       label: t('Cache Write'),
-      value: cacheWrite.toLocaleString(),
+      value: formatTokenCount(cacheWrite),
     })
   }
 
   if (cacheWrite5m > 0) {
     rows.push({
       label: t('Cache Write (5m)'),
-      value: cacheWrite5m.toLocaleString(),
+      value: formatTokenCount(cacheWrite5m),
     })
   }
 
   if (cacheWrite1h > 0) {
     rows.push({
       label: t('Cache Write (1h)'),
-      value: cacheWrite1h.toLocaleString(),
+      value: formatTokenCount(cacheWrite1h),
     })
   }
 
   if (other.image && other.image_output) {
     rows.push({
       label: t('Image Tokens'),
-      value: other.image_output.toLocaleString(),
+      value: formatTokenCount(other.image_output),
     })
   }
 
@@ -965,28 +969,28 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {other.audio_input != null && other.audio_input > 0 && (
               <DetailRow
                 label={t('Audio Input')}
-                value={formatTokens(other.audio_input)}
+                value={formatTokenCount(other.audio_input)}
                 mono
               />
             )}
             {other.audio_output != null && other.audio_output > 0 && (
               <DetailRow
                 label={t('Audio Output')}
-                value={formatTokens(other.audio_output)}
+                value={formatTokenCount(other.audio_output)}
                 mono
               />
             )}
             {other.text_input != null && other.text_input > 0 && (
               <DetailRow
                 label={t('Text Input')}
-                value={formatTokens(other.text_input)}
+                value={formatTokenCount(other.text_input)}
                 mono
               />
             )}
             {other.text_output != null && other.text_output > 0 && (
               <DetailRow
                 label={t('Text Output')}
-                value={formatTokens(other.text_output)}
+                value={formatTokenCount(other.text_output)}
                 mono
               />
             )}

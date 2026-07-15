@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
-import { formatTimestampToDate } from '@/lib/format'
+import { formatTimestampToDate, formatTokenCount } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { LOG_TYPE_ENUM } from '../constants'
@@ -217,17 +217,17 @@ function MobileTokensField({ log }: { log: UsageLog }) {
     <div className='bg-muted/20 min-w-0 rounded-md px-2 py-1.5'>
       <div className='flex flex-col gap-0.5'>
         <span className='font-mono text-xs font-medium tabular-nums'>
-          {promptTokens.toLocaleString()} / {completionTokens.toLocaleString()}
+          {formatTokenCount(promptTokens)} / {formatTokenCount(completionTokens)}
         </span>
         {showCache ? (
           <div className='text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-none'>
             {cacheReadTokens > 0 && (
               <span>
-                {t('Cache')}↓ {cacheReadTokens.toLocaleString()}
+                {t('Cache')}↓ {formatTokenCount(cacheReadTokens)}
               </span>
             )}
             {cacheWriteTokens > 0 && (
-              <span>↑ {cacheWriteTokens.toLocaleString()}</span>
+              <span>↑ {formatTokenCount(cacheWriteTokens)}</span>
             )}
           </div>
         ) : (

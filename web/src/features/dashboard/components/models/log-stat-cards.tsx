@@ -33,7 +33,12 @@ import type {
   DashboardFilters,
 } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
-import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
+import {
+  formatCompactNumber,
+  formatNumber,
+  formatQuota,
+  formatTokenCount,
+} from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -124,13 +129,21 @@ export function LogStatCards(props: LogStatCardsProps) {
   const items = statCardsConfig.map((config) => {
     const rawValue = config.getValue(adaptedStats, timeRangeMinutes)
     const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
-    const formatted =
-      config.key === 'quota'
-        ? {
-            displayValue: formatQuota(rawValue),
-            fullValue: formatQuota(rawValue),
-          }
-        : formatStatNumber(rawValue, locale)
+    let formatted
+    if (config.key === 'quota') {
+      formatted = {
+        displayValue: formatQuota(rawValue),
+        fullValue: formatQuota(rawValue),
+      }
+    } else if (config.key === 'tokens' || config.key === 'avgTpm') {
+      // Token counts share one locale-independent format (see formatTokenCount).
+      formatted = {
+        displayValue: formatTokenCount(rawValue),
+        fullValue: formatNumber(rawValue, locale),
+      }
+    } else {
+      formatted = formatStatNumber(rawValue, locale)
+    }
 
     return {
       title: config.title,

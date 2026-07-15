@@ -37,7 +37,11 @@ import {
 } from '@/components/ui/tooltip'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
-import { formatLogQuota, formatTimestampToDate } from '@/lib/format'
+import {
+  formatLogQuota,
+  formatTimestampToDate,
+  formatTokenCount,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { LOG_TYPE_ALL_VALUE } from '../../constants'
@@ -673,19 +677,19 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         return (
           <div className='flex flex-col gap-0.5'>
             <span className='font-mono text-xs font-medium tabular-nums'>
-              {promptTokens.toLocaleString()} /{' '}
-              {completionTokens.toLocaleString()}
+              {formatTokenCount(promptTokens)} /{' '}
+              {formatTokenCount(completionTokens)}
             </span>
             {(cacheReadTokens > 0 || cacheWriteTokens > 0) && (
               <div className='flex items-center gap-1 text-[11px]'>
                 {cacheReadTokens > 0 && (
                   <span className='text-muted-foreground/60'>
-                    {t('Cache')}↓ {cacheReadTokens.toLocaleString()}
+                    {t('Cache')}↓ {formatTokenCount(cacheReadTokens)}
                   </span>
                 )}
                 {cacheWriteTokens > 0 && (
                   <span className='text-muted-foreground/60'>
-                    ↑ {cacheWriteTokens.toLocaleString()}
+                    ↑ {formatTokenCount(cacheWriteTokens)}
                   </span>
                 )}
               </div>
