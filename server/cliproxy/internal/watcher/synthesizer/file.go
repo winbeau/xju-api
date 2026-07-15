@@ -207,13 +207,23 @@ func synthesizeFileAuths(ctx *SynthesisContext, fullPath string, data []byte) []
 	coreauth.ApplyCustomHeadersFromMetadata(a)
 	coreauth.SetOAuthModelAliasesAttribute(a, perAccountModelAliases)
 	ApplyAuthExcludedModelsMeta(a, cfg, perAccountExcluded, "oauth")
-	// For codex auth files, extract plan_type from the JWT id_token.
+	// For codex auth files, extract plan_type from the JWT. Prefer the id_token,
+	// but fall back to the access_token: a refresh-token grant returns no id_token,
+	// so a refreshed account keeps its plan only in the access_token (both carry the
+	// same "https://api.openai.com/auth" claim).
 	if provider == "codex" {
-		if idTokenRaw, ok := metadata["id_token"].(string); ok && strings.TrimSpace(idTokenRaw) != "" {
-			if claims, errParse := codex.ParseJWTToken(idTokenRaw); errParse == nil && claims != nil {
-				if pt := strings.TrimSpace(claims.CodexAuthInfo.ChatgptPlanType); pt != "" {
-					a.Attributes["plan_type"] = pt
-				}
+		for _, key := range []string{"id_token", "access_token"} {
+			tokenRaw, ok := metadata[key].(string)
+			if !ok || strings.TrimSpace(tokenRaw) == "" {
+				continue
+			}
+			claims, errParse := codex.ParseJWTToken(strings.TrimSpace(tokenRaw))
+			if errParse != nil || claims == nil {
+				continue
+			}
+			if pt := strings.TrimSpace(claims.CodexAuthInfo.ChatgptPlanType); pt != "" {
+				a.Attributes["plan_type"] = pt
+				break
 			}
 		}
 	}

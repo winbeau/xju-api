@@ -336,7 +336,12 @@ func isNonRetryableRefreshErr(err error) bool {
 // UpdateTokenStorage updates an existing CodexTokenStorage with new token data.
 // This is typically called after a successful token refresh to persist the new credentials.
 func (o *CodexAuth) UpdateTokenStorage(storage *CodexTokenStorage, tokenData *CodexTokenData) {
-	storage.IDToken = tokenData.IDToken
+	// A refresh-token grant returns no id_token, so overwriting unconditionally
+	// would drop the identity/plan claims. Preserve the existing id_token when the
+	// refresh omits it.
+	if strings.TrimSpace(tokenData.IDToken) != "" {
+		storage.IDToken = tokenData.IDToken
+	}
 	storage.AccessToken = tokenData.AccessToken
 	storage.RefreshToken = tokenData.RefreshToken
 	storage.AccountID = tokenData.AccountID

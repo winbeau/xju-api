@@ -627,16 +627,16 @@ func extractCodexIDTokenClaims(auth *coreauth.Auth) gin.H {
 	if !strings.EqualFold(strings.TrimSpace(auth.Provider), "codex") {
 		return nil
 	}
-	idTokenRaw, ok := auth.Metadata["id_token"].(string)
-	if !ok {
-		return nil
+	// Prefer the id_token, but fall back to the access_token. OpenAI's
+	// refresh-token grant returns a new access_token without an id_token, so a
+	// long-lived account loses its id_token after its first refresh. The
+	// access_token is itself a JWT carrying the same "https://api.openai.com/auth"
+	// claim (plan + subscription window), so it recovers what the id_token would show.
+	claims := parseCodexMetadataJWT(auth.Metadata, "id_token")
+	if claims == nil {
+		claims = parseCodexMetadataJWT(auth.Metadata, "access_token")
 	}
-	idToken := strings.TrimSpace(idTokenRaw)
-	if idToken == "" {
-		return nil
-	}
-	claims, err := codex.ParseJWTToken(idToken)
-	if err != nil || claims == nil {
+	if claims == nil {
 		return nil
 	}
 
@@ -658,6 +658,25 @@ func extractCodexIDTokenClaims(auth *coreauth.Auth) gin.H {
 		return nil
 	}
 	return result
+}
+
+// parseCodexMetadataJWT parses the JWT stored under metadata[key] (an id_token or
+// access_token) and returns its claims, or nil if the value is missing, empty, or
+// not a parseable JWT.
+func parseCodexMetadataJWT(metadata map[string]any, key string) *codex.JWTClaims {
+	raw, ok := metadata[key].(string)
+	if !ok {
+		return nil
+	}
+	token := strings.TrimSpace(raw)
+	if token == "" {
+		return nil
+	}
+	claims, err := codex.ParseJWTToken(token)
+	if err != nil {
+		return nil
+	}
+	return claims
 }
 
 func authEmail(auth *coreauth.Auth) string {

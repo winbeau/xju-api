@@ -1399,7 +1399,14 @@ func (e *CodexExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*
 	if auth.Metadata == nil {
 		auth.Metadata = make(map[string]any)
 	}
-	auth.Metadata["id_token"] = td.IDToken
+	// OpenAI's refresh-token grant returns a new access_token but no id_token, so
+	// an unconditional assignment here would wipe the id_token (and the plan /
+	// subscription claims it carries) on the first refresh. Keep the existing one
+	// when the refresh response omits it — same guard the refresh_token / account_id
+	// writes below already use.
+	if strings.TrimSpace(td.IDToken) != "" {
+		auth.Metadata["id_token"] = td.IDToken
+	}
 	auth.Metadata["access_token"] = td.AccessToken
 	if td.RefreshToken != "" {
 		auth.Metadata["refresh_token"] = td.RefreshToken
