@@ -211,6 +211,9 @@ func SetApiRouter(router *gin.Engine) {
 			poolRoute.POST("/auth-files", controller.AddPoolAuthFile)
 			poolRoute.POST("/auth-files/import", controller.ImportPoolAuthFiles)
 			poolRoute.POST("/auth-files/clean", controller.CleanPoolAuthFilesNow)
+			poolRoute.POST("/auth-files/verify", controller.VerifyPoolAuthFile)
+			poolRoute.POST("/auth-files/verify-all", controller.VerifyPoolAuthFilesNow)
+			poolRoute.GET("/auth-files/verify-all/progress", controller.GetVerifyPoolProgress)
 			poolRoute.PATCH("/auth-files/status", controller.SetPoolAuthFileStatus)
 			poolRoute.DELETE("/auth-files", controller.DeletePoolAuthFile)
 		}

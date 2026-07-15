@@ -280,6 +280,81 @@ func DeletePoolAuthFile(c *gin.Context) {
 	}
 }
 
+// xju-api:new — active verification (号池验活 Part A). These handlers verify
+// whether pool accounts are actually online by pinning a probe request to each
+// via cliproxy's api-call, rather than trusting the passively-set `unavailable`
+// flag. Single verify only reports; verify-all can opt into auto-disabling the
+// accounts it finds genuinely dead.
+
+type verifyPoolAuthFileRequest struct {
+	Name  string `json:"name"`
+	Heavy bool   `json:"heavy"`
+}
+
+// VerifyPoolAuthFile POST /api/pool/auth-files/verify — verify one account and
+// return its verdict. Report-only: it never changes account state.
+func VerifyPoolAuthFile(c *gin.Context) {
+	var reqBody verifyPoolAuthFileRequest
+	if err := common.DecodeJson(c.Request.Body, &reqBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request body"})
+		return
+	}
+	name := sanitizePoolAuthName(reqBody.Name)
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "name is required"})
+		return
+	}
+	result, err := service.ProbeAuthByName(c.Query("pool"), name, reqBody.Heavy)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	recordManageAudit(c, "pool_auth.verify", map[string]interface{}{
+		"pool":    auditPoolID(c.Query("pool")),
+		"name":    name,
+		"verdict": string(result.Verdict),
+	})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
+type verifyPoolAllRequest struct {
+	Heavy       bool `json:"heavy"`
+	AutoDisable bool `json:"auto_disable"`
+}
+
+// VerifyPoolAuthFilesNow POST /api/pool/auth-files/verify-all — start a
+// background full-pool verification and return the initial job snapshot. The
+// frontend polls the progress endpoint. Refuses to start a second run while one
+// is already in flight for the pool.
+func VerifyPoolAuthFilesNow(c *gin.Context) {
+	var reqBody verifyPoolAllRequest
+	// Body is optional (both flags default false); ignore decode errors on empty.
+	_ = common.DecodeJson(c.Request.Body, &reqBody)
+
+	snap, err := service.StartProbePoolJob(c.Query("pool"), reqBody.Heavy, reqBody.AutoDisable)
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "data": snap})
+		return
+	}
+	recordManageAudit(c, "pool_auth.verify_all", map[string]interface{}{
+		"pool":         auditPoolID(c.Query("pool")),
+		"heavy":        reqBody.Heavy,
+		"auto_disable": reqBody.AutoDisable,
+	})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": snap})
+}
+
+// GetVerifyPoolProgress GET /api/pool/auth-files/verify-all/progress — the
+// latest verify-all job snapshot for the pool (running or finished).
+func GetVerifyPoolProgress(c *gin.Context) {
+	snap, ok := service.GetProbePoolJob(c.Query("pool"))
+	if !ok {
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": snap})
+}
+
 // auditPoolID normalizes the pool query param for audit entries ("" resolves
 // to the default pool, mirroring common.ResolvePoolMgmt).
 func auditPoolID(poolID string) string {

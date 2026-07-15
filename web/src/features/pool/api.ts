@@ -178,6 +178,79 @@ export async function cleanPoolAuthFilesNow(pool: string): Promise<number> {
   return res.data.data?.disabled ?? 0
 }
 
+// xju-api:new — active verification (号池验活 Part A). Verdicts are the
+// classified health of an account, produced by probing it through the pool.
+export type ProbeVerdict =
+  | 'online'
+  | 'credential_dead'
+  | 'rate_limited'
+  | 'quota_exhausted'
+  | 'subscription_expired'
+  | 'unknown'
+
+export type ProbeResult = {
+  name: string
+  auth_index: string
+  verdict: ProbeVerdict
+  http_code: number
+  detail: string
+  at: number
+}
+
+export type ProbeJobSnapshot = {
+  running: boolean
+  total: number
+  done: number
+  started_at: number
+  finished_at: number
+  heavy: boolean
+  auto_disable: boolean
+  disabled: number
+  results: ProbeResult[]
+  error: string
+}
+
+export async function verifyPoolAuthFile(
+  pool: string,
+  name: string,
+  heavy: boolean
+): Promise<ProbeResult> {
+  const res = await api.post<ApiEnvelope<ProbeResult>>(
+    `/api/pool/auth-files/verify${poolQuery(pool)}`,
+    { name, heavy }
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to verify account')
+  }
+  return res.data.data
+}
+
+export async function startVerifyAll(
+  pool: string,
+  opts: { heavy: boolean; autoDisable: boolean }
+): Promise<ProbeJobSnapshot> {
+  const res = await api.post<ApiEnvelope<ProbeJobSnapshot>>(
+    `/api/pool/auth-files/verify-all${poolQuery(pool)}`,
+    { heavy: opts.heavy, auto_disable: opts.autoDisable }
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to start verification')
+  }
+  return res.data.data
+}
+
+export async function getVerifyProgress(
+  pool: string
+): Promise<ProbeJobSnapshot | null> {
+  const res = await api.get<ApiEnvelope<ProbeJobSnapshot | null>>(
+    `/api/pool/auth-files/verify-all/progress${poolQuery(pool)}`
+  )
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to load verification progress')
+  }
+  return res.data.data ?? null
+}
+
 /**
  * Derive a stable, human-legible filename from a pasted codex auth JSON. Codex
  * files carry an email/account id; use it so the pool list is readable and

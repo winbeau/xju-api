@@ -67,6 +67,7 @@ func runPoolAutoCleanOnce() {
 
 type poolAuthEntry struct {
 	Name        string `json:"name"`
+	AuthIndex   string `json:"auth_index"`
 	Disabled    bool   `json:"disabled"`
 	Unavailable bool   `json:"unavailable"`
 	UpdatedAt   string `json:"updated_at"`

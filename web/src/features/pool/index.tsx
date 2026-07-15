@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  Activity,
   ClipboardPaste,
   FileArchive,
   Loader2,
@@ -25,11 +26,12 @@ import {
   Plus,
   Power,
   RefreshCw,
+  ShieldCheck,
   Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react'
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -52,13 +54,18 @@ import {
   cleanPoolAuthFilesNow,
   deletePoolAuthFile,
   deriveAuthFileName,
+  getVerifyProgress,
   importPoolAuthFiles,
   listPoolAuthFiles,
   listPools,
   setPoolAuthFileDisabled,
+  startVerifyAll,
+  verifyPoolAuthFile,
   type ImportResult,
   type PoolAuthFile,
   type PoolInfo,
+  type ProbeResult,
+  type ProbeVerdict,
 } from '@/features/pool/api'
 import { useStatus } from '@/hooks/use-status'
 import { api } from '@/lib/api'
@@ -96,6 +103,39 @@ const STATE_META: Record<
   expired: { labelKey: 'Subscription expired', variant: 'danger' },
   // Transient cooldown that self-heals when NextRetryAfter passes — amber, not red.
   unavailable: { labelKey: 'Unavailable', variant: 'warning' },
+}
+
+// xju-api:new — verdict → badge style/label for active verification results.
+const VERDICT_META: Record<
+  ProbeVerdict,
+  { labelKey: string; variant: 'success' | 'neutral' | 'danger' | 'warning' }
+> = {
+  online: { labelKey: 'Online', variant: 'success' },
+  credential_dead: { labelKey: 'Credential dead', variant: 'danger' },
+  subscription_expired: { labelKey: 'Subscription expired', variant: 'danger' },
+  quota_exhausted: { labelKey: 'Quota exhausted', variant: 'warning' },
+  rate_limited: { labelKey: 'Rate limited', variant: 'warning' },
+  unknown: { labelKey: 'Unknown', variant: 'neutral' },
+}
+
+// xju-api:new — count verify results by verdict, in a stable display order, for
+// the verify-all summary breakdown.
+const VERDICT_ORDER: ProbeVerdict[] = [
+  'online',
+  'credential_dead',
+  'subscription_expired',
+  'quota_exhausted',
+  'rate_limited',
+  'unknown',
+]
+
+function verdictBreakdown(results: ProbeResult[]): [ProbeVerdict, number][] {
+  const counts = new Map<ProbeVerdict, number>()
+  for (const r of results) counts.set(r.verdict, (counts.get(r.verdict) ?? 0) + 1)
+  return VERDICT_ORDER.filter((v) => counts.has(v)).map((v) => [
+    v,
+    counts.get(v) ?? 0,
+  ])
 }
 
 // xju-api:new — aggregate the 10-minute recent-request buckets into a success
@@ -141,6 +181,10 @@ export function Pool() {
   const [content, setContent] = useState('')
   const [pool, setPool] = useState('default')
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  // xju-api:new — per-account verify verdicts (keyed by file name) + verify-all options.
+  const [verdicts, setVerdicts] = useState<Record<string, ProbeResult>>({})
+  const [heavyProbe, setHeavyProbe] = useState(false)
+  const [autoDisable, setAutoDisable] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const zipInputRef = useRef<HTMLInputElement>(null)
 
@@ -245,6 +289,55 @@ export function Pool() {
     onError: () => toast.error(t('Save failed')),
   })
 
+  // xju-api:new — single-account verify (report-only, never changes state).
+  const verifyMutation = useMutation({
+    mutationFn: (name: string) => verifyPoolAuthFile(pool, name, heavyProbe),
+    onSuccess: (result) =>
+      setVerdicts((prev) => ({ ...prev, [result.name]: result })),
+    onError: (error: Error) => toast.error(error.message),
+  })
+
+  // xju-api:new — verify-all: kick off the background job, then poll progress.
+  const verifyAllMutation = useMutation({
+    mutationFn: () => startVerifyAll(pool, { heavy: heavyProbe, autoDisable }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pool', 'verify', pool] })
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+
+  const progressQuery = useQuery({
+    queryKey: ['pool', 'verify', pool],
+    queryFn: () => getVerifyProgress(pool),
+    // Poll while a run is in flight; otherwise leave the last snapshot in place.
+    refetchInterval: (query) =>
+      query.state.data?.running ? 2000 : false,
+  })
+  const progress = progressQuery.data ?? null
+
+  // Fold the job's per-account results into the same verdict map the row badges
+  // read, and refresh the list once when a run finishes (auto-disable may have
+  // changed account state).
+  const jobRunning = progress?.running ?? false
+  const jobResultCount = progress?.results.length ?? 0
+  const prevRunning = useRef(false)
+  useEffect(() => {
+    if (!progress?.results?.length) return
+    setVerdicts((prev) => {
+      const next = { ...prev }
+      for (const r of progress.results) next[r.name] = r
+      return next
+    })
+  }, [progress?.results, jobResultCount])
+  useEffect(() => {
+    if (prevRunning.current && !jobRunning) {
+      queryClient.invalidateQueries({
+        queryKey: ['pool', 'auth-files', pool],
+      })
+    }
+    prevRunning.current = jobRunning
+  }, [jobRunning, pool, queryClient])
+
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText()
@@ -279,6 +372,9 @@ export function Pool() {
   const files = listQuery.data ?? []
   const listReady = !listQuery.isLoading && !listQuery.isError
   const activeCount = files.filter((f) => accountState(f) === 'ok').length
+  const verifyingName = verifyMutation.isPending
+    ? verifyMutation.variables
+    : null
 
   return (
     <SectionPageLayout>
@@ -365,6 +461,10 @@ export function Pool() {
                       const subUntil = subscriptionUntil(file)
                       const activity = recentActivity(file)
                       const cooldown = cooldownLabel(file)
+                      const verdict = verdicts[file.name]
+                      const verdictMeta = verdict
+                        ? VERDICT_META[verdict.verdict]
+                        : null
                       return (
                         <li
                           key={file.name}
@@ -387,6 +487,13 @@ export function Pool() {
                                 >
                                   {plan}
                                 </Badge>
+                              )}
+                              {verdictMeta && (
+                                <StatusBadge
+                                  label={`✓ ${t(verdictMeta.labelKey)}`}
+                                  variant={verdictMeta.variant}
+                                  copyable={false}
+                                />
                               )}
                             </div>
                             <p className='text-muted-foreground truncate font-mono text-xs'>
@@ -438,6 +545,21 @@ export function Pool() {
                             </div>
                           </div>
                           <div className='flex shrink-0 items-center gap-1'>
+                            <Button
+                              type='button'
+                              variant='ghost'
+                              size='icon-sm'
+                              aria-label={t('Verify')}
+                              title={t('Verify now')}
+                              onClick={() => verifyMutation.mutate(file.name)}
+                              disabled={verifyMutation.isPending}
+                            >
+                              {verifyingName === file.name ? (
+                                <Loader2 className='size-4 animate-spin' />
+                              ) : (
+                                <Activity className='size-4' />
+                              )}
+                            </Button>
                             <Button
                               type='button'
                               variant='ghost'
@@ -630,6 +752,97 @@ export function Pool() {
                   )}
                   {t('Clean now')}
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* xju-api:new — active verification (号池验活 Part A) */}
+            <Card data-card-hover='false'>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-1.5 text-base'>
+                  <ShieldCheck className='size-4' />
+                  {t('Verify accounts')}
+                </CardTitle>
+                <CardDescription>
+                  {t(
+                    'Probe each account live to confirm it is actually online, instead of trusting the passive status.'
+                  )}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className='grid gap-3'>
+                <div className='flex items-start justify-between gap-3'>
+                  <div className='min-w-0'>
+                    <span className='text-sm font-medium'>
+                      {t('Deep probe')}
+                    </span>
+                    <p className='text-muted-foreground text-xs'>
+                      {t(
+                        'Also run a tiny inference to catch quota-exhausted accounts (uses a little quota).'
+                      )}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={heavyProbe}
+                    onCheckedChange={setHeavyProbe}
+                    disabled={jobRunning}
+                  />
+                </div>
+                <div className='flex items-start justify-between gap-3'>
+                  <div className='min-w-0'>
+                    <span className='text-sm font-medium'>
+                      {t('Auto-disable dead')}
+                    </span>
+                    <p className='text-muted-foreground text-xs'>
+                      {t(
+                        'Disable accounts found credential-dead or subscription-expired.'
+                      )}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={autoDisable}
+                    onCheckedChange={setAutoDisable}
+                    disabled={jobRunning}
+                  />
+                </div>
+                <Button
+                  type='button'
+                  onClick={() => verifyAllMutation.mutate()}
+                  disabled={verifyAllMutation.isPending || jobRunning}
+                >
+                  {jobRunning ? (
+                    <Loader2 className='animate-spin' />
+                  ) : (
+                    <ShieldCheck />
+                  )}
+                  {t('Verify all')}
+                </Button>
+                {progress && (progress.running || progress.done > 0) && (
+                  <div className='border-border rounded-md border p-2 text-xs'>
+                    {progress.running ? (
+                      <p>
+                        {t('Verifying {{done}}/{{total}}...', {
+                          done: progress.done,
+                          total: progress.total,
+                        })}
+                      </p>
+                    ) : (
+                      <p className='font-medium'>
+                        {t('Verified {{total}} · disabled {{disabled}}', {
+                          total: progress.total,
+                          disabled: progress.disabled,
+                        })}
+                      </p>
+                    )}
+                    <div className='text-muted-foreground mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5'>
+                      {verdictBreakdown(progress.results).map(
+                        ([verdict, count]) => (
+                          <span key={verdict}>
+                            {t(VERDICT_META[verdict].labelKey)}: {count}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
