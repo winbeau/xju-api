@@ -1,11 +1,24 @@
 package common
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// resetPoolRegCache clears the mtime-keyed dynamic-registry cache so each test
+// starts clean (the cache is package-level, shared across tests).
+func resetPoolRegCache() {
+	poolRegMu.Lock()
+	poolRegLoaded = false
+	poolRegEntries = nil
+	poolRegMtime = time.Time{}
+	poolRegMu.Unlock()
+}
 
 func TestResolvePoolMgmt(t *testing.T) {
 	t.Setenv("POOL_MGMT_URL", "http://cli-proxy-api:8317")
@@ -51,4 +64,83 @@ func TestListConfiguredPools(t *testing.T) {
 	pools = ListConfiguredPools()
 	require.Len(t, pools, 2)
 	assert.Equal(t, "k12", pools[1].ID)
+}
+
+// xju-api:new — dynamic pool registry (号池验活 Part A / #4 Phase A): env-seeded
+// default/k12 plus file-backed dynamic pools, with add/remove/port allocation.
+
+func TestDynamicPoolRegistry(t *testing.T) {
+	t.Setenv("POOL_MGMT_SECRET", "def")
+	t.Setenv("POOL_K12_MGMT_SECRET", "k12")
+	file := filepath.Join(t.TempDir(), "pools.json")
+	t.Setenv("POOL_REGISTRY_FILE", file)
+	resetPoolRegCache()
+	t.Cleanup(resetPoolRegCache)
+
+	// No file yet → only the two env pools.
+	assert.Len(t, ListConfiguredPools(), 2)
+	_, _, ok := ResolvePoolMgmt("edu")
+	assert.False(t, ok)
+
+	require.NoError(t, AddPoolToRegistry(PoolEntry{
+		ID: "edu", Label: "Edu",
+		MgmtURL: "http://cli-proxy-api-edu:8319/", MgmtSecret: "edu-sec", Port: 8319,
+	}))
+
+	base, secret, ok := ResolvePoolMgmt("edu")
+	require.True(t, ok)
+	assert.Equal(t, "http://cli-proxy-api-edu:8319", base) // trailing slash trimmed
+	assert.Equal(t, "edu-sec", secret)
+
+	pools := ListConfiguredPools()
+	require.Len(t, pools, 3)
+	assert.Equal(t, "edu", pools[2].ID)
+	assert.Equal(t, "Edu", pools[2].Label)
+
+	// Duplicates and reserved ids are rejected.
+	assert.Error(t, AddPoolToRegistry(PoolEntry{ID: "edu", MgmtURL: "x", MgmtSecret: "y"}))
+	assert.Error(t, AddPoolToRegistry(PoolEntry{ID: "default", MgmtURL: "x", MgmtSecret: "y"}))
+	assert.Error(t, AddPoolToRegistry(PoolEntry{ID: "k12", MgmtURL: "x", MgmtSecret: "y"}))
+
+	// Next port sits above the highest in use (k12 8318 vs edu 8319).
+	assert.Equal(t, 8320, AllocateNextPoolPort())
+
+	require.NoError(t, RemovePoolFromRegistry("edu"))
+	_, _, ok = ResolvePoolMgmt("edu")
+	assert.False(t, ok)
+	assert.Len(t, ListConfiguredPools(), 2)
+	assert.Error(t, RemovePoolFromRegistry("edu")) // already gone
+}
+
+func TestPoolRegistryIgnoresReservedInFile(t *testing.T) {
+	t.Setenv("POOL_MGMT_SECRET", "def")
+	t.Setenv("POOL_K12_MGMT_SECRET", "")
+	file := filepath.Join(t.TempDir(), "pools.json")
+	// A hand-written file smuggling a reserved id must not override env.
+	require.NoError(t, os.WriteFile(file, []byte(
+		`[{"id":"default","mgmt_url":"bogus","mgmt_secret":"bogus"},`+
+			`{"id":"edu","label":"Edu","mgmt_url":"http://e:8319","mgmt_secret":"s"}]`), 0o600))
+	t.Setenv("POOL_REGISTRY_FILE", file)
+	resetPoolRegCache()
+	t.Cleanup(resetPoolRegCache)
+
+	_, secret, ok := ResolvePoolMgmt("default")
+	require.True(t, ok)
+	assert.Equal(t, "def", secret, "reserved id resolves from env, not the file")
+
+	_, _, ok = ResolvePoolMgmt("edu")
+	assert.True(t, ok)
+
+	ids := make([]string, 0)
+	for _, p := range ListConfiguredPools() {
+		ids = append(ids, p.ID)
+	}
+	assert.Equal(t, []string{"default", "edu"}, ids, "no duplicate default from the file")
+}
+
+func TestSavePoolRegistryRequiresPath(t *testing.T) {
+	t.Setenv("POOL_REGISTRY_FILE", "")
+	resetPoolRegCache()
+	assert.Error(t, SavePoolRegistry([]PoolEntry{{ID: "x"}}))
+	assert.Error(t, AddPoolToRegistry(PoolEntry{ID: "x", MgmtURL: "u", MgmtSecret: "s"}))
 }

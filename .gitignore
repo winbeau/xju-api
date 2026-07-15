@@ -54,3 +54,6 @@ deploy/.pool-mgmt-k12.env
 
 # Playwright MCP 会话产物(截图/快照/日志),永不入库
 .playwright-mcp/
+
+# 动态号池注册表(含 mgmt 密钥,永不入库;实际在数据卷)
+**/xju-pools.json
