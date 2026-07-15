@@ -5279,6 +5279,24 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Verify now": "立即验活",
+    "Verify accounts": "账号验活",
+    "Verify all": "全部验活",
+    "Deep probe": "深度探测",
+    "Auto-disable dead": "自动禁用失效号",
+    "Credential dead": "凭证失效",
+    "Rate limited": "限流中",
+    "Quota exhausted": "配额耗尽",
+    "Subscription expired": "订阅已过期",
+    "Also run a tiny inference to catch quota-exhausted accounts (uses a little quota).": "额外发一次极小推理以识别配额耗尽的账号（会消耗少量额度）。",
+    "Disable accounts found credential-dead or subscription-expired.": "禁用验出凭证失效或订阅过期的账号。",
+    "Probe each account live to confirm it is actually online, instead of trusting the passive status.": "逐个实时探测账号，确认其真实在线，而非依赖被动状态。",
+    "Verifying {{done}}/{{total}}...": "验活中 {{done}}/{{total}}…",
+    "Verified {{total}} · disabled {{disabled}}": "已验活 {{total}} · 已禁用 {{disabled}}",
+    "Expired {{date}}": "{{date}} 已过期",
+    "Subscription until {{date}}": "订阅至 {{date}}",
+    "{{rate}}% ok · {{total}} recent": "{{rate}}% 成功 · 近 {{total}} 次",
+    "cooldown · retries in {{time}}": "冷却中 · {{time}} 后重试"
   }
 }

@@ -118,6 +118,27 @@ const VERDICT_META: Record<
   unknown: { labelKey: 'Unknown', variant: 'neutral' },
 }
 
+// xju-api:new — pool stats split into two orthogonal dimensions so "enabled"
+// (operator toggle) and "online" (health) never conflate. Total counts every
+// account; enabled counts those the operator hasn't disabled; online prefers
+// the live verify verdict and falls back to the passive health proxy.
+function poolStats(
+  files: PoolAuthFile[],
+  verdicts: Record<string, ProbeResult>
+): { total: number; enabled: number; online: number } {
+  let enabled = 0
+  let online = 0
+  for (const f of files) {
+    if (!f.disabled) enabled++
+    const verdict = verdicts[f.name]?.verdict
+    const isOnline = verdict
+      ? verdict === 'online'
+      : accountState(f) === 'ok'
+    if (isOnline) online++
+  }
+  return { total: files.length, enabled, online }
+}
+
 // xju-api:new — count verify results by verdict, in a stable display order, for
 // the verify-all summary breakdown.
 const VERDICT_ORDER: ProbeVerdict[] = [
@@ -371,7 +392,7 @@ export function Pool() {
 
   const files = listQuery.data ?? []
   const listReady = !listQuery.isLoading && !listQuery.isError
-  const activeCount = files.filter((f) => accountState(f) === 'ok').length
+  const stats = poolStats(files, verdicts)
   const verifyingName = verifyMutation.isPending
     ? verifyMutation.variables
     : null
@@ -387,6 +408,8 @@ export function Pool() {
         </span>
       </SectionPageLayout.Title>
       <SectionPageLayout.Content>
+        {/* xju-api:edit — pool tab nav: aligned with the pool cards below and
+            enlarged so switching pools reads as a top-level action. */}
         {pools.length > 1 && (
           <Tabs
             value={pool}
@@ -396,9 +419,13 @@ export function Pool() {
             }}
             className='mb-4'
           >
-            <TabsList>
+            <TabsList className='h-auto gap-1 p-1'>
               {pools.map((p) => (
-                <TabsTrigger key={p.id} value={p.id}>
+                <TabsTrigger
+                  key={p.id}
+                  value={p.id}
+                  className='px-4 py-1.5 text-base font-medium'
+                >
                   {p.label}
                 </TabsTrigger>
               ))}
@@ -412,13 +439,32 @@ export function Pool() {
               <div className='min-w-0'>
                 <CardTitle className='text-base'>
                   {t('Accounts in pool')}
-                  {files.length > 0
-                    ? ` · ${activeCount}/${files.length} ${t('active')}`
-                    : ''}
                 </CardTitle>
                 <CardDescription>
                   {t('Upstream codex accounts behind the shared pool.')}
                 </CardDescription>
+                {/* xju-api:edit — three orthogonal stats: total / enabled
+                    (operator toggle) / online (health), no longer conflated. */}
+                {files.length > 0 && (
+                  <div className='mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs'>
+                    <span className='text-muted-foreground'>
+                      <span className='text-foreground font-semibold'>
+                        {stats.total}
+                      </span>{' '}
+                      {t('Total')}
+                    </span>
+                    <span className='text-muted-foreground'>
+                      <span className='text-foreground font-semibold'>
+                        {stats.enabled}
+                      </span>{' '}
+                      {t('Enabled')}
+                    </span>
+                    <span className='text-success'>
+                      <span className='font-semibold'>{stats.online}</span>{' '}
+                      {t('Online')}
+                    </span>
+                  </div>
+                )}
               </div>
               <Button
                 type='button'

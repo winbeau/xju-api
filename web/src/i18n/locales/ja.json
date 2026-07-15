@@ -5279,6 +5279,24 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Verify now": "今すぐ検証",
+    "Verify accounts": "アカウント検証",
+    "Verify all": "すべて検証",
+    "Deep probe": "ディープ検証",
+    "Auto-disable dead": "無効アカウントを自動無効化",
+    "Credential dead": "認証情報が無効",
+    "Rate limited": "レート制限中",
+    "Quota exhausted": "クォータ枯渇",
+    "Subscription expired": "サブスクリプション期限切れ",
+    "Also run a tiny inference to catch quota-exhausted accounts (uses a little quota).": "クォータ切れのアカウントを検出するため、ごく小さな推論も実行します（少量のクォータを消費）。",
+    "Disable accounts found credential-dead or subscription-expired.": "認証情報が無効、またはサブスク期限切れのアカウントを無効化します。",
+    "Probe each account live to confirm it is actually online, instead of trusting the passive status.": "受動的な状態に頼らず、各アカウントをライブで検証して実際にオンラインか確認します。",
+    "Verifying {{done}}/{{total}}...": "検証中 {{done}}/{{total}}…",
+    "Verified {{total}} · disabled {{disabled}}": "検証済み {{total}} · 無効化 {{disabled}}",
+    "Expired {{date}}": "{{date}} に期限切れ",
+    "Subscription until {{date}}": "{{date}} まで有効",
+    "{{rate}}% ok · {{total}} recent": "{{rate}}% 成功 · 直近 {{total}} 件",
+    "cooldown · retries in {{time}}": "クールダウン · {{time}} 後に再試行"
   }
 }

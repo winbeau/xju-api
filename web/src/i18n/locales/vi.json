@@ -5279,6 +5279,24 @@
     "Zero retention": "Không lưu dữ liệu",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Verify now": "Kiểm tra ngay",
+    "Verify accounts": "Kiểm tra tài khoản",
+    "Verify all": "Kiểm tra tất cả",
+    "Deep probe": "Dò sâu",
+    "Auto-disable dead": "Tự tắt tài khoản hỏng",
+    "Credential dead": "Thông tin đăng nhập hỏng",
+    "Rate limited": "Bị giới hạn tốc độ",
+    "Quota exhausted": "Hết hạn mức",
+    "Subscription expired": "Gói đã hết hạn",
+    "Also run a tiny inference to catch quota-exhausted accounts (uses a little quota).": "Đồng thời chạy một suy luận nhỏ để phát hiện tài khoản đã hết hạn mức (tốn một ít hạn mức).",
+    "Disable accounts found credential-dead or subscription-expired.": "Tắt các tài khoản bị hỏng thông tin đăng nhập hoặc hết hạn gói.",
+    "Probe each account live to confirm it is actually online, instead of trusting the passive status.": "Dò từng tài khoản trực tiếp để xác nhận thực sự trực tuyến, thay vì tin vào trạng thái thụ động.",
+    "Verifying {{done}}/{{total}}...": "Đang kiểm tra {{done}}/{{total}}…",
+    "Verified {{total}} · disabled {{disabled}}": "Đã kiểm tra {{total}} · đã tắt {{disabled}}",
+    "Expired {{date}}": "Hết hạn {{date}}",
+    "Subscription until {{date}}": "Gói đến {{date}}",
+    "{{rate}}% ok · {{total}} recent": "{{rate}}% ổn · {{total}} gần đây",
+    "cooldown · retries in {{time}}": "hồi chiêu · thử lại sau {{time}}"
   }
 }

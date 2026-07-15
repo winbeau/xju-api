@@ -5279,6 +5279,24 @@
     "Zero retention": "Без хранения данных",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Verify now": "Проверить сейчас",
+    "Verify accounts": "Проверка аккаунтов",
+    "Verify all": "Проверить все",
+    "Deep probe": "Глубокая проверка",
+    "Auto-disable dead": "Авто-отключение мёртвых",
+    "Credential dead": "Учётные данные недействительны",
+    "Rate limited": "Ограничение скорости",
+    "Quota exhausted": "Квота исчерпана",
+    "Subscription expired": "Подписка истекла",
+    "Also run a tiny inference to catch quota-exhausted accounts (uses a little quota).": "Также выполняет крошечный запрос, чтобы выявить аккаунты с исчерпанной квотой (расходует немного квоты).",
+    "Disable accounts found credential-dead or subscription-expired.": "Отключать аккаунты с недействительными данными или истёкшей подпиской.",
+    "Probe each account live to confirm it is actually online, instead of trusting the passive status.": "Проверяет каждый аккаунт в реальном времени, подтверждая, что он действительно онлайн, вместо доверия пассивному статусу.",
+    "Verifying {{done}}/{{total}}...": "Проверка {{done}}/{{total}}…",
+    "Verified {{total}} · disabled {{disabled}}": "Проверено {{total}} · отключено {{disabled}}",
+    "Expired {{date}}": "Истёк {{date}}",
+    "Subscription until {{date}}": "Подписка до {{date}}",
+    "{{rate}}% ok · {{total}} recent": "{{rate}}% успешно · {{total}} недавних",
+    "cooldown · retries in {{time}}": "охлаждение · повтор через {{time}}"
   }
 }

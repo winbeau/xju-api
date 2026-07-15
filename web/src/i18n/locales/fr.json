@@ -5279,6 +5279,24 @@
     "Zero retention": "Aucune rétention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Verify now": "Vérifier maintenant",
+    "Verify accounts": "Vérifier les comptes",
+    "Verify all": "Tout vérifier",
+    "Deep probe": "Sonde approfondie",
+    "Auto-disable dead": "Désactiver auto. les morts",
+    "Credential dead": "Identifiant mort",
+    "Rate limited": "Débit limité",
+    "Quota exhausted": "Quota épuisé",
+    "Subscription expired": "Abonnement expiré",
+    "Also run a tiny inference to catch quota-exhausted accounts (uses a little quota).": "Lance aussi une inférence minime pour détecter les comptes à quota épuisé (consomme un peu de quota).",
+    "Disable accounts found credential-dead or subscription-expired.": "Désactive les comptes dont l'identifiant est mort ou l'abonnement expiré.",
+    "Probe each account live to confirm it is actually online, instead of trusting the passive status.": "Sonde chaque compte en direct pour confirmer qu’il est réellement en ligne, au lieu de se fier au statut passif.",
+    "Verifying {{done}}/{{total}}...": "Vérification {{done}}/{{total}}…",
+    "Verified {{total}} · disabled {{disabled}}": "Vérifiés {{total}} · désactivés {{disabled}}",
+    "Expired {{date}}": "Expiré le {{date}}",
+    "Subscription until {{date}}": "Abonnement jusqu'au {{date}}",
+    "{{rate}}% ok · {{total}} recent": "{{rate}}% ok · {{total}} récents",
+    "cooldown · retries in {{time}}": "refroidissement · réessai dans {{time}}"
   }
 }

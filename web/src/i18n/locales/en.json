@@ -5279,6 +5279,24 @@
     "Zero retention": "Zero retention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Verify now": "Verify now",
+    "Verify accounts": "Verify accounts",
+    "Verify all": "Verify all",
+    "Deep probe": "Deep probe",
+    "Auto-disable dead": "Auto-disable dead",
+    "Credential dead": "Credential dead",
+    "Rate limited": "Rate limited",
+    "Quota exhausted": "Quota exhausted",
+    "Subscription expired": "Subscription expired",
+    "Also run a tiny inference to catch quota-exhausted accounts (uses a little quota).": "Also run a tiny inference to catch quota-exhausted accounts (uses a little quota).",
+    "Disable accounts found credential-dead or subscription-expired.": "Disable accounts found credential-dead or subscription-expired.",
+    "Probe each account live to confirm it is actually online, instead of trusting the passive status.": "Probe each account live to confirm it is actually online, instead of trusting the passive status.",
+    "Verifying {{done}}/{{total}}...": "Verifying {{done}}/{{total}}...",
+    "Verified {{total}} · disabled {{disabled}}": "Verified {{total}} · disabled {{disabled}}",
+    "Expired {{date}}": "Expired {{date}}",
+    "Subscription until {{date}}": "Subscription until {{date}}",
+    "{{rate}}% ok · {{total}} recent": "{{rate}}% ok · {{total}} recent",
+    "cooldown · retries in {{time}}": "cooldown · retries in {{time}}"
   }
 }
