@@ -5307,6 +5307,22 @@
     "e.g. Campus, Trial, Team B": "vd. Khuôn viên, Dùng thử, Nhóm B",
     "Provisioning {{id}}...": "Đang cấp phát {{id}}…",
     "Delete pool \"{{label}}\"?": "Xóa pool \"{{label}}\"?",
-    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "Thao tác này dừng và xóa instance thượng nguồn của pool cùng kênh định tuyến. Các tệp tài khoản vẫn giữ trên máy chủ. Không thể hoàn tác từ đây."
+    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "Thao tác này dừng và xóa instance thượng nguồn của pool cùng kênh định tuyến. Các tệp tài khoản vẫn giữ trên máy chủ. Không thể hoàn tác từ đây.",
+    "5h {{percent}}%": "5h {{percent}}%",
+    "Wk {{percent}}%": "Tuần {{percent}}%",
+    "Reset credits: {{count}}": "Lượt đặt lại: {{count}}",
+    "Refresh quota": "Làm mới hạn mức",
+    "Account quota": "Hạn mức tài khoản",
+    "Per-account ChatGPT usage windows (5h / weekly) and reset credits.": "Cửa sổ sử dụng ChatGPT của từng tài khoản (5h / tuần) và lượt đặt lại.",
+    "Auto refresh hourly": "Tự động làm mới mỗi giờ",
+    "Fetch every account’s quota in the background, once an hour.": "Mỗi giờ tự động lấy hạn mức của tất cả tài khoản ở chế độ nền.",
+    "Auto reset when exhausted": "Tự đặt lại khi cạn hạn mức",
+    "Spend one reset credit automatically when an account runs out of quota.": "Tự động dùng một lượt đặt lại khi tài khoản hết hạn mức.",
+    "Refresh all quota": "Làm mới toàn bộ hạn mức",
+    "Refreshing quota {{done}}/{{total}}...": "Đang làm mới hạn mức {{done}}/{{total}}...",
+    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "Đã làm mới {{total}} · tự đặt lại {{resets}} · lỗi {{errors}}",
+    "Quota reset — usage windows renewed": "Đã đặt lại hạn mức — cửa sổ sử dụng được làm mới",
+    "Reset quota for \"{{label}}\"?": "Đặt lại hạn mức cho \"{{label}}\"?",
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "Sẽ dùng một lượt đặt lại của tài khoản để làm mới cửa sổ sử dụng. Lượt đã dùng không thể khôi phục."
   }
 }

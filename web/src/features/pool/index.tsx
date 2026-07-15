@@ -21,11 +21,13 @@ import {
   Activity,
   ClipboardPaste,
   FileArchive,
+  Gauge,
   Loader2,
   Play,
   Plus,
   Power,
   RefreshCw,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -69,12 +71,16 @@ import {
   deletePoolAuthFile,
   deriveAuthFileName,
   getPoolCreateStatus,
+  getPoolUsage,
   getVerifyProgress,
   importPoolAuthFiles,
   isDynamicPool,
   listPoolAuthFiles,
   listPools,
+  refreshPoolAccountUsage,
+  resetPoolAccountQuota,
   setPoolAuthFileDisabled,
+  startPoolUsageRefreshAll,
   startVerifyAll,
   verifyPoolAuthFile,
   type ImportResult,
@@ -194,6 +200,14 @@ function recentActivity(
   return { total, rate: Math.round((ok / total) * 100) }
 }
 
+// xju-api:new — quota percent → tone class, matching the channels usage
+// dialog's thresholds (≥95 red, ≥80 amber).
+function quotaPercentClass(percent: number): string {
+  if (percent >= 95) return 'text-destructive'
+  if (percent >= 80) return 'text-warning'
+  return ''
+}
+
 // xju-api:new — human-readable time left on the account's cooldown
 // (NextRetryAfter), e.g. "8m" or "2h 5m". Null when there is no active
 // cooldown. Refreshed each time the list refetches. Codex cooldowns run up to
@@ -232,6 +246,10 @@ export function Pool() {
 
   const autoCleanEnabled = Boolean(status?.pool_auto_clean_enabled)
   const autoCleanHours = Number(status?.pool_auto_clean_hours ?? 24)
+  const usageAutoRefreshEnabled = Boolean(
+    status?.pool_usage_auto_refresh_enabled
+  )
+  const usageAutoResetEnabled = Boolean(status?.pool_usage_auto_reset_enabled)
 
   const poolsQuery = useQuery({
     queryKey: ['pool', 'pools'],
@@ -318,17 +336,56 @@ export function Pool() {
     onError: (error: Error) => toast.error(error.message),
   })
 
-  const autoCleanMutation = useMutation({
-    mutationFn: (enabled: boolean) =>
-      api.put('/api/option/', {
-        key: 'PoolAutoCleanEnabled',
-        value: String(enabled),
-      }),
+  // Shared by every pool-related option switch (auto-clean / quota auto-refresh
+  // / quota auto-reset) — they all write one option key and refresh /status.
+  const optionMutation = useMutation({
+    mutationFn: (args: { key: string; value: string }) =>
+      api.put('/api/option/', args),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['status'] })
       toast.success(t('Saved successfully'))
     },
     onError: () => toast.error(t('Save failed')),
+  })
+
+  // xju-api:new — per-account quota (号池额度): cached snapshots + refresh job.
+  const usageQuery = useQuery({
+    queryKey: ['pool', 'usage', pool],
+    queryFn: () => getPoolUsage(pool),
+    // Poll while a whole-pool refresh is running; otherwise the cache is stable.
+    refetchInterval: (query) => (query.state.data?.job?.running ? 3000 : false),
+  })
+  const usageByName = usageQuery.data?.accounts ?? {}
+  const usageJob = usageQuery.data?.job ?? null
+  const invalidateUsage = () =>
+    queryClient.invalidateQueries({ queryKey: ['pool', 'usage', pool] })
+
+  const refreshUsageMutation = useMutation({
+    mutationFn: (name: string) => refreshPoolAccountUsage(pool, name),
+    onSuccess: async () => await invalidateUsage(),
+    onError: (error: Error) => toast.error(error.message),
+  })
+  const refreshingUsageName = refreshUsageMutation.isPending
+    ? refreshUsageMutation.variables
+    : null
+
+  const refreshAllUsageMutation = useMutation({
+    mutationFn: () => startPoolUsageRefreshAll(pool),
+    onSuccess: async () => await invalidateUsage(),
+    onError: (error: Error) => toast.error(error.message),
+  })
+
+  const [resetQuotaTarget, setResetQuotaTarget] = useState<PoolAuthFile | null>(
+    null
+  )
+  const resetQuotaMutation = useMutation({
+    mutationFn: (name: string) => resetPoolAccountQuota(pool, name),
+    onSuccess: async () => {
+      setResetQuotaTarget(null)
+      toast.success(t('Quota reset — usage windows renewed'))
+      await invalidateUsage()
+    },
+    onError: (error: Error) => toast.error(error.message),
   })
 
   // xju-api:new — single-account verify (report-only, never changes state).
@@ -608,6 +665,7 @@ export function Pool() {
                       const subUntil = subscriptionUntil(file)
                       const activity = recentActivity(file)
                       const cooldown = cooldownLabel(file)
+                      const usage = usageByName[file.name]
                       const verdict = verdicts[file.name]
                       const verdictMeta = verdict
                         ? VERDICT_META[verdict.verdict]
@@ -681,6 +739,48 @@ export function Pool() {
                                   })}
                                 </span>
                               )}
+                              {usage && !usage.error && (
+                                <>
+                                  {usage.five_hour_used_percent != null && (
+                                    <span
+                                      className={quotaPercentClass(
+                                        usage.five_hour_used_percent
+                                      )}
+                                    >
+                                      {t('5h {{percent}}%', {
+                                        percent: Math.round(
+                                          usage.five_hour_used_percent
+                                        ),
+                                      })}
+                                    </span>
+                                  )}
+                                  {usage.weekly_used_percent != null && (
+                                    <span
+                                      className={quotaPercentClass(
+                                        usage.weekly_used_percent
+                                      )}
+                                    >
+                                      {t('Wk {{percent}}%', {
+                                        percent: Math.round(
+                                          usage.weekly_used_percent
+                                        ),
+                                      })}
+                                    </span>
+                                  )}
+                                  {usage.limit_reached && (
+                                    <span className='text-destructive'>
+                                      {t('Quota exhausted')}
+                                    </span>
+                                  )}
+                                  {(usage.reset_credits ?? 0) > 0 && (
+                                    <span className='text-info'>
+                                      {t('Reset credits: {{count}}', {
+                                        count: usage.reset_credits,
+                                      })}
+                                    </span>
+                                  )}
+                                </>
+                              )}
                               {file.status_message && (
                                 <span
                                   className='truncate'
@@ -707,6 +807,36 @@ export function Pool() {
                                 <Activity className='size-4' />
                               )}
                             </Button>
+                            <Button
+                              type='button'
+                              variant='ghost'
+                              size='icon-sm'
+                              aria-label={t('Refresh quota')}
+                              title={t('Refresh quota')}
+                              onClick={() =>
+                                refreshUsageMutation.mutate(file.name)
+                              }
+                              disabled={refreshUsageMutation.isPending}
+                            >
+                              {refreshingUsageName === file.name ? (
+                                <Loader2 className='size-4 animate-spin' />
+                              ) : (
+                                <Gauge className='size-4' />
+                              )}
+                            </Button>
+                            {(usage?.reset_credits ?? 0) > 0 && (
+                              <Button
+                                type='button'
+                                variant='ghost'
+                                size='icon-sm'
+                                aria-label={t('Reset quota')}
+                                title={t('Reset quota')}
+                                onClick={() => setResetQuotaTarget(file)}
+                                disabled={resetQuotaMutation.isPending}
+                              >
+                                <RotateCcw className='size-4' />
+                              </Button>
+                            )}
                             <Button
                               type='button'
                               variant='ghost'
@@ -882,8 +1012,13 @@ export function Pool() {
                   </span>
                   <Switch
                     checked={autoCleanEnabled}
-                    disabled={autoCleanMutation.isPending}
-                    onCheckedChange={(v) => autoCleanMutation.mutate(v)}
+                    disabled={optionMutation.isPending}
+                    onCheckedChange={(v) =>
+                      optionMutation.mutate({
+                        key: 'PoolAutoCleanEnabled',
+                        value: String(v),
+                      })
+                    }
                   />
                 </div>
                 <Button
@@ -899,6 +1034,106 @@ export function Pool() {
                   )}
                   {t('Clean now')}
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* xju-api:new — per-account quota (号池额度): whole-pool refresh +
+                auto-refresh / auto-reset toggles. */}
+            <Card data-card-hover='false'>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-1.5 text-base'>
+                  <Gauge className='size-4' />
+                  {t('Account quota')}
+                </CardTitle>
+                <CardDescription>
+                  {t(
+                    'Per-account ChatGPT usage windows (5h / weekly) and reset credits.'
+                  )}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className='grid gap-3'>
+                <div className='flex items-start justify-between gap-3'>
+                  <div className='min-w-0'>
+                    <span className='text-sm font-medium'>
+                      {t('Auto refresh hourly')}
+                    </span>
+                    <p className='text-muted-foreground text-xs'>
+                      {t(
+                        'Fetch every account’s quota in the background, once an hour.'
+                      )}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={usageAutoRefreshEnabled}
+                    disabled={optionMutation.isPending}
+                    onCheckedChange={(v) =>
+                      optionMutation.mutate({
+                        key: 'PoolUsageAutoRefreshEnabled',
+                        value: String(v),
+                      })
+                    }
+                  />
+                </div>
+                <div className='flex items-start justify-between gap-3'>
+                  <div className='min-w-0'>
+                    <span className='text-sm font-medium'>
+                      {t('Auto reset when exhausted')}
+                    </span>
+                    <p className='text-muted-foreground text-xs'>
+                      {t(
+                        'Spend one reset credit automatically when an account runs out of quota.'
+                      )}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={usageAutoResetEnabled}
+                    disabled={optionMutation.isPending}
+                    onCheckedChange={(v) =>
+                      optionMutation.mutate({
+                        key: 'PoolUsageAutoResetEnabled',
+                        value: String(v),
+                      })
+                    }
+                  />
+                </div>
+                <Button
+                  type='button'
+                  onClick={() => refreshAllUsageMutation.mutate()}
+                  disabled={
+                    refreshAllUsageMutation.isPending ||
+                    Boolean(usageJob?.running)
+                  }
+                >
+                  {usageJob?.running ? (
+                    <Loader2 className='animate-spin' />
+                  ) : (
+                    <Gauge />
+                  )}
+                  {t('Refresh all quota')}
+                </Button>
+                {usageJob && (usageJob.running || usageJob.done > 0) && (
+                  <div className='border-border rounded-md border p-2 text-xs'>
+                    {usageJob.running ? (
+                      <p>
+                        {t('Refreshing quota {{done}}/{{total}}...', {
+                          done: usageJob.done,
+                          total: usageJob.total,
+                        })}
+                      </p>
+                    ) : (
+                      <p className='font-medium'>
+                        {t(
+                          'Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}',
+                          {
+                            total: usageJob.total,
+                            resets: usageJob.resets,
+                            errors: usageJob.errors,
+                          }
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1051,6 +1286,53 @@ export function Pool() {
             </Button>
           </div>
         </Dialog>
+
+        {/* xju-api:new — quota reset confirm: a reset credit is a scarce,
+            irreversible resource, so it never fires from a single click. */}
+        <AlertDialog
+          open={!!resetQuotaTarget}
+          onOpenChange={(o) => {
+            if (!o) setResetQuotaTarget(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t('Reset quota for "{{label}}"?', {
+                  label: resetQuotaTarget
+                    ? resetQuotaTarget.email ||
+                      resetQuotaTarget.account ||
+                      resetQuotaTarget.name
+                    : '',
+                })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t(
+                  'This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.'
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={resetQuotaMutation.isPending}>
+                {t('Cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={resetQuotaMutation.isPending}
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (resetQuotaTarget) {
+                    resetQuotaMutation.mutate(resetQuotaTarget.name)
+                  }
+                }}
+              >
+                {resetQuotaMutation.isPending && (
+                  <Loader2 className='animate-spin' />
+                )}
+                {t('Reset quota')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* xju-api:new — delete pool confirm (#4 Phase D). */}
         <AlertDialog

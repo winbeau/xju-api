@@ -110,6 +110,15 @@ var PoolAutoCleanEnabled = false
 // xju-api:inject — PoolAutoCleanHours is the staleness threshold for the auto-clean sweep.
 var PoolAutoCleanHours = 24
 
+// xju-api:inject — PoolUsageAutoRefreshEnabled turns on the hourly background refresh of
+// every pool account's ChatGPT quota windows (wham usage). Off by default.
+var PoolUsageAutoRefreshEnabled = false
+
+// xju-api:inject — PoolUsageAutoResetEnabled lets the quota refresh consume one reset
+// credit automatically when it finds an account exhausted. Off by default —
+// reset credits are a scarce resource an operator must opt into spending.
+var PoolUsageAutoResetEnabled = false
+
 var EmailDomainRestrictionEnabled = false // 是否启用邮箱域名限制
 var EmailAliasRestrictionEnabled = false  // 是否启用邮箱别名限制
 var EmailDomainWhitelist = []string{

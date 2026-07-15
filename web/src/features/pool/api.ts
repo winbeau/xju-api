@@ -251,6 +251,91 @@ export async function getVerifyProgress(
   return res.data.data ?? null
 }
 
+// xju-api:new — per-account quota (号池额度). Snapshots are cached backend-side
+// from ChatGPT's wham usage endpoint, fetched per account through cliproxy's
+// pinned api-call. Reset consumes one of the account's reset credits.
+export type PoolAccountUsage = {
+  name: string
+  auth_index: string
+  plan?: string
+  five_hour_used_percent?: number
+  five_hour_reset_at?: number
+  weekly_used_percent?: number
+  weekly_reset_at?: number
+  limit_reached: boolean
+  reset_credits?: number
+  fetched_at: number
+  error?: string
+}
+
+export type PoolUsageJobSnapshot = {
+  running: boolean
+  total: number
+  done: number
+  started_at: number
+  finished_at: number
+  auto_reset: boolean
+  resets: number
+  errors: number
+  error: string
+}
+
+export type PoolUsageData = {
+  accounts: Record<string, PoolAccountUsage>
+  job?: PoolUsageJobSnapshot | null
+}
+
+export async function getPoolUsage(pool: string): Promise<PoolUsageData> {
+  const res = await api.get<ApiEnvelope<PoolUsageData>>(
+    `/api/pool/auth-files/usage${poolQuery(pool)}`
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to load pool quota')
+  }
+  return res.data.data
+}
+
+export async function refreshPoolAccountUsage(
+  pool: string,
+  name: string
+): Promise<PoolAccountUsage> {
+  const res = await api.post<ApiEnvelope<PoolAccountUsage>>(
+    `/api/pool/auth-files/usage/refresh${poolQuery(pool)}`,
+    { name }
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to refresh quota')
+  }
+  return res.data.data
+}
+
+export async function startPoolUsageRefreshAll(
+  pool: string
+): Promise<PoolUsageJobSnapshot> {
+  const res = await api.post<ApiEnvelope<PoolUsageJobSnapshot>>(
+    `/api/pool/auth-files/usage/refresh${poolQuery(pool)}`,
+    {}
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to start quota refresh')
+  }
+  return res.data.data
+}
+
+export async function resetPoolAccountQuota(
+  pool: string,
+  name: string
+): Promise<PoolAccountUsage> {
+  const res = await api.post<ApiEnvelope<PoolAccountUsage>>(
+    `/api/pool/auth-files/usage/reset${poolQuery(pool)}`,
+    { name }
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to reset quota')
+  }
+  return res.data.data
+}
+
 // xju-api:new — one-click pool creation (#4 Phase D). Reserved pools
 // (default/k12) are env-managed; everything else is created here.
 const RESERVED_POOL_IDS = new Set(['default', 'k12'])

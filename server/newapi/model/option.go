@@ -54,6 +54,8 @@ func InitOptionMap() {
 	common.OptionMap["InviteCodeRequired"] = strconv.FormatBool(common.InviteCodeRequired)
 	common.OptionMap["PoolAutoCleanEnabled"] = strconv.FormatBool(common.PoolAutoCleanEnabled)
 	common.OptionMap["PoolAutoCleanHours"] = strconv.Itoa(common.PoolAutoCleanHours)
+	common.OptionMap["PoolUsageAutoRefreshEnabled"] = strconv.FormatBool(common.PoolUsageAutoRefreshEnabled)
+	common.OptionMap["PoolUsageAutoResetEnabled"] = strconv.FormatBool(common.PoolUsageAutoResetEnabled)
 	common.OptionMap["AutomaticDisableChannelEnabled"] = strconv.FormatBool(common.AutomaticDisableChannelEnabled)
 	common.OptionMap["AutomaticEnableChannelEnabled"] = strconv.FormatBool(common.AutomaticEnableChannelEnabled)
 	common.OptionMap["LogConsumeEnabled"] = strconv.FormatBool(common.LogConsumeEnabled)
@@ -319,6 +321,10 @@ func updateOptionMap(key string, value string) (err error) {
 			common.InviteCodeRequired = boolValue
 		case "PoolAutoCleanEnabled":
 			common.PoolAutoCleanEnabled = boolValue
+		case "PoolUsageAutoRefreshEnabled":
+			common.PoolUsageAutoRefreshEnabled = boolValue
+		case "PoolUsageAutoResetEnabled":
+			common.PoolUsageAutoResetEnabled = boolValue
 		case "EmailDomainRestrictionEnabled":
 			common.EmailDomainRestrictionEnabled = boolValue
 		case "EmailAliasRestrictionEnabled":

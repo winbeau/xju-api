@@ -5307,6 +5307,22 @@
     "e.g. Campus, Trial, Team B": "e.g. Campus, Trial, Team B",
     "Provisioning {{id}}...": "Provisioning {{id}}...",
     "Delete pool \"{{label}}\"?": "Delete pool \"{{label}}\"?",
-    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here."
+    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.",
+    "5h {{percent}}%": "5h {{percent}}%",
+    "Wk {{percent}}%": "Wk {{percent}}%",
+    "Reset credits: {{count}}": "Reset credits: {{count}}",
+    "Refresh quota": "Refresh quota",
+    "Account quota": "Account quota",
+    "Per-account ChatGPT usage windows (5h / weekly) and reset credits.": "Per-account ChatGPT usage windows (5h / weekly) and reset credits.",
+    "Auto refresh hourly": "Auto refresh hourly",
+    "Fetch every account’s quota in the background, once an hour.": "Fetch every account’s quota in the background, once an hour.",
+    "Auto reset when exhausted": "Auto reset when exhausted",
+    "Spend one reset credit automatically when an account runs out of quota.": "Spend one reset credit automatically when an account runs out of quota.",
+    "Refresh all quota": "Refresh all quota",
+    "Refreshing quota {{done}}/{{total}}...": "Refreshing quota {{done}}/{{total}}...",
+    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}",
+    "Quota reset — usage windows renewed": "Quota reset — usage windows renewed",
+    "Reset quota for \"{{label}}\"?": "Reset quota for \"{{label}}\"?",
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored."
   }
 }

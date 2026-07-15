@@ -5307,6 +5307,22 @@
     "e.g. Campus, Trial, Team B": "напр. Кампус, Пробный, Команда B",
     "Provisioning {{id}}...": "Развёртывание {{id}}…",
     "Delete pool \"{{label}}\"?": "Удалить пул «{{label}}»?",
-    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "Это остановит и удалит вышестоящий экземпляр пула и его канал маршрутизации. Файлы аккаунтов останутся на сервере. Отменить отсюда нельзя."
+    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "Это остановит и удалит вышестоящий экземпляр пула и его канал маршрутизации. Файлы аккаунтов останутся на сервере. Отменить отсюда нельзя.",
+    "5h {{percent}}%": "5 ч {{percent}}%",
+    "Wk {{percent}}%": "Нед. {{percent}}%",
+    "Reset credits: {{count}}": "Кредиты сброса: {{count}}",
+    "Refresh quota": "Обновить квоту",
+    "Account quota": "Квоты аккаунтов",
+    "Per-account ChatGPT usage windows (5h / weekly) and reset credits.": "Окна использования ChatGPT для каждого аккаунта (5 ч / неделя) и кредиты сброса.",
+    "Auto refresh hourly": "Автообновление каждый час",
+    "Fetch every account’s quota in the background, once an hour.": "Раз в час фоново запрашивает квоту каждого аккаунта.",
+    "Auto reset when exhausted": "Автосброс при исчерпании",
+    "Spend one reset credit automatically when an account runs out of quota.": "Автоматически тратит один кредит сброса, когда аккаунт исчерпал квоту.",
+    "Refresh all quota": "Обновить все квоты",
+    "Refreshing quota {{done}}/{{total}}...": "Обновление квот {{done}}/{{total}}...",
+    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "Обновлено {{total}} · автосбросов {{resets}} · ошибок {{errors}}",
+    "Quota reset — usage windows renewed": "Квота сброшена — окна использования обновлены",
+    "Reset quota for \"{{label}}\"?": "Сбросить квоту для «{{label}}»?",
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "Потратит один кредит сброса аккаунта для обновления окон использования. Использованный кредит нельзя вернуть."
   }
 }

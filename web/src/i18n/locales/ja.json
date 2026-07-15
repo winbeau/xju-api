@@ -5307,6 +5307,22 @@
     "e.g. Campus, Trial, Team B": "例：キャンパス、試用、Bチーム",
     "Provisioning {{id}}...": "{{id}} をプロビジョニング中…",
     "Delete pool \"{{label}}\"?": "プール「{{label}}」を削除しますか？",
-    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "プールの上流インスタンスとルーティングチャネルを停止・削除します。アカウントファイルはサーバーに残ります。ここからは元に戻せません。"
+    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "プールの上流インスタンスとルーティングチャネルを停止・削除します。アカウントファイルはサーバーに残ります。ここからは元に戻せません。",
+    "5h {{percent}}%": "5時間 {{percent}}%",
+    "Wk {{percent}}%": "週 {{percent}}%",
+    "Reset credits: {{count}}": "リセットクレジット {{count}}",
+    "Refresh quota": "利用枠を更新",
+    "Account quota": "アカウント利用枠",
+    "Per-account ChatGPT usage windows (5h / weekly) and reset credits.": "アカウントごとの ChatGPT 使用量ウィンドウ（5時間/週）とリセットクレジット。",
+    "Auto refresh hourly": "毎時自動更新",
+    "Fetch every account’s quota in the background, once an hour.": "1時間ごとにバックグラウンドで全アカウントの利用枠を取得します。",
+    "Auto reset when exhausted": "枯渇時に自動リセット",
+    "Spend one reset credit automatically when an account runs out of quota.": "利用枠を使い切ったアカウントに対し、リセットクレジットを自動で1枚消費します。",
+    "Refresh all quota": "全アカウントの利用枠を更新",
+    "Refreshing quota {{done}}/{{total}}...": "利用枠を更新中 {{done}}/{{total}}...",
+    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "更新 {{total}} 件 · 自動リセット {{resets}} · 失敗 {{errors}}",
+    "Quota reset — usage windows renewed": "利用枠をリセットし、使用量ウィンドウを更新しました",
+    "Reset quota for \"{{label}}\"?": "「{{label}}」の利用枠をリセットしますか？",
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "このアカウントのリセットクレジットを1枚消費して使用量ウィンドウを更新します。使用したクレジットは元に戻せません。"
   }
 }

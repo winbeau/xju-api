@@ -5307,6 +5307,22 @@
     "e.g. Campus, Trial, Team B": "例如：校區、試用、B 組",
     "Provisioning {{id}}...": "正在開通 {{id}}…",
     "Delete pool \"{{label}}\"?": "刪除號池「{{label}}」？",
-    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "這會停止並刪除該號池的上游實例及其路由通道。帳號檔案仍保留在伺服器上。此操作無法在此復原。"
+    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "這會停止並刪除該號池的上游實例及其路由通道。帳號檔案仍保留在伺服器上。此操作無法在此復原。",
+    "5h {{percent}}%": "5時 {{percent}}%",
+    "Wk {{percent}}%": "週 {{percent}}%",
+    "Reset credits: {{count}}": "重置券 {{count}}",
+    "Refresh quota": "重新整理額度",
+    "Account quota": "帳號額度",
+    "Per-account ChatGPT usage windows (5h / weekly) and reset credits.": "每個帳號的 ChatGPT 用量視窗（5小時/週）與重置券。",
+    "Auto refresh hourly": "每小時自動重新整理",
+    "Fetch every account’s quota in the background, once an hour.": "每小時在背景擷取所有帳號的額度。",
+    "Auto reset when exhausted": "用盡自動重置",
+    "Spend one reset credit automatically when an account runs out of quota.": "當帳號額度用盡且持有重置券時，自動消耗一張恢復額度。",
+    "Refresh all quota": "重新整理全部額度",
+    "Refreshing quota {{done}}/{{total}}...": "正在重新整理額度 {{done}}/{{total}}...",
+    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "已重新整理 {{total}} · 自動重置 {{resets}} · 失敗 {{errors}}",
+    "Quota reset — usage windows renewed": "額度已重置，用量視窗已恢復",
+    "Reset quota for \"{{label}}\"?": "重置「{{label}}」的額度？",
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "將消耗該帳號的一張重置券以恢復用量視窗。已使用的重置券無法復原。"
   }
 }

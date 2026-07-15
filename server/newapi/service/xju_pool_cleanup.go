@@ -74,8 +74,10 @@ type poolAuthEntry struct {
 	LastRefresh string `json:"last_refresh"`
 	// xju-api:new — codex accounts carry their ChatGPT subscription window here;
 	// an expired subscription is a certain death the sweep can act on directly.
+	// AccountID is the chatgpt-account-id header the wham quota endpoints need.
 	IDToken struct {
 		SubscriptionActiveUntil string `json:"chatgpt_subscription_active_until"`
+		AccountID               string `json:"chatgpt_account_id"`
 	} `json:"id_token"`
 }
 

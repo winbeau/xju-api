@@ -133,6 +133,11 @@ func main() {
 	// when PoolAutoCleanEnabled is on (see service/xju_pool_cleanup.go).
 	service.StartPoolAutoCleanTask()
 
+	// xju-api:inject — hourly per-account quota refresh (wham usage windows + reset
+	// credits) when PoolUsageAutoRefreshEnabled is on; optionally auto-consumes a
+	// reset credit on exhausted accounts (see service/xju_pool_usage.go).
+	service.StartPoolUsageAutoRefreshTask()
+
 	// Wire task polling adaptor factory (breaks service -> relay import cycle).
 	// Must run before the system task runner starts: the async_task_poll handler
 	// calls service.RunTaskPollingOnce, which needs this factory set.

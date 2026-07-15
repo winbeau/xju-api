@@ -5307,6 +5307,22 @@
     "e.g. Campus, Trial, Team B": "ex. Campus, Essai, Équipe B",
     "Provisioning {{id}}...": "Provisionnement de {{id}}…",
     "Delete pool \"{{label}}\"?": "Supprimer le pool « {{label}} » ?",
-    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "Cela arrête et supprime l'instance en amont du pool et son canal de routage. Les fichiers de comptes sont conservés sur le serveur. Irréversible ici."
+    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "Cela arrête et supprime l'instance en amont du pool et son canal de routage. Les fichiers de comptes sont conservés sur le serveur. Irréversible ici.",
+    "5h {{percent}}%": "5 h {{percent}} %",
+    "Wk {{percent}}%": "Sem. {{percent}} %",
+    "Reset credits: {{count}}": "Crédits de réinitialisation : {{count}}",
+    "Refresh quota": "Actualiser le quota",
+    "Account quota": "Quota des comptes",
+    "Per-account ChatGPT usage windows (5h / weekly) and reset credits.": "Fenêtres d’utilisation ChatGPT par compte (5 h / hebdo) et crédits de réinitialisation.",
+    "Auto refresh hourly": "Actualisation auto chaque heure",
+    "Fetch every account’s quota in the background, once an hour.": "Récupère le quota de chaque compte en arrière-plan, une fois par heure.",
+    "Auto reset when exhausted": "Réinitialisation auto si épuisé",
+    "Spend one reset credit automatically when an account runs out of quota.": "Consomme automatiquement un crédit de réinitialisation quand un compte épuise son quota.",
+    "Refresh all quota": "Actualiser tous les quotas",
+    "Refreshing quota {{done}}/{{total}}...": "Actualisation du quota {{done}}/{{total}}...",
+    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "Quota actualisé {{total}} · réinit. auto {{resets}} · échecs {{errors}}",
+    "Quota reset — usage windows renewed": "Quota réinitialisé — fenêtres d’utilisation renouvelées",
+    "Reset quota for \"{{label}}\"?": "Réinitialiser le quota de « {{label}} » ?",
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "Consomme un crédit de réinitialisation du compte pour renouveler ses fenêtres d’utilisation. Un crédit utilisé ne peut pas être restauré."
   }
 }

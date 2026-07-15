@@ -364,6 +364,92 @@ func GetVerifyPoolProgress(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": snap})
 }
 
+// xju-api:new — per-account quota (额度). GET returns the cached snapshots +
+// refresh-job progress; refresh updates one account synchronously or the whole
+// pool in the background; reset consumes one ChatGPT reset credit on demand.
+
+// GetPoolAccountUsage GET /api/pool/auth-files/usage — cached quota snapshots
+// (keyed by account file name) plus the latest refresh-job progress.
+func GetPoolAccountUsage(c *gin.Context) {
+	poolID := c.Query("pool")
+	if _, _, ok := common.ResolvePoolMgmt(poolID); !ok {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"success": false,
+			"message": "pool management is not configured for pool: " + poolID,
+		})
+		return
+	}
+	data := gin.H{"accounts": service.GetPoolUsageSnapshots(poolID)}
+	if snap, ok := service.GetPoolUsageJob(poolID); ok {
+		data["job"] = snap
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+}
+
+type refreshPoolUsageRequest struct {
+	Name string `json:"name"`
+}
+
+// RefreshPoolAccountUsage POST /api/pool/auth-files/usage/refresh — with a name,
+// refresh that account's quota synchronously and return it; without one, start
+// a background whole-pool refresh (poll GetPoolAccountUsage for progress).
+func RefreshPoolAccountUsage(c *gin.Context) {
+	var reqBody refreshPoolUsageRequest
+	// Body is optional (empty means whole-pool); ignore decode errors on empty.
+	_ = common.DecodeJson(c.Request.Body, &reqBody)
+
+	poolID := c.Query("pool")
+	name := strings.TrimSpace(reqBody.Name)
+	if name != "" {
+		usage, err := service.RefreshPoolAccountUsageByName(poolID, sanitizePoolAuthName(name))
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": usage})
+		return
+	}
+
+	snap, err := service.StartPoolUsageRefreshJob(poolID, common.PoolUsageAutoResetEnabled)
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "data": snap})
+		return
+	}
+	recordManageAudit(c, "pool_auth.usage_refresh", map[string]interface{}{
+		"pool": auditPoolID(poolID),
+	})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": snap})
+}
+
+type resetPoolQuotaRequest struct {
+	Name string `json:"name"`
+}
+
+// ResetPoolAccountQuota POST /api/pool/auth-files/usage/reset — consume one
+// ChatGPT reset credit on the account and return its renewed quota snapshot.
+func ResetPoolAccountQuota(c *gin.Context) {
+	var reqBody resetPoolQuotaRequest
+	if err := common.DecodeJson(c.Request.Body, &reqBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request body"})
+		return
+	}
+	name := sanitizePoolAuthName(reqBody.Name)
+	if strings.TrimSpace(reqBody.Name) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "name is required"})
+		return
+	}
+	usage, err := service.ResetPoolAccountQuota(c.Query("pool"), name)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	recordManageAudit(c, "pool_auth.quota_reset", map[string]interface{}{
+		"pool": auditPoolID(c.Query("pool")),
+		"name": name,
+	})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": usage})
+}
+
 // xju-api:new — one-click pool creation (#4 Phase B). CreatePoolInstance drops a
 // provisioning request for the host watcher; the frontend then polls
 // GetPoolCreateStatus until the new pool is registered. Both are root-only.

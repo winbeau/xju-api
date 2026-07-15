@@ -148,7 +148,7 @@ func probeWithMgmt(baseURL, secret string, target probeTarget, heavy bool) Probe
 		return res
 	}
 
-	code, body := codexApiCall(baseURL, secret, target.AuthIndex, "GET", nil, "")
+	code, body := codexApiCall(baseURL, secret, target.AuthIndex, "GET", codexProbeURL, nil, "")
 	res.HTTPCode = code
 	res.Verdict, res.Detail = classifyProbe(false, code, body)
 
@@ -173,7 +173,7 @@ func subscriptionExpiredAt(until string, now time.Time) bool {
 // api-call and returns the UPSTREAM status code + body. `$TOKEN$` in the auth
 // header is substituted with the account's real credential by cliproxy. A
 // transport failure returns code 0 so the caller classifies it as unknown.
-func codexApiCall(baseURL, secret, authIndex, method string, extraHeaders map[string]string, data string) (int, string) {
+func codexApiCall(baseURL, secret, authIndex, method, targetURL string, extraHeaders map[string]string, data string) (int, string) {
 	header := map[string]string{"Authorization": "Bearer $TOKEN$"}
 	for k, v := range extraHeaders {
 		header[k] = v
@@ -181,7 +181,7 @@ func codexApiCall(baseURL, secret, authIndex, method string, extraHeaders map[st
 	reqBody := map[string]any{
 		"auth_index": authIndex,
 		"method":     method,
-		"url":        codexProbeURL,
+		"url":        targetURL,
 		"header":     header,
 	}
 	if data != "" {
@@ -222,7 +222,7 @@ func codexHeavyProbe(baseURL, secret, authIndex string) (int, string, bool) {
 		`{"model":%q,"input":[{"role":"user","content":[{"type":"input_text","text":"ping"}]}],"stream":true,"store":false}`,
 		model,
 	)
-	code, respBody := codexApiCall(baseURL, secret, authIndex, "POST", map[string]string{
+	code, respBody := codexApiCall(baseURL, secret, authIndex, "POST", codexProbeURL, map[string]string{
 		"Content-Type": "application/json",
 		"User-Agent":   codexProbeUserAgent,
 		"originator":   codexProbeOriginator,
