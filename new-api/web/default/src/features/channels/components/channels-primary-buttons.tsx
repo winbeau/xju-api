@@ -149,7 +149,7 @@ export function ChannelsPrimaryButtons() {
           />
         </div>
 
-        {/* xju-api: account-pool auth. Sits next to Create Channel because an
+        {/* xju-api:inject — account-pool auth. Sits next to Create Channel because an
             operator thinks of "add an account" as "add a channel", even though
             it actually writes into the CLIProxyAPI pool, not new-api channels. */}
         <Button

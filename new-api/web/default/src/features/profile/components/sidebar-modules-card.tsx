@@ -55,7 +55,7 @@ export function SidebarModulesCard() {
   const currentUser = useAuthStore((s) => s.auth.user)
   const setUser = useAuthStore((s) => s.auth.setUser)
 
-  // xju-api prune (PLAN.md §5.2): the chat section toggles and the wallet
+  // xju-api:prune (PLAN.md §5.2): the chat section toggles and the wallet
   // (topup) toggle are gone with their features.
   const sectionDefs: SectionDef[] = [
     {

@@ -30,7 +30,7 @@ import { getCookie, setCookie, removeCookie } from '@/lib/cookies'
 type Theme = 'dark' | 'light' | 'system'
 type ResolvedTheme = Exclude<Theme, 'system'>
 
-// xju-api ships a single light theme (the xju-feiyue Notion system, which has
+// xju-api:edit — ships a single light theme (the xju-feiyue Notion system, which has
 // no dark palette at all), so the default is `light` rather than `system` and
 // no UI exposes a switcher. The provider itself is kept intact — `useTheme()`
 // still feeds sonner, the charts and the skeletons — and the `.dark` rules

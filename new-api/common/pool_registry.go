@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Account-pool management registry.
+// xju-api:new — account-pool management registry.
 //
 // xju-api runs two isolated CLIProxyAPI pools: the primary ("default") and the
 // K12 pool ("k12"). Each is addressed by its own management base URL + Bearer

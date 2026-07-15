@@ -46,7 +46,7 @@ import {
   serializeHeaderNavModules,
 } from './config'
 
-// xju-api prune (PLAN.md §5.2): pricing/rankings/about toggles removed with
+// xju-api:prune (PLAN.md §5.2): pricing/rankings/about toggles removed with
 // their public pages; only home/console/docs links remain configurable.
 const headerNavSchema = z.object({
   home: z.boolean(),

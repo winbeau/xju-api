@@ -95,10 +95,12 @@ CHANGELOG.md           上线后迭代记录
 XJU API 站在两个开源项目之上,谨此致谢并保留其归属与版权:
 
 - **[New API](https://github.com/QuantumNous/new-api)** —— by **QuantumNous**,本平台 L1(发卡 / 统计 / 前端)基座,AGPL-3.0。
-- **[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)** —— by **router-for-me**,本平台 L2/L3(号池 / 协议中转)基座。
+- **[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)** —— by **router-for-me**,本平台 L2/L3(号池 / 协议中转)基座,MIT。
 
 本仓库对 new-api 做了换肤 + 裁剪 + 若干功能增强(见 [newapi-customization/](./newapi-customization/) 与 [CHANGELOG.md](./CHANGELOG.md)),但**未删除 / 修改 New API 与 QuantumNous 的品牌、页脚归属与版权头**。
 
 ## 📄 许可
 
 沿用 New API 的 **AGPL-3.0**。定制代码同以 AGPL-3.0 发布。
+
+`CLIProxyAPI/` 子树为 **MIT**(router-for-me),随附分发、以独立进程运行,许可原文见 [CLIProxyAPI/LICENSE](./CLIProxyAPI/LICENSE)。

@@ -200,7 +200,7 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.GET("/waffo-pancake/subscription-product-options", controller.ListWaffoPancakeSubscriptionProductOptions)
 		}
 
-		// xju-api: account-pool auth files (root only). Proxies to the CLIProxyAPI
+		// xju-api:inject — account-pool auth files (root only). Proxies to the CLIProxyAPI
 		// management API so an operator can paste a codex auth.json into the pool
 		// from the browser instead of scp + container restart.
 		poolRoute := apiRouter.Group("/pool")

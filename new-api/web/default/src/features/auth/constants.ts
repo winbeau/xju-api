@@ -31,7 +31,7 @@ export const registerFormSchema = z
   .object({
     username: z.string().min(1, 'Please enter your username'),
     email: z.string().optional(),
-    // xju-api: invite-only registration. Required at submit time only when the
+    // xju-api:edit — invite-only registration. Required at submit time only when the
     // backend reports `invite_code_required` (see sign-up-form).
     aff_code: z.string().optional(),
     password: z

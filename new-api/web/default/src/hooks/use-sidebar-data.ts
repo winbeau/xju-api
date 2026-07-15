@@ -41,7 +41,7 @@ import { ROLE } from '@/lib/roles'
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
 
-  // xju-api prune (PLAN.md §5.2): the chat group (Playground + Chat presets),
+  // xju-api:prune (PLAN.md §5.2): the chat group (Playground + Chat presets),
   // Wallet, Redemption Codes and Subscriptions entries are removed — the
   // day-card platform keeps only issuing, stats and admin surfaces.
   return {

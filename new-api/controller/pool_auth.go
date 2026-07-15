@@ -19,7 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Pool-authentication proxy.
+// xju-api:new — pool-authentication proxy.
 //
 // xju-api runs a three-tier stack: this new-api instance (L1) sits in front of
 // a CLIProxyAPI account pool (L2). Adding an upstream account means dropping a

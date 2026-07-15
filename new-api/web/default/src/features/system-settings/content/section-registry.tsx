@@ -91,7 +91,7 @@ const CONTENT_SECTIONS = [
       />
     ),
   },
-  // xju-api prune (PLAN.md §5.3): the 'chat' (Chat Presets) and 'drawing'
+  // xju-api:prune (PLAN.md §5.3): the 'chat' (Chat Presets) and 'drawing'
   // (Midjourney/Drawing flags) sections are removed along with the built-in
   // web chat — the day-card platform only relays API traffic.
 ] as const

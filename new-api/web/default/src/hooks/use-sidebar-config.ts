@@ -36,7 +36,7 @@ type SidebarModulesUserConfig = SidebarModulesAdminConfig | null
 /**
  * Default sidebar modules configuration
  */
-// xju-api prune (PLAN.md §5.2): the chat section (playground/web chat) and
+// xju-api:prune (PLAN.md §5.2): the chat section (playground/web chat) and
 // the topup/redemption/subscription modules are gone with their features.
 // midjourney/task stay as config-only switches so Task/Drawing log tabs can
 // be hidden by an admin without code deletion (PLAN.md §5.2 usage-logs row).

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-// xju-api prune (PLAN.md §5.2): the pricing/rankings/about public pages are
+// xju-api:prune (PLAN.md §5.2): the pricing/rankings/about public pages are
 // removed, so the header-nav module config narrows to plain booleans for the
 // three surviving links. Unknown keys from older backend configs are ignored.
 

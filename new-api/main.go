@@ -133,7 +133,7 @@ func main() {
 	// all currently alive nodes in multi-instance deployments.
 	service.StartSystemInstanceReporter()
 
-	// xju-api: hourly sweep that disables stale/unavailable account-pool entries
+	// xju-api:inject — hourly sweep that disables stale/unavailable account-pool entries
 	// when PoolAutoCleanEnabled is on (see service/pool_cleanup.go).
 	service.StartPoolAutoCleanTask()
 

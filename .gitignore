@@ -33,6 +33,10 @@ build/
 *.log
 logs/
 
+# --- 生成物(不入库;见 docs/REFACTOR-PLAN.md §5.1)---
+**/routeTree.gen.ts
+**/i18n/locales/_reports/*.untranslated.json
+
 # --- OS / 编辑器 ---
 .DS_Store
 *.swp

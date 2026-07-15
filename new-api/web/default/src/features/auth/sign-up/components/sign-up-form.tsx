@@ -99,7 +99,7 @@ export function SignUpForm({
 
   const emailValue = form.watch('email')
   const emailVerificationRequired = !!status?.email_verification
-  // xju-api: invite-only registration — the backend rejects an absent/unknown
+  // xju-api:edit — invite-only registration: the backend rejects an absent/unknown
   // code, so surface it as a required field instead of a silent 400.
   const inviteCodeRequired = !!status?.invite_code_required
   const hasUserAgreement = Boolean(status?.user_agreement_enabled)
@@ -259,7 +259,7 @@ export function SignUpForm({
           )}
         />
 
-        {/* Invite Code Field — xju-api: only rendered when the backend
+        {/* xju-api:edit — invite code field: only rendered when the backend
             enforces invite-only registration. */}
         {inviteCodeRequired && (
           <FormField

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// xju-api prune (PLAN.md §5.2): pricing/rankings/about public pages removed,
+// xju-api:prune (PLAN.md §5.2): pricing/rankings/about public pages removed,
 // so header-nav config narrows to plain booleans for the surviving links.
 export type HeaderNavModulesConfig = {
   home: boolean
@@ -38,7 +38,7 @@ export const HEADER_NAV_DEFAULT: HeaderNavModulesConfig = {
   docs: true,
 }
 
-// xju-api prune (PLAN.md §5.2): chat/topup/redemption/subscription module
+// xju-api:prune (PLAN.md §5.2): chat/topup/redemption/subscription module
 // switches removed with their features; must stay in sync with
 // DEFAULT_SIDEBAR_MODULES in src/hooks/use-sidebar-config.ts.
 export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {

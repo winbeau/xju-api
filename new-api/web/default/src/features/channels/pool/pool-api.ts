@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 
 /**
- * Account-pool auth files, proxied by new-api's root-only /api/pool endpoints
+ * xju-api:new — account-pool auth files, proxied by new-api's root-only /api/pool endpoints
  * to the CLIProxyAPI management API. Adding an account here is the same as
  * dropping an auth JSON into the pool — the pool hot-reloads, no restart.
  */

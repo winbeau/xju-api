@@ -93,18 +93,18 @@ var TelegramOAuthEnabled = false
 var TurnstileCheckEnabled = false
 var RegisterEnabled = true
 
-// InviteCodeRequired gates self-registration behind a valid inviter aff_code.
+// xju-api:inject — InviteCodeRequired gates self-registration behind a valid inviter aff_code.
 // Upstream treats aff_code as an optional attribution field (the lookup error is
 // discarded), so an empty or bogus code still registers. xju-api sells time-based
 // cards to a known audience, so registration must be invite-only.
 var InviteCodeRequired = false
 
-// PoolAutoCleanEnabled turns on the hourly sweep that disables account-pool
+// xju-api:inject — PoolAutoCleanEnabled turns on the hourly sweep that disables account-pool
 // entries which have gone unavailable (depleted/auth-failed) and stayed that
 // way past PoolAutoCleanHours. Off by default — an operator opts in.
 var PoolAutoCleanEnabled = false
 
-// PoolAutoCleanHours is the staleness threshold for the auto-clean sweep.
+// xju-api:inject — PoolAutoCleanHours is the staleness threshold for the auto-clean sweep.
 var PoolAutoCleanHours = 24
 
 var EmailDomainRestrictionEnabled = false // 是否启用邮箱域名限制

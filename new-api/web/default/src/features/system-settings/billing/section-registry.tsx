@@ -125,7 +125,7 @@ const BILLING_SECTIONS = [
       />
     ),
   },
-  // xju-api prune (PLAN.md §5.3): the 'payment' (Payment Gateway) and
+  // xju-api:prune (PLAN.md §5.3): the 'payment' (Payment Gateway) and
   // 'checkin' (Check-in Rewards) sections are removed — day-cards are issued
   // by the operator, there is no self-service top-up or quota giveaway.
 ] as const
