@@ -27,6 +27,14 @@
 - 顶层布局 = **web / server / deploy / scripts / docs 五件事**(2026-07 REFACTOR-PLAN §5.0 重组,不再回退双 vendored 目录形态);上游可升级性**不是**设计目标
 - 🚫 护栏:**禁止删除/修改 new-api / QuantumNous 的品牌、版权、归属**(footer 归属、文件版权头);删功能时保留(见 PLAN.md §5.6)。自检:`./scripts/check-guardrails.sh`
 
+## 当前主攻(待解决)
+
+> 方案与背景机制见 `docs/pool-enrichment-design.md` 与 `docs/architecture-and-pool-tech.md`。
+
+1. **单账号周限额 + 重置券** —— 号池页逐账号 5h/周窗口用量 + 重置券统计,手动/自动刷新(基础已落地,持续打磨)。
+2. **单账号订阅期限** —— 让每个号显示 ChatGPT 订阅到期。卡点:账号 token 是否 enriched——go-pool 精简号的订阅日期 token 里根本没有(实测),refresh / 主动拉取均被 OpenAI 挡(token 端点 400 / 账号端点 Cloudflare 403),只能靠 enriched authorize 登录产出。
+3. **统一的号池模式** —— 建池选双模:**CLIProxy enriched 登录(默认)** / **go-pool 批量**;go-pool 分支需在自己的 authorize 请求补三参数(`id_token_add_organizations=true` + `codex_cli_simplified_flow=true` + scope 加 `offline_access`)且用 OpenAI 已注册的 `redirect_uri`,导出才带订阅日期。
+
 ## 仓库结构
 
 - `web/` — 前端(React 19 + Rsbuild,独立 bun 应用),**换肤+裁剪**主战场。原 `new-api/web/default/`。
@@ -34,8 +42,22 @@
 - `server/cliproxy/` — L2/L3 号池(MIT)。原 `CLIProxyAPI/`。默认不改,按需适配。
 - `deploy/` — 部署面:Caddyfile、`Dockerfile.newapi.prebuilt`(唯一镜像路径)、`build-newapi.sh`、`run-newapi.sh`、compose、配置样板。
 - `scripts/` — 发卡/运维 glue(kebab-case 动词-宾语式)+ `check-guardrails.sh` 护栏自检。
-- `docs/` — runbook、daycard-api、newapi-customization(改造记录)、REFACTOR-PLAN。
+- `docs/` — 见下「docs 速览」。
 - `PLAN.md` — 实施计划(9 节 + Phase 0-5)。
+
+## docs 速览
+
+- **[PLAN.md](./PLAN.md)** — 唯一事实来源:架构 / 日卡系统 / 前端改造 / 部署 / Phase 0-5。
+- **[docs/architecture-and-pool-tech.md](./docs/architecture-and-pool-tech.md)** — 🌟**新人先读**:系统架构(New API vs CLIProxyAPI 谁是号池)、账号存储与调度、cpa/sub2 格式、OAuth/JWT 鉴权、token 生命周期、订阅 + 5h/周限额原理、default 5 号实况。
+- **[docs/pool-enrichment-design.md](./docs/pool-enrichment-design.md)** — 让号显示 plan + 订阅日期的**双模方案设计**(CLIProxy enriched 登录 / go-pool 补参数),含仓内改动清单、部署缺口、诚实边界。
+- **[docs/runbook.md](./docs/runbook.md)** — 上线后升级 / 回滚 / 排障 / 双池管理密钥。
+- **[docs/daycard-api.md](./docs/daycard-api.md)** — 时间卡三接口速查。
+- **[docs/newapi-customization.md](./docs/newapi-customization.md)** — new-api 换肤 + 裁剪 + 功能增强改造记录。
+- **[docs/prune-checklist.md](./docs/prune-checklist.md)** — 前端裁剪逐包清单。
+- **[docs/theme-notion.md](./docs/theme-notion.md)** — Notion 换肤记录。
+- **[docs/REFACTOR-PLAN.md](./docs/REFACTOR-PLAN.md)** — 2026-07 顶层重组计划(已收官,历史参考)。
+- **[docs/superpowers/](./docs/superpowers/)** — 设计文档存档(brainstorm / plan 一次性产物)。
+- **[CHANGELOG.md](./CHANGELOG.md)** — 上线后迭代记录。
 
 ## 前端开发命令
 

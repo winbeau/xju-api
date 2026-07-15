@@ -28,11 +28,19 @@
 ## ✨ 特性
 
 - 🎫 **时间卡** —— 日 / 三天 / 周卡。一把常驻 Token 写到期时间戳,配一次长期用;到期由 new-api 每请求现算 → `401`,**零 cron、零延迟**,续卡把时间往后推即复活同一把 key。
-- 🗂️ **号池管理页** —— admin 侧栏独立页:粘贴 / 上传 codex `auth.json` 即加号,状态徽章、启用 / 禁用 / 删除,以及「自动清理 24h 无效号」。
+- 🗂️ **号池管理页** —— admin 侧栏独立页:粘贴 / 上传 codex `auth.json` 或 **.zip 批量导入**即加号;状态徽章、启用 / 禁用 / 删除、自动清理无效号;**一键开独立号池**(自动起隔离 CLIProxyAPI 实例 + 建渠道 + 注册进池);**主动验活**(逐号钉定探针确认真在线);**每账号额度**(5h / 周窗口用量 + 重置券统计,手动 / 定向刷新)。
 - 🔑 **仅邀请注册 + 一次性邀请码** —— 管理员在用户页「生成邀请码」(批量 + 有效期),注册需填有效码,CAS 原子消费保证一码一用。
 - ⚡ **Codex 一键配置** —— API 密钥操作列直达按钮,一键复制 `config.toml` / `auth.json`,对接 Codex CLI / GUI。
-- 📊 **用量看板** —— 概览「近 24h 消耗 / 历史使用」同时显示 **USD 与 token**(k / M 单位、3 位小数)。
+- 📊 **用量看板** —— 概览「近 24h 消耗 / 历史使用」同时显示 **USD 与 token**;全语种 token 数统一(< 10M 千分位整数、≥ 10M 两位小数 M)。
 - 🎨 **Notion 风格前端** —— 仿 xju-feiyue 的极简换肤,裁掉无用功能,话术去营销腔。
+
+## 🚧 进行中
+
+- **单账号周限额 + 重置券** —— 号池页逐账号展示 5h / 周窗口用量与重置券,自动 / 手动刷新。
+- **单账号订阅期限** —— 让每个号显示 ChatGPT 订阅到期;受限于账号 token 是否 enriched,方案见 [docs/pool-enrichment-design.md](./docs/pool-enrichment-design.md)。
+- **统一号池搭建模式** —— 建池选「CLIProxy enriched 登录(默认)/ go-pool 批量」双模。
+
+> 系统怎么跑、号池技术全解见 [docs/architecture-and-pool-tech.md](./docs/architecture-and-pool-tech.md)。
 
 ## 🔌 支持的客户端
 
@@ -66,8 +74,8 @@
 
 ```bash
 # 在 claude-tri 上(仓库 clone 于 /home/winbeau/opt/xju-api):
-bash deploy/build-newapi.sh v0.5.x                        # 构建定制镜像 winbeau/xju-newapi:v0.5.x
-IMAGE=winbeau/xju-newapi:v0.5.x bash deploy/run-newapi.sh # 换上运行容器(数据在宿主 volume,不丢)
+bash deploy/build-newapi.sh v0.8.x                        # 构建定制镜像 winbeau/xju-newapi:v0.8.x
+IMAGE=winbeau/xju-newapi:v0.8.x bash deploy/run-newapi.sh # 换上运行容器(数据在宿主 volume,不丢)
 curl -fsS http://127.0.0.1:3000/api/status                # 验活
 ```
 
@@ -81,7 +89,7 @@ server/newapi/         L1 Go 后端(QuantumNous/new-api,AGPL-3.0;go:embed 前端
 server/cliproxy/       L2/L3 号池(router-for-me/CLIProxyAPI,MIT;默认零改动)
 deploy/                部署脚手架(Caddyfile / Dockerfile.newapi.prebuilt / 构建 · 运行脚本 / 备份)
 scripts/               发卡 glue(建卡 / 续卡 / 开闭)+ check-guardrails.sh 护栏自检
-docs/                  时间卡接口速查 / 排障 runbook / 前端定制记录(newapi-customization.md)
+docs/                  架构+号池技术总览 · enriched 方案设计 · 时间卡接口 · 排障 runbook · 定制记录
 PLAN.md                完整实施计划(9 节 + Phase 0-5)
 CHANGELOG.md           上线后迭代记录
 ```
