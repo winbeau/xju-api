@@ -101,6 +101,6 @@ XJU API 站在两个开源项目之上,谨此致谢并保留其归属与版权:
 
 ## 📄 许可
 
-沿用 New API 的 **AGPL-3.0**。定制代码同以 AGPL-3.0 发布。
+本仓库整体以 **AGPL-3.0** 发布(全文见根 [LICENSE](./LICENSE)):沿用 New API 的 AGPL-3.0,定制代码同以 AGPL-3.0 发布。
 
 `server/cliproxy/` 子树为 **MIT**(router-for-me),随附分发、以独立进程运行,许可原文见 [server/cliproxy/LICENSE](./server/cliproxy/LICENSE)。
