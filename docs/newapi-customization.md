@@ -20,6 +20,41 @@
 - `bun run lint`:**本次触碰的文件全部清零**。⚠️ 上游 vendored 基线自带大量既有 lint 报错(约 87KB 输出,遍布未触碰文件);**不修基线债务**。
 - `bun run knip`:裁剪产生的孤儿**全清**(91 → 44 个 unused files,剩余全部是 HEAD 基线即有的闲置;unused deps 17 → 3,保留的 3 个因其引用文件仍参与编译)。顶层重组(P1 拆平 workspace)后同口径基线为 **52 个 unused files**;P2 前端内聚复验:P1→P2 清单逐文件一致,**零新增孤儿**。
 
+## 自有文件 / 注入点清单(人读维护;机器口径 = `grep -rn "xju-api:"`)
+
+四标签词表:`// xju-api:{new|edit|prune|inject}`(new=自有文件头、edit=上游行为修改、prune=上游功能裁剪、inject=上游文件注入点)。**版权头不作来源判据**(上游脚本会给无头文件盖 QuantumNous 头)。
+
+**前端自有(整目录/整文件,`web/src/`)**:
+
+- `registry/xju-modules.ts` —— 自有模块注册中心(侧栏项/开关键/URL 映射/开关元数据)
+- `features/pool/` —— 号池管理页(`index.tsx` 双池 Tabs + zip 导入、`api.ts`)
+- `features/invite-codes/` —— 邀请码(`api.ts`、`invite-code-dialog.tsx`、`auth-section.tsx`)
+- `features/keys/components/pool-integration/` —— `cc-switch-dialog.tsx`、`codex-config-dialog.tsx`
+- `routes/_authenticated/pool/` —— /pool 路由
+
+**前端注入点(上游文件,标 `xju-api:inject` / `edit`)**:
+
+- `hooks/use-sidebar-data.ts`、`hooks/use-sidebar-config.ts`、`features/system-settings/maintenance/sidebar-modules-section.tsx` —— 从 registry 泛型 merge
+- `features/system-settings/auth/section-registry.tsx` —— 邀请码独立 section 注册
+- `features/users/components/users-primary-buttons.tsx` —— 「生成邀请码」按钮
+- `features/channels/components/channels-primary-buttons.tsx` —— 「号池认证」入口按钮
+- `features/auth/sign-up/components/sign-up-form.tsx`、`features/auth/constants.ts` —— 注册表单邀请码字段(edit)
+- `context/theme-provider.tsx` —— 单浅色主题(edit);另有 9 处 `xju-api:prune` 裁剪标记
+
+**后端自有(`server/newapi/`,统一 `xju_` 前缀)**:
+
+- `controller/xju_pool_auth.go`(+test)、`controller/xju_invite_code.go`
+- `service/xju_pool_client.go`、`service/xju_pool_cleanup.go`、`service/xju_invite_code.go`(+test)
+- `model/xju_invite_code.go`、`common/xju_pool_registry.go`(+test)
+
+**后端注入点**:
+
+- `main.go` —— `StartPoolAutoCleanTask()`;embed 单主题化(edit)
+- `router/api-router.go` —— `/api/pool` 路由组(RootAuth)
+- `common/constants.go` —— `InviteCodeRequired` / `PoolAutoCleanEnabled` / `PoolAutoCleanHours` 三变量
+- `model/option.go` —— 三键 OptionMap 登记 + 生效通道(契约注释在文件内)
+- `controller/user.go` —— Register 调用 `service.ConsumeInviteCodeForRegistration`(edit)
+
 ## 30 天月卡档(留位)
 
 机制已留位(`expired_time = max(原到期, now) + 30*86400`),前端快捷按钮**未上架**(PLAN.md §9-3)。

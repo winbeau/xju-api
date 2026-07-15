@@ -171,18 +171,15 @@
 }
 ```
 
-**② 续卡 / 复活（关键坑）** — `PUT /api/token/`（**必须完整体，不能带 `status_only`**）
+**② 续卡 / 复活（关键坑）** — **完整 PUT + `status_only` 两步**（实现即 [`scripts/renew-card.sh`](./scripts/renew-card.sh)，curl 全文见 [docs/daycard-api.md ②](./docs/daycard-api.md#-续卡--复活--完整-put--status_only-两步)）
 ```jsonc
-{
-  "id": 123,
-  "name": "user-alice-daycard",
-  "expired_time": 1752591600,     // 新的未来到期时间戳
-  "status": 1,                    // 置为启用
-  "unlimited_quota": true,
-  "group": "default"
-}
+// 第 1 步:完整 PUT 只写新 expired_time(不带 status;完整体根本不更新 status 字段;
+//          业务字段须先 GET 原样带回 —— 完整 PUT 是全量覆盖)
+{ "id": 123, "name": "user-alice-daycard", "expired_time": 1752591600, "unlimited_quota": true, "group": "default", /* …其余业务字段原样带回 */ }
+// 第 2 步:PUT /api/token/?status_only=true 置回启用 —— 此时库里 expired_time 已是未来,守卫放行
+{ "id": 123, "status": 1 }
 ```
-> ⚠️ **坑（token.go:280）**：对**已过期**的令牌若只发 `?status_only=true {status:1}` 想复活，会被服务端拒绝。续卡/复活必须走**完整 PUT** 带上「新的未来 `expired_time` + `status=1`」。
+> ⚠️ **坑（`controller/token.go` UpdateToken 源码级修正）**：「置 `status=1`」的守卫检查发生在**字段更新之前**、对照库里**旧的** `expired_time` —— 对已标记 `status=3(过期)` 的令牌，连「完整 PUT 携带 `status:1`」也会被拒。先写未来 `expired_time`、再 `status_only` 置启用的两步顺序，对「未过期叠加 / 自然过期 / 已标记过期 / 手动禁用」四种起点均正确。
 
 **③ 临时关卡 / 开卡** — `PUT /api/token/?status_only=true`
 ```jsonc

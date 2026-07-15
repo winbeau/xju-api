@@ -5,10 +5,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-command -v jq >/dev/null || { echo "需要 jq: apt install jq" >&2; exit 1; }
-[[ -f .env ]] || { echo "缺 scripts/.env,先 cp .env.example .env 填真实值" >&2; exit 1; }
 # shellcheck disable=SC1091
-source .env
+source ./_common.sh
+xju_load_env
 
 ID="${1:?用法: $0 <token_id> <on|off>}"
 ACTION="${2:?缺动作参数(on|off)}"
@@ -18,11 +17,7 @@ off) STATUS=2 ;; # 临时禁用
 *) echo "动作只支持 on|off" >&2; exit 1 ;;
 esac
 
-RESP=$(curl -sS -X PUT "$NEWAPI_BASE/api/token/?status_only=true" \
-	-H "Authorization: Bearer $ACCESS_TOKEN" \
-	-H "New-Api-User: $NEWAPI_USER_ID" \
-	-H "Content-Type: application/json" \
-	-d "{\"id\":$ID,\"status\":$STATUS}")
+RESP=$(api PUT "/api/token/?status_only=true" "{\"id\":$ID,\"status\":$STATUS}")
 
 if jq -e '.success' <<<"$RESP" >/dev/null; then
 	echo "✅ id=$ID 已$([[ "$ACTION" == on ]] && echo 启用 || echo 禁用)"

@@ -34,6 +34,35 @@ curl -fsS http://127.0.0.1:8317/v1/models -H "Authorization: Bearer <内部api-k
 
 **回滚** = 用上一版镜像 tag 重跑 `IMAGE=winbeau/xju-newapi:<旧tag> bash deploy/run-newapi.sh`(旧镜像仍在本机;数据在宿主 volume 不受影响)。升级前记下当前 tag。
 
+## 双池密钥（default + K12）
+
+两把**独立**的明文管理密钥,同机同目录、互不通用,均被 `.gitignore` 挡、600 权限:
+
+| 池 | env 文件(tri) | 注入谁 | 变量 |
+|---|---|---|---|
+| default | `/opt/cli-proxy-api/.pool-mgmt.env` | `cli-proxy-api` 容器 + new-api | `MANAGEMENT_PASSWORD` 与 `POOL_MGMT_SECRET`(同值) |
+| K12 | `/opt/cli-proxy-api/.pool-mgmt-k12.env` | `cli-proxy-api-k12` 容器 + new-api | `MANAGEMENT_PASSWORD` 与 `POOL_K12_MGMT_SECRET`(同值) |
+
+- **生成**:[deploy/setup-pool-mgmt.sh](../deploy/setup-pool-mgmt.sh) / [setup-pool-mgmt-k12.sh](../deploy/setup-pool-mgmt-k12.sh)。幂等——已存在非空文件不覆盖。
+- **轮换**:`bash deploy/setup-pool-mgmt.sh --force`(K12 同理)→ `docker compose up -d` 重建对应 cli-proxy 容器(重新加载 env_file)→ 重跑 `deploy/run-newapi.sh`(重注入 new-api 侧密钥)。三步缺一不可,否则两侧密钥不一致、池管理全 401。
+- **为什么走明文 env**:`config.yaml` 里的 `secret-key` 是 bcrypt 哈希,不能当 Bearer 用;`MANAGEMENT_PASSWORD` 走 ConstantTimeCompare,且会自动解除 `allow-remote:false` 让 new-api 从 docker 内网调管理 API。
+- **xju-net 互访契约**:管理 API 只在 docker 内网,new-api 用容器名访问——`http://cli-proxy-api:8317` / `http://cli-proxy-api-k12:8318`(env:`POOL_MGMT_URL` / `POOL_K12_MGMT_URL`)。某池密钥留空 = 该池端点 503、前端自动隐藏该池 Tab,其余部署不受影响。
+
+## 新布局部署（2026-07 顶层重组迁移,一次性）
+
+> 仓库已重组:前端上移 `web/`、Go 后端 `server/newapi/`、CLIProxyAPI `server/cliproxy/`;
+> `new-api.run.sh→run-newapi.sh`、`cli-proxy.docker-compose.yml→docker-compose.cliproxy.yml`、
+> 发卡脚本 snake→kebab;全量 `Dockerfile.newapi` 与 `cli-proxy-api.service` 已删除。
+
+tri 上迁移步骤:
+
+1. **备份先行**:`bash deploy/backup.sh`。
+2. **更新仓库**:`cd /home/winbeau/opt/xju-api && git pull --ff-only origin main`(git 自动应用 rename;或干脆删掉重 clone——仓库无状态,数据都在 `/opt` 宿主卷)。
+3. **prebuilt 新路径**:旧 `new-api/prebuilt/{default-dist,classic-dist}` 作废删除;本机产物今后解包到 `server/newapi/prebuilt/dist`(单产物,见上方升级节)。
+4. **引用检查**:backup cron 走 `deploy/backup.sh` 相对仓库路径未变,无需动;若有 `docker compose -f` 指向仓库内 compose 的命令/别名,文件名改为 `deploy/docker-compose.cliproxy.yml`(`/opt/cli-proxy-api/docker-compose.yml` 落位拷贝不受影响,如需同步内容重新拷一份)。
+5. **构建 + 换容器**:`SKIP_WEB=1 bash deploy/build-newapi.sh <tag>` → `IMAGE=winbeau/xju-newapi:<tag> bash deploy/run-newapi.sh` → 验活。
+6. **回滚**:布局回滚 = `git checkout d02c62c`(重组前最后一个 commit,旧脚本名照旧用)+ 旧镜像 tag 重跑;数据不涉及。
+
 ## 备份 / 恢复
 
 - 备份：[deploy/backup.sh](../deploy/backup.sh)，cron 每日 04:30，滚动保 7 份于 `/opt/backups/xju-api/`。

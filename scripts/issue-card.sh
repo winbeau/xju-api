@@ -1,27 +1,18 @@
 #!/usr/bin/env bash
 # scripts/issue-card.sh — 发新卡: POST /api/token/(PLAN.md §4.2-①)
 # 用法: ./issue-card.sh <令牌名> <天数:1|3|7|30> [分组,默认 default]
-# 依赖: curl, jq;凭证读同目录 .env(见 .env.example)
+# 依赖: curl, jq;凭证读同目录 .env(见 .env.example);公共段在 _common.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
-command -v jq >/dev/null || { echo "需要 jq: apt install jq" >&2; exit 1; }
-[[ -f .env ]] || { echo "缺 scripts/.env,先 cp .env.example .env 填真实值" >&2; exit 1; }
 # shellcheck disable=SC1091
-source .env
+source ./_common.sh
+xju_load_env
 
 NAME="${1:?用法: $0 <令牌名> <天数:1|3|7|30> [分组]}"
 DAYS="${2:?缺天数参数(1|3|7|30)}"
 GROUP="${3:-default}"
-case "$DAYS" in 1 | 3 | 7 | 30) ;; *) echo "天数只支持 1|3|7|30(月卡30留位,PLAN.md §4.1)" >&2; exit 1 ;; esac
-
-api() { # method path [json]
-	curl -sS -X "$1" "$NEWAPI_BASE$2" \
-		-H "Authorization: Bearer $ACCESS_TOKEN" \
-		-H "New-Api-User: $NEWAPI_USER_ID" \
-		-H "Content-Type: application/json" \
-		${3:+-d "$3"}
-}
+xju_check_days "$DAYS"
 
 # 新卡从当下起算: expired_time = now + N*86400(PLAN.md §4.1)
 EXPIRED=$(($(date +%s) + DAYS * 86400))

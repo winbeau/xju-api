@@ -12,22 +12,13 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-command -v jq >/dev/null || { echo "需要 jq: apt install jq" >&2; exit 1; }
-[[ -f .env ]] || { echo "缺 scripts/.env,先 cp .env.example .env 填真实值" >&2; exit 1; }
 # shellcheck disable=SC1091
-source .env
+source ./_common.sh
+xju_load_env
 
 ID="${1:?用法: $0 <token_id> <天数:1|3|7|30>}"
 DAYS="${2:?缺天数参数(1|3|7|30)}"
-case "$DAYS" in 1 | 3 | 7 | 30) ;; *) echo "天数只支持 1|3|7|30" >&2; exit 1 ;; esac
-
-api() { # method path [json]
-	curl -sS -X "$1" "$NEWAPI_BASE$2" \
-		-H "Authorization: Bearer $ACCESS_TOKEN" \
-		-H "New-Api-User: $NEWAPI_USER_ID" \
-		-H "Content-Type: application/json" \
-		${3:+-d "$3"}
-}
+xju_check_days "$DAYS"
 
 # 1) 取现状,完整 PUT 必须原样带回全部业务字段(controller 全量覆盖)
 CUR=$(api GET "/api/token/$ID")
