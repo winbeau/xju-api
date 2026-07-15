@@ -19,8 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { ApiKeysDeleteDialog } from './api-keys-delete-dialog'
 import { ApiKeysMutateDrawer } from './api-keys-mutate-drawer'
 import { useApiKeys } from './api-keys-provider'
-import { CCSwitchDialog } from './dialogs/cc-switch-dialog'
-import { CodexConfigDialog } from './dialogs/codex-config-dialog'
+import { CCSwitchDialog } from './pool-integration/cc-switch-dialog'
+import { CodexConfigDialog } from './pool-integration/codex-config-dialog'
 
 export function ApiKeysDialogs() {
   const { open, setOpen, currentRow, resolvedKey } = useApiKeys()

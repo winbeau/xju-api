@@ -37,6 +37,8 @@ export function UsersPrimaryButtons() {
 
   return (
     <div className='flex gap-2'>
+      {/* xju-api:inject — 一次性邀请码生成入口(features/invite-codes/),
+          放用户页是因为运营视角"发邀请码"与"管用户"同属一个动作面。 */}
       <Button
         size='sm'
         variant='outline'

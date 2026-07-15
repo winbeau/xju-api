@@ -27,6 +27,7 @@ import { ComboboxInput } from '@/components/ui/combobox-input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { getUserModels } from '@/lib/api'
+import { getPublicServerAddress } from '../../lib/server-address'
 
 const APP_CONFIGS = {
   claude: {
@@ -60,7 +61,7 @@ function buildCCSwitchURL(
   apiKey: string
 ): string {
   const serverAddress = getPublicServerAddress()
-  const endpoint = app === 'codex' ? serverAddress + '/v1' : serverAddress
+  const endpoint = app === 'codex' ? `${serverAddress}/v1` : serverAddress
   const params = new URLSearchParams()
   params.set('resource', 'provider')
   params.set('app', app)
@@ -80,8 +81,6 @@ interface Props {
   onOpenChange: (open: boolean) => void
   tokenKey: string
 }
-
-import { getPublicServerAddress } from '../../lib/server-address'
 
 export function CCSwitchDialog(props: Props) {
   const { t } = useTranslation()
@@ -185,7 +184,7 @@ export function CCSwitchDialog(props: Props) {
             onValueChange={setName}
             placeholder={currentConfig.defaultName}
             emptyText=''
-            allowCustomValue={true}
+            allowCustomValue
           />
         </div>
 

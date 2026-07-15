@@ -20,6 +20,10 @@ import { useMemo } from 'react'
 
 import type { NavGroup, NavItem } from '@/components/layout/types'
 import { useStatus } from '@/hooks/use-status'
+import {
+  XJU_SIDEBAR_MODULE_DEFAULTS,
+  XJU_URL_TO_CONFIG,
+} from '@/registry/xju-modules'
 import { useAuthStore } from '@/stores/auth-store'
 
 type SidebarSectionConfig = {
@@ -40,24 +44,30 @@ type SidebarModulesUserConfig = SidebarModulesAdminConfig | null
 // the topup/redemption/subscription modules are gone with their features.
 // midjourney/task stay as config-only switches so Task/Drawing log tabs can
 // be hidden by an admin without code deletion (PLAN.md §5.2 usage-logs row).
-const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
-  console: {
-    enabled: true,
-    detail: true,
-    token: true,
-    log: true,
-  },
-  personal: {
-    enabled: true,
-    personal: true,
-  },
-  admin: {
-    enabled: true,
-    channel: true,
-    pool: true,
-    user: true,
-  },
-}
+const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = (() => {
+  const base: SidebarModulesAdminConfig = {
+    console: {
+      enabled: true,
+      detail: true,
+      token: true,
+      log: true,
+    },
+    personal: {
+      enabled: true,
+      personal: true,
+    },
+    admin: {
+      enabled: true,
+      channel: true,
+      user: true,
+    },
+  }
+  // xju-api:inject — 自有模块开关键从注册中心泛型 merge(registry/xju-modules.ts)
+  Object.entries(XJU_SIDEBAR_MODULE_DEFAULTS).forEach(([section, modules]) => {
+    base[section] = { ...(base[section] ?? { enabled: true }), ...modules }
+  })
+  return base
+})()
 
 const mergeWithDefaultSidebarModules = (
   config: SidebarModulesAdminConfig
@@ -97,8 +107,9 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/usage-logs/common': { section: 'console', module: 'log' },
   '/profile': { section: 'personal', module: 'personal' },
   '/channels': { section: 'admin', module: 'channel' },
-  '/pool': { section: 'admin', module: 'pool' },
   '/users': { section: 'admin', module: 'user' },
+  // xju-api:inject — 自有 URL→配置键映射从注册中心 merge(registry/xju-modules.ts)
+  ...XJU_URL_TO_CONFIG,
 }
 
 /**

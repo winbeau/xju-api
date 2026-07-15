@@ -18,7 +18,7 @@
 - `bun run typecheck`(tsgo -b):**全绿**(每个删除包完成后均复验;顶层重组时顺手修掉 rsbuild.config.ts 的 favicon 类型基线错)。
 - `bun run build`:**全绿**,`routeTree.gen.ts` 已再生成、被删路由引用清零。
 - `bun run lint`:**本次触碰的文件全部清零**。⚠️ 上游 vendored 基线自带大量既有 lint 报错(约 87KB 输出,遍布未触碰文件);**不修基线债务**。
-- `bun run knip`:裁剪产生的孤儿**全清**(91 → 44 个 unused files,剩余 44 个全部是 HEAD 基线即有的闲置;unused deps 17 → 3,保留的 3 个因其引用文件仍参与编译)。
+- `bun run knip`:裁剪产生的孤儿**全清**(91 → 44 个 unused files,剩余全部是 HEAD 基线即有的闲置;unused deps 17 → 3,保留的 3 个因其引用文件仍参与编译)。顶层重组(P1 拆平 workspace)后同口径基线为 **52 个 unused files**;P2 前端内聚复验:P1→P2 清单逐文件一致,**零新增孤儿**。
 
 ## 30 天月卡档(留位)
 

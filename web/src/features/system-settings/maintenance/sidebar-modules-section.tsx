@@ -20,6 +20,8 @@ import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
+import { XJU_SIDEBAR_MODULE_META } from '@/registry/xju-modules'
+
 import {
   Form,
   FormControl,
@@ -108,16 +110,24 @@ export function SidebarModulesSection({
         title: t('Channels'),
         description: t('Configure upstream providers and routing.'),
       },
-      pool: {
-        title: t('Account Pool'),
-        description: t('Manage upstream codex accounts in the shared pool.'),
-      },
       user: {
         title: t('Users'),
         description: t('Administer user accounts and roles.'),
       },
     },
   }
+  // xju-api:inject — 自有模块的开关元数据从注册中心 merge(registry/xju-modules.ts)
+  Object.entries(XJU_SIDEBAR_MODULE_META).forEach(([section, modules]) => {
+    Object.entries(modules).forEach(([moduleKey, meta]) => {
+      moduleMeta[section] = {
+        ...moduleMeta[section],
+        [moduleKey]: {
+          title: t(meta.titleKey),
+          description: t(meta.descriptionKey),
+        },
+      }
+    })
+  })
   const formDefaults = useMemo(() => config, [config])
 
   const form = useForm<SidebarFormValues>({

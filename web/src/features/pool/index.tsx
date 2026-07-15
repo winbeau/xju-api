@@ -59,7 +59,7 @@ import {
   type ImportResult,
   type PoolAuthFile,
   type PoolInfo,
-} from '@/features/channels/pool/pool-api'
+} from '@/features/pool/api'
 import { useStatus } from '@/hooks/use-status'
 import { api } from '@/lib/api'
 

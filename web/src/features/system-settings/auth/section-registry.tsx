@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { InviteCodeAuthSection } from '@/features/invite-codes/auth-section'
+
 import type { AuthSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { BasicAuthSection } from './basic-auth-section'
@@ -35,11 +37,21 @@ const AUTH_SECTIONS = [
           PasswordRegisterEnabled: settings.PasswordRegisterEnabled,
           EmailVerificationEnabled: settings.EmailVerificationEnabled,
           RegisterEnabled: settings.RegisterEnabled,
-          InviteCodeRequired: settings.InviteCodeRequired,
           EmailDomainRestrictionEnabled: settings.EmailDomainRestrictionEnabled,
           EmailAliasRestrictionEnabled: settings.EmailAliasRestrictionEnabled,
           EmailDomainWhitelist: settings.EmailDomainWhitelist,
         }}
+      />
+    ),
+  },
+  // xju-api:inject — 邀请码策略独立 section(features/invite-codes/auth-section.tsx),
+  // 走本注册表扩展点接入,不再就地改 BasicAuthSection。
+  {
+    id: 'invite-codes',
+    titleKey: 'Invite-only Registration',
+    build: (settings: AuthSettings) => (
+      <InviteCodeAuthSection
+        defaultValues={{ InviteCodeRequired: settings.InviteCodeRequired }}
       />
     ),
   },
