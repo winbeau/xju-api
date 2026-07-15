@@ -5320,9 +5320,10 @@
     "Spend one reset credit automatically when an account runs out of quota.": "Spend one reset credit automatically when an account runs out of quota.",
     "Refresh all quota": "Refresh all quota",
     "Refreshing quota {{done}}/{{total}}...": "Refreshing quota {{done}}/{{total}}...",
-    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}",
     "Quota reset — usage windows renewed": "Quota reset — usage windows renewed",
     "Reset quota for \"{{label}}\"?": "Reset quota for \"{{label}}\"?",
-    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored."
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.",
+    "Quota refreshed {{total}} · skipped {{skipped}} · auto-reset {{resets}} · failed {{errors}}": "Quota refreshed {{total}} · skipped {{skipped}} · auto-reset {{resets}} · failed {{errors}}",
+    "Only exhausted or unknown accounts are fetched; accounts with quota left are skipped.": "Only exhausted or unknown accounts are fetched; accounts with quota left are skipped."
   }
 }

@@ -275,6 +275,9 @@ export type PoolUsageJobSnapshot = {
   started_at: number
   finished_at: number
   auto_reset: boolean
+  // Targeted run: accounts still holding quota were skipped, not re-fetched.
+  only_exhausted: boolean
+  skipped: number
   resets: number
   errors: number
   error: string

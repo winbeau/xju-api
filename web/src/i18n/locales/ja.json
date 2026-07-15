@@ -5320,9 +5320,10 @@
     "Spend one reset credit automatically when an account runs out of quota.": "利用枠を使い切ったアカウントに対し、リセットクレジットを自動で1枚消費します。",
     "Refresh all quota": "全アカウントの利用枠を更新",
     "Refreshing quota {{done}}/{{total}}...": "利用枠を更新中 {{done}}/{{total}}...",
-    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "更新 {{total}} 件 · 自動リセット {{resets}} · 失敗 {{errors}}",
     "Quota reset — usage windows renewed": "利用枠をリセットし、使用量ウィンドウを更新しました",
     "Reset quota for \"{{label}}\"?": "「{{label}}」の利用枠をリセットしますか？",
-    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "このアカウントのリセットクレジットを1枚消費して使用量ウィンドウを更新します。使用したクレジットは元に戻せません。"
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "このアカウントのリセットクレジットを1枚消費して使用量ウィンドウを更新します。使用したクレジットは元に戻せません。",
+    "Quota refreshed {{total}} · skipped {{skipped}} · auto-reset {{resets}} · failed {{errors}}": "更新 {{total}} 件 · スキップ {{skipped}} · 自動リセット {{resets}} · 失敗 {{errors}}",
+    "Only exhausted or unknown accounts are fetched; accounts with quota left are skipped.": "枯渇または状態不明のアカウントのみ取得し、利用枠が残っているアカウントはスキップします。"
   }
 }

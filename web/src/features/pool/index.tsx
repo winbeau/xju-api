@@ -1111,6 +1111,11 @@ export function Pool() {
                   )}
                   {t('Refresh all quota')}
                 </Button>
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Only exhausted or unknown accounts are fetched; accounts with quota left are skipped.'
+                  )}
+                </p>
                 {usageJob && (usageJob.running || usageJob.done > 0) && (
                   <div className='border-border rounded-md border p-2 text-xs'>
                     {usageJob.running ? (
@@ -1123,9 +1128,10 @@ export function Pool() {
                     ) : (
                       <p className='font-medium'>
                         {t(
-                          'Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}',
+                          'Quota refreshed {{total}} · skipped {{skipped}} · auto-reset {{resets}} · failed {{errors}}',
                           {
                             total: usageJob.total,
+                            skipped: usageJob.skipped,
                             resets: usageJob.resets,
                             errors: usageJob.errors,
                           }

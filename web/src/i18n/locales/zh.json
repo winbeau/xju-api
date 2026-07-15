@@ -5320,9 +5320,10 @@
     "Spend one reset credit automatically when an account runs out of quota.": "当账号额度用尽且持有重置券时，自动消耗一张恢复额度。",
     "Refresh all quota": "刷新全部额度",
     "Refreshing quota {{done}}/{{total}}...": "正在刷新额度 {{done}}/{{total}}...",
-    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "已刷新 {{total}} · 自动重置 {{resets}} · 失败 {{errors}}",
     "Quota reset — usage windows renewed": "额度已重置，用量窗口已恢复",
     "Reset quota for \"{{label}}\"?": "重置「{{label}}」的额度？",
-    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "将消耗该账号的一张重置券以恢复用量窗口。已使用的重置券无法找回。"
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "将消耗该账号的一张重置券以恢复用量窗口。已使用的重置券无法找回。",
+    "Quota refreshed {{total}} · skipped {{skipped}} · auto-reset {{resets}} · failed {{errors}}": "已刷新 {{total}} · 跳过 {{skipped}} · 自动重置 {{resets}} · 失败 {{errors}}",
+    "Only exhausted or unknown accounts are fetched; accounts with quota left are skipped.": "只刷新已用尽或状态未知的账号，还有额度的直接跳过。"
   }
 }

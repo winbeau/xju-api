@@ -5320,9 +5320,10 @@
     "Spend one reset credit automatically when an account runs out of quota.": "Автоматически тратит один кредит сброса, когда аккаунт исчерпал квоту.",
     "Refresh all quota": "Обновить все квоты",
     "Refreshing quota {{done}}/{{total}}...": "Обновление квот {{done}}/{{total}}...",
-    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "Обновлено {{total}} · автосбросов {{resets}} · ошибок {{errors}}",
     "Quota reset — usage windows renewed": "Квота сброшена — окна использования обновлены",
     "Reset quota for \"{{label}}\"?": "Сбросить квоту для «{{label}}»?",
-    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "Потратит один кредит сброса аккаунта для обновления окон использования. Использованный кредит нельзя вернуть."
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "Потратит один кредит сброса аккаунта для обновления окон использования. Использованный кредит нельзя вернуть.",
+    "Quota refreshed {{total}} · skipped {{skipped}} · auto-reset {{resets}} · failed {{errors}}": "Обновлено {{total}} · пропущено {{skipped}} · автосбросов {{resets}} · ошибок {{errors}}",
+    "Only exhausted or unknown accounts are fetched; accounts with quota left are skipped.": "Запрашиваются только исчерпанные или неизвестные аккаунты; аккаунты с остатком квоты пропускаются."
   }
 }

@@ -5320,9 +5320,10 @@
     "Spend one reset credit automatically when an account runs out of quota.": "Tự động dùng một lượt đặt lại khi tài khoản hết hạn mức.",
     "Refresh all quota": "Làm mới toàn bộ hạn mức",
     "Refreshing quota {{done}}/{{total}}...": "Đang làm mới hạn mức {{done}}/{{total}}...",
-    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "Đã làm mới {{total}} · tự đặt lại {{resets}} · lỗi {{errors}}",
     "Quota reset — usage windows renewed": "Đã đặt lại hạn mức — cửa sổ sử dụng được làm mới",
     "Reset quota for \"{{label}}\"?": "Đặt lại hạn mức cho \"{{label}}\"?",
-    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "Sẽ dùng một lượt đặt lại của tài khoản để làm mới cửa sổ sử dụng. Lượt đã dùng không thể khôi phục."
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "Sẽ dùng một lượt đặt lại của tài khoản để làm mới cửa sổ sử dụng. Lượt đã dùng không thể khôi phục.",
+    "Quota refreshed {{total}} · skipped {{skipped}} · auto-reset {{resets}} · failed {{errors}}": "Đã làm mới {{total}} · bỏ qua {{skipped}} · tự đặt lại {{resets}} · lỗi {{errors}}",
+    "Only exhausted or unknown accounts are fetched; accounts with quota left are skipped.": "Chỉ lấy dữ liệu các tài khoản đã cạn hoặc chưa rõ; tài khoản còn hạn mức sẽ được bỏ qua."
   }
 }

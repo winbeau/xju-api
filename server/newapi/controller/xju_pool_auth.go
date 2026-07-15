@@ -410,7 +410,9 @@ func RefreshPoolAccountUsage(c *gin.Context) {
 		return
 	}
 
-	snap, err := service.StartPoolUsageRefreshJob(poolID, common.PoolUsageAutoResetEnabled)
+	// The manual whole-pool button is targeted: only exhausted/unknown accounts
+	// are re-fetched; accounts with quota left are skipped.
+	snap, err := service.StartPoolUsageRefreshJob(poolID, common.PoolUsageAutoResetEnabled, true)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "data": snap})
 		return

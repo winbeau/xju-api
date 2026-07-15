@@ -5320,9 +5320,10 @@
     "Spend one reset credit automatically when an account runs out of quota.": "Consomme automatiquement un crédit de réinitialisation quand un compte épuise son quota.",
     "Refresh all quota": "Actualiser tous les quotas",
     "Refreshing quota {{done}}/{{total}}...": "Actualisation du quota {{done}}/{{total}}...",
-    "Quota refreshed {{total}} · auto-reset {{resets}} · failed {{errors}}": "Quota actualisé {{total}} · réinit. auto {{resets}} · échecs {{errors}}",
     "Quota reset — usage windows renewed": "Quota réinitialisé — fenêtres d’utilisation renouvelées",
     "Reset quota for \"{{label}}\"?": "Réinitialiser le quota de « {{label}} » ?",
-    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "Consomme un crédit de réinitialisation du compte pour renouveler ses fenêtres d’utilisation. Un crédit utilisé ne peut pas être restauré."
+    "This consumes one of the account’s reset credits to renew its usage windows. A used credit cannot be restored.": "Consomme un crédit de réinitialisation du compte pour renouveler ses fenêtres d’utilisation. Un crédit utilisé ne peut pas être restauré.",
+    "Quota refreshed {{total}} · skipped {{skipped}} · auto-reset {{resets}} · failed {{errors}}": "Quota actualisé {{total}} · ignorés {{skipped}} · réinit. auto {{resets}} · échecs {{errors}}",
+    "Only exhausted or unknown accounts are fetched; accounts with quota left are skipped.": "Seuls les comptes épuisés ou inconnus sont interrogés ; les comptes ayant du quota sont ignorés."
   }
 }

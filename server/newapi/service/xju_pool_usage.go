@@ -269,15 +269,19 @@ func poolResetErrorMessage(body string, code int) string {
 // runs in the background and the frontend polls.
 
 type PoolUsageJobSnapshot struct {
-	Running    bool   `json:"running"`
-	Total      int    `json:"total"`
-	Done       int    `json:"done"`
-	StartedAt  int64  `json:"started_at"`
-	FinishedAt int64  `json:"finished_at"`
-	AutoReset  bool   `json:"auto_reset"`
-	Resets     int    `json:"resets"`
-	Errors     int    `json:"errors"`
-	Error      string `json:"error"`
+	Running    bool  `json:"running"`
+	Total      int   `json:"total"`
+	Done       int   `json:"done"`
+	StartedAt  int64 `json:"started_at"`
+	FinishedAt int64 `json:"finished_at"`
+	AutoReset  bool  `json:"auto_reset"`
+	// OnlyExhausted marks a targeted run: accounts whose cached snapshot still
+	// shows quota left were skipped (counted in Skipped) instead of re-fetched.
+	OnlyExhausted bool   `json:"only_exhausted"`
+	Skipped       int    `json:"skipped"`
+	Resets        int    `json:"resets"`
+	Errors        int    `json:"errors"`
+	Error         string `json:"error"`
 }
 
 type poolUsageJob struct {
@@ -287,10 +291,14 @@ type poolUsageJob struct {
 
 var poolUsageJobs sync.Map // poolID -> *poolUsageJob
 
-// StartPoolUsageRefreshJob refreshes every enabled account's quota in the
-// background. With autoReset, an exhausted account holding a reset credit gets
+// StartPoolUsageRefreshJob refreshes pool accounts' quota in the background.
+// With onlyExhausted (the manual "refresh all" button), accounts whose cached
+// snapshot still shows quota left are skipped — the button exists to find out
+// which depleted accounts recovered, not to re-poll healthy ones. Accounts
+// with no snapshot yet, a fetch error, or an active cooldown are always
+// fetched. With autoReset, an exhausted account holding a reset credit gets
 // one consumed and its windows re-fetched.
-func StartPoolUsageRefreshJob(poolID string, autoReset bool) (PoolUsageJobSnapshot, error) {
+func StartPoolUsageRefreshJob(poolID string, autoReset, onlyExhausted bool) (PoolUsageJobSnapshot, error) {
 	if !common.IsMasterNode {
 		return PoolUsageJobSnapshot{}, fmt.Errorf("quota refresh runs on the master node only")
 	}
@@ -308,29 +316,56 @@ func StartPoolUsageRefreshJob(poolID string, autoReset bool) (PoolUsageJobSnapsh
 		job.mu.Unlock()
 		return snap, fmt.Errorf("a quota refresh is already running for pool: %s", poolID)
 	}
-	job.snap = PoolUsageJobSnapshot{Running: true, AutoReset: autoReset, StartedAt: time.Now().Unix()}
+	job.snap = PoolUsageJobSnapshot{Running: true, AutoReset: autoReset, OnlyExhausted: onlyExhausted, StartedAt: time.Now().Unix()}
 	job.mu.Unlock()
 
-	gopool.Go(func() { runPoolUsageRefreshJob(job, poolID, baseURL, secret, autoReset) })
+	gopool.Go(func() { runPoolUsageRefreshJob(job, poolID, baseURL, secret, autoReset, onlyExhausted) })
 	return job.Snapshot(), nil
 }
 
-func runPoolUsageRefreshJob(job *poolUsageJob, poolID, baseURL, secret string, autoReset bool) {
+// needsQuotaFetch decides whether a targeted (onlyExhausted) run must re-fetch
+// this account: unknown or failed snapshots and cooldown-flagged entries are
+// fetched; a snapshot that still shows quota left is skipped.
+func needsQuotaFetch(e poolAuthEntry, cached PoolAccountUsage, hasCached bool) bool {
+	if !hasCached || cached.Error != "" {
+		return true
+	}
+	// An active cooldown usually means live traffic just hit a 429 — the cached
+	// percentages predate that, so re-check regardless of what they say.
+	if e.Unavailable {
+		return true
+	}
+	return cached.exhausted()
+}
+
+func runPoolUsageRefreshJob(job *poolUsageJob, poolID, baseURL, secret string, autoReset, onlyExhausted bool) {
 	entries, err := listPoolEntries(baseURL, secret)
 	if err != nil {
 		job.finish(err)
 		return
 	}
+	state := poolUsageStateFor(poolID)
 	targets := make([]poolAuthEntry, 0, len(entries))
+	skipped := 0
 	for _, e := range entries {
 		if e.Disabled {
 			continue
+		}
+		if onlyExhausted {
+			state.mu.Lock()
+			cached, hasCached := state.byName[e.Name]
+			state.mu.Unlock()
+			if !needsQuotaFetch(e, cached, hasCached) {
+				skipped++
+				continue
+			}
 		}
 		targets = append(targets, e)
 	}
 
 	job.mu.Lock()
 	job.snap.Total = len(targets)
+	job.snap.Skipped = skipped
 	job.mu.Unlock()
 
 	sem := make(chan struct{}, ProbePoolConcurrency)
@@ -430,7 +465,9 @@ func runPoolUsageAutoRefreshOnce() {
 		return
 	}
 	for _, pool := range common.ListConfiguredPools() {
-		if _, err := StartPoolUsageRefreshJob(pool.ID, common.PoolUsageAutoResetEnabled); err != nil {
+		// The hourly pass is a full sweep — it is what keeps every account's
+		// percentages fresh; only the manual button narrows to exhausted accounts.
+		if _, err := StartPoolUsageRefreshJob(pool.ID, common.PoolUsageAutoResetEnabled, false); err != nil {
 			// An in-flight manual refresh is fine — skip quietly; real failures log.
 			if !strings.Contains(err.Error(), "already running") {
 				common.SysError("pool quota auto-refresh failed for pool " + pool.ID + ": " + err.Error())
