@@ -251,6 +251,49 @@ export async function getVerifyProgress(
   return res.data.data ?? null
 }
 
+// xju-api:new — one-click pool creation (#4 Phase D). Reserved pools
+// (default/k12) are env-managed; everything else is created here.
+const RESERVED_POOL_IDS = ['default', 'k12']
+export const isDynamicPool = (id: string) => !RESERVED_POOL_IDS.includes(id)
+
+export type PoolCreateStatus = {
+  pool_id: string
+  status: 'provisioning' | 'ready' | 'error'
+  error?: string
+}
+
+export async function createPool(label: string): Promise<{ pool_id: string }> {
+  const res = await api.post<ApiEnvelope<{ pool_id: string; status: string }>>(
+    '/api/pool/create',
+    { label }
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to create pool')
+  }
+  return res.data.data
+}
+
+export async function getPoolCreateStatus(
+  poolId: string
+): Promise<PoolCreateStatus> {
+  const res = await api.get<ApiEnvelope<PoolCreateStatus>>(
+    `/api/pool/create/status?id=${encodeURIComponent(poolId)}`
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to check pool status')
+  }
+  return res.data.data
+}
+
+export async function deletePool(poolId: string): Promise<void> {
+  const res = await api.post<ApiEnvelope<unknown>>('/api/pool/delete', {
+    pool_id: poolId,
+  })
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to delete pool')
+  }
+}
+
 /**
  * Derive a stable, human-legible filename from a pasted codex auth JSON. Codex
  * files carry an email/account id; use it so the pool list is readable and

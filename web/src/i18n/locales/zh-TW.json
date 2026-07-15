@@ -5297,6 +5297,16 @@
     "Expired {{date}}": "{{date}} 已過期",
     "Subscription until {{date}}": "訂閱至 {{date}}",
     "{{rate}}% ok · {{total}} recent": "{{rate}}% 成功 · 近 {{total}} 次",
-    "cooldown · retries in {{time}}": "冷卻中 · {{time}} 後重試"
+    "cooldown · retries in {{time}}": "冷卻中 · {{time}} 後重試",
+    "New pool": "新增號池",
+    "Delete pool": "刪除號池",
+    "Pool created — now import accounts into it": "號池已建立 —— 現在往裡匯入帳號",
+    "Pool provisioning failed": "號池開通失敗",
+    "Pool deleted": "號池已刪除",
+    "Spin up a new isolated account pool. Only a name is required — it gets its own upstream instance and routing channel, then you import accounts into it.": "開通一個全新的隔離號池。只需填名字 —— 它會獲得自己的上游實例與路由通道，隨後你往裡匯入帳號。",
+    "e.g. Campus, Trial, Team B": "例如：校區、試用、B 組",
+    "Provisioning {{id}}...": "正在開通 {{id}}…",
+    "Delete pool \"{{label}}\"?": "刪除號池「{{label}}」？",
+    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "這會停止並刪除該號池的上游實例及其路由通道。帳號檔案仍保留在伺服器上。此操作無法在此復原。"
   }
 }

@@ -5297,6 +5297,16 @@
     "Expired {{date}}": "Hết hạn {{date}}",
     "Subscription until {{date}}": "Gói đến {{date}}",
     "{{rate}}% ok · {{total}} recent": "{{rate}}% ổn · {{total}} gần đây",
-    "cooldown · retries in {{time}}": "hồi chiêu · thử lại sau {{time}}"
+    "cooldown · retries in {{time}}": "hồi chiêu · thử lại sau {{time}}",
+    "New pool": "Pool mới",
+    "Delete pool": "Xóa pool",
+    "Pool created — now import accounts into it": "Đã tạo pool — giờ hãy nhập tài khoản vào đó",
+    "Pool provisioning failed": "Cấp phát pool thất bại",
+    "Pool deleted": "Đã xóa pool",
+    "Spin up a new isolated account pool. Only a name is required — it gets its own upstream instance and routing channel, then you import accounts into it.": "Tạo một pool tài khoản cô lập mới. Chỉ cần một tên — nó có instance thượng nguồn và kênh định tuyến riêng, sau đó bạn nhập tài khoản vào.",
+    "e.g. Campus, Trial, Team B": "vd. Khuôn viên, Dùng thử, Nhóm B",
+    "Provisioning {{id}}...": "Đang cấp phát {{id}}…",
+    "Delete pool \"{{label}}\"?": "Xóa pool \"{{label}}\"?",
+    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "Thao tác này dừng và xóa instance thượng nguồn của pool cùng kênh định tuyến. Các tệp tài khoản vẫn giữ trên máy chủ. Không thể hoàn tác từ đây."
   }
 }

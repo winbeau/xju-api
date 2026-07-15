@@ -5297,6 +5297,16 @@
     "Expired {{date}}": "Истёк {{date}}",
     "Subscription until {{date}}": "Подписка до {{date}}",
     "{{rate}}% ok · {{total}} recent": "{{rate}}% успешно · {{total}} недавних",
-    "cooldown · retries in {{time}}": "охлаждение · повтор через {{time}}"
+    "cooldown · retries in {{time}}": "охлаждение · повтор через {{time}}",
+    "New pool": "Новый пул",
+    "Delete pool": "Удалить пул",
+    "Pool created — now import accounts into it": "Пул создан — теперь импортируйте в него аккаунты",
+    "Pool provisioning failed": "Не удалось развернуть пул",
+    "Pool deleted": "Пул удалён",
+    "Spin up a new isolated account pool. Only a name is required — it gets its own upstream instance and routing channel, then you import accounts into it.": "Разверните новый изолированный пул аккаунтов. Нужно только имя — он получит собственный вышестоящий экземпляр и канал маршрутизации, затем вы импортируете в него аккаунты.",
+    "e.g. Campus, Trial, Team B": "напр. Кампус, Пробный, Команда B",
+    "Provisioning {{id}}...": "Развёртывание {{id}}…",
+    "Delete pool \"{{label}}\"?": "Удалить пул «{{label}}»?",
+    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "Это остановит и удалит вышестоящий экземпляр пула и его канал маршрутизации. Файлы аккаунтов останутся на сервере. Отменить отсюда нельзя."
   }
 }

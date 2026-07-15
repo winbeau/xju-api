@@ -35,10 +35,22 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { Dialog } from '@/components/dialog'
 import { SectionPageLayout } from '@/components/layout'
 import { StatusBadge } from '@/components/status-badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Card,
   CardContent,
@@ -52,10 +64,14 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   addPoolAuthFile,
   cleanPoolAuthFilesNow,
+  createPool,
+  deletePool,
   deletePoolAuthFile,
   deriveAuthFileName,
+  getPoolCreateStatus,
   getVerifyProgress,
   importPoolAuthFiles,
+  isDynamicPool,
   listPoolAuthFiles,
   listPools,
   setPoolAuthFileDisabled,
@@ -206,6 +222,11 @@ export function Pool() {
   const [verdicts, setVerdicts] = useState<Record<string, ProbeResult>>({})
   const [heavyProbe, setHeavyProbe] = useState(false)
   const [autoDisable, setAutoDisable] = useState(false)
+  // xju-api:new — one-click pool creation + deletion (#4 Phase D).
+  const [createOpen, setCreateOpen] = useState(false)
+  const [newLabel, setNewLabel] = useState('')
+  const [creatingId, setCreatingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<PoolInfo | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const zipInputRef = useRef<HTMLInputElement>(null)
 
@@ -359,6 +380,49 @@ export function Pool() {
     prevRunning.current = jobRunning
   }, [jobRunning, pool, queryClient])
 
+  // xju-api:new — create a pool, then poll provisioning until it's ready and
+  // switch to its tab.
+  const createMutation = useMutation({
+    mutationFn: () => createPool(newLabel.trim()),
+    onSuccess: (res) => setCreatingId(res.pool_id),
+    onError: (error: Error) => toast.error(error.message),
+  })
+  const createStatusQuery = useQuery({
+    queryKey: ['pool', 'create-status', creatingId],
+    queryFn: () => getPoolCreateStatus(creatingId as string),
+    enabled: !!creatingId,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'provisioning' ? 2000 : false,
+  })
+  const createStatus = createStatusQuery.data?.status
+  const createError = createStatusQuery.data?.error
+  useEffect(() => {
+    if (!creatingId || !createStatus) return
+    if (createStatus === 'ready') {
+      const id = creatingId
+      setCreatingId(null)
+      setCreateOpen(false)
+      setNewLabel('')
+      queryClient.invalidateQueries({ queryKey: ['pool', 'pools'] })
+      setPool(id)
+      toast.success(t('Pool created — now import accounts into it'))
+    } else if (createStatus === 'error') {
+      setCreatingId(null)
+      toast.error(createError || t('Pool provisioning failed'))
+    }
+  }, [createStatus, createError, creatingId, queryClient, t])
+
+  const deletePoolMutation = useMutation({
+    mutationFn: (id: string) => deletePool(id),
+    onSuccess: async (_data, id) => {
+      setDeleteTarget(null)
+      if (pool === id) setPool('default')
+      await queryClient.invalidateQueries({ queryKey: ['pool', 'pools'] })
+      toast.success(t('Pool deleted'))
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText()
@@ -409,29 +473,40 @@ export function Pool() {
       </SectionPageLayout.Title>
       <SectionPageLayout.Content>
         {/* xju-api:edit — pool tab nav: aligned with the pool cards below and
-            enlarged so switching pools reads as a top-level action. */}
-        {pools.length > 1 && (
-          <Tabs
-            value={pool}
-            onValueChange={(value) => {
-              setPool(String(value))
-              setImportResult(null)
-            }}
-            className='mb-4'
+            enlarged so switching pools reads as a top-level action. The
+            create-pool action (#4 Phase D) sits at the end of the nav row. */}
+        <div className='mb-4 flex flex-wrap items-center gap-2'>
+          {pools.length > 1 && (
+            <Tabs
+              value={pool}
+              onValueChange={(value) => {
+                setPool(String(value))
+                setImportResult(null)
+              }}
+            >
+              <TabsList className='h-auto gap-1 p-1'>
+                {pools.map((p) => (
+                  <TabsTrigger
+                    key={p.id}
+                    value={p.id}
+                    className='px-4 py-1.5 text-base font-medium'
+                  >
+                    {p.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )}
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            onClick={() => setCreateOpen(true)}
           >
-            <TabsList className='h-auto gap-1 p-1'>
-              {pools.map((p) => (
-                <TabsTrigger
-                  key={p.id}
-                  value={p.id}
-                  className='px-4 py-1.5 text-base font-medium'
-                >
-                  {p.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        )}
+            <Plus className='size-4' />
+            {t('New pool')}
+          </Button>
+        </div>
         <div className='grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
           {/* Accounts list */}
           <Card data-card-hover='false'>
@@ -466,18 +541,41 @@ export function Pool() {
                   </div>
                 )}
               </div>
-              <Button
-                type='button'
-                variant='outline'
-                size='sm'
-                onClick={() => invalidate()}
-                disabled={listQuery.isFetching}
-              >
-                <RefreshCw
-                  className={listQuery.isFetching ? 'animate-spin' : ''}
-                />
-                {t('Refresh')}
-              </Button>
+              <div className='flex shrink-0 items-center gap-2'>
+                {/* xju-api:new — delete a dynamically-created pool (#4 Phase D);
+                    the env-seeded default/k12 pools cannot be removed here. */}
+                {isDynamicPool(pool) && (
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    className='text-destructive hover:text-destructive'
+                    onClick={() =>
+                      setDeleteTarget(
+                        pools.find((p) => p.id === pool) ?? {
+                          id: pool,
+                          label: pool,
+                        }
+                      )
+                    }
+                  >
+                    <Trash2 className='size-4' />
+                    {t('Delete pool')}
+                  </Button>
+                )}
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => invalidate()}
+                  disabled={listQuery.isFetching}
+                >
+                  <RefreshCw
+                    className={listQuery.isFetching ? 'animate-spin' : ''}
+                  />
+                  {t('Refresh')}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className='border-border overflow-hidden rounded-md border'>
@@ -893,6 +991,104 @@ export function Pool() {
             </Card>
           </div>
         </div>
+
+        {/* xju-api:new — create pool dialog (#4 Phase D). Only a name is needed;
+            everything else clones the existing pools. Provisioning runs on the
+            host, so the dialog polls until the new pool is ready. */}
+        <Dialog
+          open={createOpen}
+          onOpenChange={(o) => {
+            if (!creatingId) {
+              setCreateOpen(o)
+              if (!o) setNewLabel('')
+            }
+          }}
+          title={t('New pool')}
+          description={t(
+            'Spin up a new isolated account pool. Only a name is required — it gets its own upstream instance and routing channel, then you import accounts into it.'
+          )}
+          contentClassName='max-w-md'
+          bodyClassName='space-y-3'
+        >
+          <div className='grid gap-1'>
+            <label className='text-muted-foreground text-xs'>{t('Name')}</label>
+            <Input
+              autoFocus
+              value={newLabel}
+              placeholder={t('e.g. Campus, Trial, Team B')}
+              disabled={!!creatingId}
+              onChange={(e) => setNewLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newLabel.trim() && !creatingId) {
+                  createMutation.mutate()
+                }
+              }}
+            />
+          </div>
+          {creatingId && (
+            <div className='text-muted-foreground flex items-center gap-2 text-sm'>
+              <Loader2 className='size-4 animate-spin' />
+              {t('Provisioning {{id}}...', { id: creatingId })}
+            </div>
+          )}
+          <div className='flex justify-end gap-2'>
+            <Button
+              type='button'
+              onClick={() => createMutation.mutate()}
+              disabled={
+                !newLabel.trim() || createMutation.isPending || !!creatingId
+              }
+            >
+              {createMutation.isPending || creatingId ? (
+                <Loader2 className='animate-spin' />
+              ) : (
+                <Plus />
+              )}
+              {t('Create')}
+            </Button>
+          </div>
+        </Dialog>
+
+        {/* xju-api:new — delete pool confirm (#4 Phase D). */}
+        <AlertDialog
+          open={!!deleteTarget}
+          onOpenChange={(o) => {
+            if (!o) setDeleteTarget(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t('Delete pool "{{label}}"?', {
+                  label: deleteTarget?.label ?? '',
+                })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t(
+                  'This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.'
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletePoolMutation.isPending}>
+                {t('Cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className='bg-destructive text-white hover:bg-destructive/90'
+                disabled={deletePoolMutation.isPending}
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (deleteTarget) deletePoolMutation.mutate(deleteTarget.id)
+                }}
+              >
+                {deletePoolMutation.isPending && (
+                  <Loader2 className='animate-spin' />
+                )}
+                {t('Delete pool')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SectionPageLayout.Content>
     </SectionPageLayout>
   )

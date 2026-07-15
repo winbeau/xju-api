@@ -5297,6 +5297,16 @@
     "Expired {{date}}": "Expired {{date}}",
     "Subscription until {{date}}": "Subscription until {{date}}",
     "{{rate}}% ok · {{total}} recent": "{{rate}}% ok · {{total}} recent",
-    "cooldown · retries in {{time}}": "cooldown · retries in {{time}}"
+    "cooldown · retries in {{time}}": "cooldown · retries in {{time}}",
+    "New pool": "New pool",
+    "Delete pool": "Delete pool",
+    "Pool created — now import accounts into it": "Pool created — now import accounts into it",
+    "Pool provisioning failed": "Pool provisioning failed",
+    "Pool deleted": "Pool deleted",
+    "Spin up a new isolated account pool. Only a name is required — it gets its own upstream instance and routing channel, then you import accounts into it.": "Spin up a new isolated account pool. Only a name is required — it gets its own upstream instance and routing channel, then you import accounts into it.",
+    "e.g. Campus, Trial, Team B": "e.g. Campus, Trial, Team B",
+    "Provisioning {{id}}...": "Provisioning {{id}}...",
+    "Delete pool \"{{label}}\"?": "Delete pool \"{{label}}\"?",
+    "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here.": "This stops and removes the pool’s upstream instance and its routing channel. The account files are kept on the server. This cannot be undone from here."
   }
 }
