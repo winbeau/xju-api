@@ -2,7 +2,7 @@
 # scripts/create-k12-channel.sh — 在 new-api 建 K12 渠道并登记 k12 组
 #
 # 用法: K12_INTERNAL_KEY=<config.k12.yaml 里的 api-key> ./create-k12-channel.sh
-# 依赖: curl, jq;管理凭证读同目录 .env(NEWAPI_BASE / ACCESS_TOKEN / NEWAPI_USER_ID,同 issue_card.sh)。
+# 依赖: curl, jq;管理凭证读同目录 .env(NEWAPI_BASE / ACCESS_TOKEN / NEWAPI_USER_ID,同 issue-card.sh)。
 #
 # 做三件事(幂等):
 #   1. 读 channel 1 的 models,克隆给新渠道(避免模型集漂移)。

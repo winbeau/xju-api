@@ -24,7 +24,11 @@ id_rsa*
 # --- 构建 / 运行期产物 ---
 node_modules/
 dist/
-new-api/prebuilt/
+# go:embed 接收槽:目录与占位 index.html 入库,真实产物不入库
+!server/newapi/web/dist/
+server/newapi/web/dist/*
+!server/newapi/web/dist/index.html
+server/newapi/prebuilt/
 build/
 .cache/
 *.sqlite

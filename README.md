@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="new-api/web/default/public/logo.png" width="76" alt="XJU API" />
+<img src="web/public/logo.png" width="76" alt="XJU API" />
 
 # XJU API
 
@@ -23,7 +23,7 @@
 
 **新疆大学 Se Lab 自建的 AI API 代理平台。** 用户买一张时间卡,拿到一把兼容 OpenAI 的 API key,在 Codex、Cherry Studio 等常用客户端里直接用,访问背后共享的 AI 号池 —— 端点和请求格式都和 OpenAI 一样,只需换掉 base URL 和 key。
 
-> 单仓（monorepo）:内置 [`new-api/`](./new-api/) 与 [`CLIProxyAPI/`](./CLIProxyAPI/) 源码（已去各自 `.git`）+ 运维编排 + 文档 + 定制记录。完整设计见 **[PLAN.md](./PLAN.md)**。
+> 单仓（monorepo）:顶层五件事 —— 前端 [`web/`](./web/)、服务端 [`server/`](./server/)(内置 new-api 与 CLIProxyAPI 源码,已去各自 `.git`)、部署 [`deploy/`](./deploy/)、脚本 [`scripts/`](./scripts/)、文档 [`docs/`](./docs/)。完整设计见 **[PLAN.md](./PLAN.md)**。
 
 ## ✨ 特性
 
@@ -67,7 +67,7 @@
 ```bash
 # 在 claude-tri 上(仓库 clone 于 /home/winbeau/opt/xju-api):
 bash deploy/build-newapi.sh v0.5.x                        # 构建定制镜像 winbeau/xju-newapi:v0.5.x
-IMAGE=winbeau/xju-newapi:v0.5.x bash deploy/new-api.run.sh # 换上运行容器(数据在宿主 volume,不丢)
+IMAGE=winbeau/xju-newapi:v0.5.x bash deploy/run-newapi.sh # 换上运行容器(数据在宿主 volume,不丢)
 curl -fsS http://127.0.0.1:3000/api/status                # 验活
 ```
 
@@ -76,12 +76,12 @@ Caddyfile / CLIProxyAPI compose / 号池管理密钥 / 备份等编排见 [`depl
 ## 📁 目录结构
 
 ```
-new-api/               L1 源码(前端已 Notion 换肤 + 裁剪,记录见 newapi-customization/)
-CLIProxyAPI/           L2/L3 源码(默认零改动,按需适配)
-deploy/                部署脚手架(Caddyfile / docker 模板 / 构建 · 运行脚本 / 备份)
-scripts/               发卡 glue(建卡 / 续卡 / 开闭)
-newapi-customization/  前端换肤 + 裁剪的落地记录(升级上游时按此重放)
-docs/                  时间卡接口速查 / 排障 runbook
+web/                   前端(React 19 + Rsbuild,Notion 换肤 + 裁剪,独立 bun 应用)
+server/newapi/         L1 Go 后端(QuantumNous/new-api,AGPL-3.0;go:embed 前端产物)
+server/cliproxy/       L2/L3 号池(router-for-me/CLIProxyAPI,MIT;默认零改动)
+deploy/                部署脚手架(Caddyfile / Dockerfile.newapi.prebuilt / 构建 · 运行脚本 / 备份)
+scripts/               发卡 glue(建卡 / 续卡 / 开闭)+ check-guardrails.sh 护栏自检
+docs/                  时间卡接口速查 / 排障 runbook / 前端定制记录(newapi-customization.md)
 PLAN.md                完整实施计划(9 节 + Phase 0-5)
 CHANGELOG.md           上线后迭代记录
 ```
@@ -97,10 +97,10 @@ XJU API 站在两个开源项目之上,谨此致谢并保留其归属与版权:
 - **[New API](https://github.com/QuantumNous/new-api)** —— by **QuantumNous**,本平台 L1(发卡 / 统计 / 前端)基座,AGPL-3.0。
 - **[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)** —— by **router-for-me**,本平台 L2/L3(号池 / 协议中转)基座,MIT。
 
-本仓库对 new-api 做了换肤 + 裁剪 + 若干功能增强(见 [newapi-customization/](./newapi-customization/) 与 [CHANGELOG.md](./CHANGELOG.md)),但**未删除 / 修改 New API 与 QuantumNous 的品牌、页脚归属与版权头**。
+本仓库对 new-api 做了换肤 + 裁剪 + 若干功能增强(见 [docs/newapi-customization.md](./docs/newapi-customization.md) 与 [CHANGELOG.md](./CHANGELOG.md)),但**未删除 / 修改 New API 与 QuantumNous 的品牌、页脚归属与版权头**。
 
 ## 📄 许可
 
 沿用 New API 的 **AGPL-3.0**。定制代码同以 AGPL-3.0 发布。
 
-`CLIProxyAPI/` 子树为 **MIT**(router-for-me),随附分发、以独立进程运行,许可原文见 [CLIProxyAPI/LICENSE](./CLIProxyAPI/LICENSE)。
+`server/cliproxy/` 子树为 **MIT**(router-for-me),随附分发、以独立进程运行,许可原文见 [server/cliproxy/LICENSE](./server/cliproxy/LICENSE)。

@@ -1,6 +1,6 @@
 # deploy/config.example.yaml — CLIProxyAPI 配置样板(xju-api 用法)
 # 复制为部署机 /opt/cli-proxy-api/config.yaml 后填真实值;真实 config.yaml 被 .gitignore 排除,永不入库。
-# 完整可配项参见仓内 CLIProxyAPI/config.example.yaml(上游原版,含全部注释)。
+# 完整可配项参见仓内 server/cliproxy/config.example.yaml(上游原版,含全部注释)。
 
 host: "" # 容器内绑全部接口即可;宿主侧由 compose 限定 127.0.0.1:8317(PLAN.md §8-1)
 port: 8317

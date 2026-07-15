@@ -220,7 +220,7 @@
 
 ---
 
-## 5. 前端改造（new-api `web/default`）
+## 5. 前端改造（new-api `web`）
 
 > 目标：把 new-api 默认前台改造成 **xju-feiyue 的 Notion 风格**，并**裁掉与「发卡/统计」无关的功能**。技术栈现状：Tailwind **v4**（`@theme inline`）+ shadcn `base-nova` + Base UI + hugeicons，且**已有 `[data-theme-preset='xxx']` 覆盖机制**——这是最小改动挂载点。
 
@@ -321,7 +321,7 @@
 
 ## 6. 仓库结构（`xju-api` 放什么）
 
-> `xju-api` 采用**单仓（monorepo）**开发：直接内置 `new-api/` 与 `CLIProxyAPI/` 源码（已去除各自 `.git`，并入本仓统一版本管理），外加运维编排 / 文档 / 定制补丁。各子项目保留自带 `LICENSE` 与 `.gitignore`；顶层 `.gitignore` 只做全仓密钥保护（`config.yaml`/`auths/`/真实 `.env` 永不入库，`*.example.*` 模板保留）。
+> `xju-api` 采用**单仓（monorepo）**开发：顶层五件事 —— 前端 `web/`、服务端 `server/`（内置 new-api 与 CLIProxyAPI 源码，已去除各自 `.git`）、部署 `deploy/`、脚本 `scripts/`、文档 `docs/`（2026-07 顶层重组，见 docs/REFACTOR-PLAN.md §5.0）。各子项目保留自带 `LICENSE` 与 `.gitignore`；顶层 `.gitignore` 只做全仓密钥保护（`config.yaml`/`auths/`/真实 `.env` 永不入库，`*.example.*` 模板保留）。
 
 ```
 xju-api/
@@ -329,32 +329,32 @@ xju-api/
 ├── README.md                    # 项目速览 + 快速上手（指向 PLAN.md 各节）
 ├── .gitignore                   # 全仓密钥保护（config.yaml/auths/真实.env 永不入库；*.example.* 保留）
 │
-├── new-api/                     # 【L1 源码·已内置，去 .git】QuantumNous/new-api；前端换肤+裁剪在此改
-├── CLIProxyAPI/                 # 【L2/L3 源码·已内置，去 .git】router-for-me/CLIProxyAPI；默认零改动，按需可删减/升级适配
+├── web/                         # 【前端】React 19 + Rsbuild 独立 bun 应用（原 new-api/web/default；换肤+裁剪在此改）
+├── server/
+│   ├── newapi/                  # 【L1 源码·已内置，去 .git】QuantumNous/new-api（Go 后端；go:embed web/dist 接收槽）
+│   └── cliproxy/                # 【L2/L3 源码·已内置，去 .git】router-for-me/CLIProxyAPI；默认零改动，按需可删减/升级适配
 │
 ├── deploy/                      # 部署脚手架
 │   ├── Caddyfile                # 两 site block（api/codex），占位邮箱，见 §3.3
-│   ├── new-api.run.sh           # docker run 模板（127.0.0.1:3000，SESSION_SECRET 用 openssl 生成）
-│   ├── cli-proxy.docker-compose.yml   # 改端口绑定 127.0.0.1，OAuth 回调口默认注释
+│   ├── run-newapi.sh           # docker run 模板（127.0.0.1:3000，SESSION_SECRET 用 openssl 生成）
+│   ├── docker-compose.cliproxy.yml   # 改端口绑定 127.0.0.1，OAuth 回调口默认注释
 │   ├── config.example.yaml      # CLIProxyAPI 配置样板，全占位符（真实 config.yaml 被 gitignore）
-│   ├── cli-proxy-api.service    # systemd 备选模板（docker 为首选）
+│   ├── Dockerfile.newapi.prebuilt  # 唯一镜像构建路径（Go-only；前端产物预构建 COPY 进来）
 │   └── backup.sh                # SQLite .backup + auths/ + Caddyfile 滚动备份
 │
 ├── scripts/                     # 发卡 glue（非必需，需要自动化时才用）
-│   ├── issue_card.sh            # 建卡：POST /api/token/
-│   ├── renew_card.sh            # 续卡：完整 PUT /api/token/（带 status:1 + 新 expired_time）
-│   ├── toggle_card.sh           # 临时开闭：PUT /api/token/?status_only=true
+│   ├── issue-card.sh            # 建卡：POST /api/token/
+│   ├── renew-card.sh            # 续卡：完整 PUT /api/token/（带 status:1 + 新 expired_time）
+│   ├── toggle-card.sh           # 临时开闭：PUT /api/token/?status_only=true
 │   └── .env.example             # NEWAPI_BASE / ACCESS_TOKEN 占位（真实 .env 被 gitignore）
 │
-├── newapi-customization/        # new-api 前端定制的说明与补丁（源码本体在 ./new-api/）
-│   ├── README.md                # §5 换肤 + 裁剪的落地步骤与文件清单
-│   ├── theme-notion.md          # [data-theme-preset='notion'] 色板/圆角/字体/滚动条规范
-│   ├── prune-checklist.md       # 删除包 A/B/C/D/E/F/G/I 逐步清单 + 每包「必须改」项
-│   └── patches/                 # 可选：以 git patch / diff 形式沉淀关键改动（如日卡快捷按钮）
-│
-└── docs/                        # 补充文档（可选）
+└── docs/                        # 文档
     ├── daycard-api.md           # §4 三接口的 curl 示例（占位 token）
-    └── runbook.md               # 升级/回滚/排障速查
+    ├── runbook.md               # 升级/回滚/排障速查
+    ├── newapi-customization.md  # §5 换肤 + 裁剪的落地记录（原 newapi-customization/README.md）
+    ├── theme-notion.md          # [data-theme-preset='notion'] 色板/圆角/字体/滚动条规范
+    ├── prune-checklist.md       # 删除包逐项清单（含 2026-07 classic 删除 + 单主题化）
+    └── REFACTOR-PLAN.md         # 2026-07 顶层重组计划（已执行）
 ```
 
 > 顶层 `.gitignore` 覆盖：`**/config.yaml` / `config.local.yaml` / `**/.env` / `auth.json` / `**/auths/` / `*.pem` / `*.key` / `*.db` / `*.sqlite*` / `logs/` / `node_modules/`；**保留** `*.example.*` 模板与 lockfile（vendored 源码开发需要）。新增敏感类型时同步补充。
@@ -386,7 +386,7 @@ xju-api/
 | ufw 增量放行 | `48687/tcp`(ssh，先加!) + `80/tcp` + `443/tcp`，确认后再 enable，**别锁死自己** |
 | 起 CLIProxyAPI | docker-compose，`127.0.0.1:8317:8317`，OAuth 回调口注释；`config.yaml` 填占位 `api-keys` |
 | rsync 号池 | 从现跑号池的机器 `rsync -e "ssh -p 48687"` 拉 `auths/*.json` 到 `/opt/cli-proxy-api/auths/` |
-| 起 new-api | `deploy/new-api.run.sh`：绑 `127.0.0.1:3000:3000` + 接入 `xju-net`，挂 `/opt/new-api/data`，设 `SESSION_COOKIE_SECURE=true` / `SESSION_COOKIE_TRUSTED_URL=https://api.selab.top` / `SESSION_SECRET`（首次生成后持久化复用，否则重启全员掉登录） |
+| 起 new-api | `deploy/run-newapi.sh`：绑 `127.0.0.1:3000:3000` + 接入 `xju-net`，挂 `/opt/new-api/data`，设 `SESSION_COOKIE_SECURE=true` / `SESSION_COOKIE_TRUSTED_URL=https://api.selab.top` / `SESSION_SECRET`（首次生成后持久化复用，否则重启全员掉登录） |
 | 初始化管理员 | ⚠️ **实测修正**：本版**不再自动建 `root/123456`**，改走初始化向导 —— `POST /api/setup {username,password,confirmPassword}`（或浏览器 `/setup`）。**直接设强密码**，省掉「先弱密码再改密」的窗口期 |
 
 **验收**：`https://api.selab.top` 出登录页且 TLS 有效；`https://codex.selab.top` 反代通（`/v1/models` 或返回预期）；两后端只在 `127.0.0.1` 可见（外网 `curl :3000/:8317` 不通）；号池 `auths/` 已就位。
@@ -408,7 +408,7 @@ xju-api/
 
 ### Phase 3 — 前端裁剪 + 换肤（预估 3–5 天）
 
-> 在本地对 new-api 仓库 `web/default` 改，构建产物随 new-api 部署（或自建镜像）。改动步骤沉淀进 `xju-api/newapi-customization/`。
+> 在本地对顶层 `web/` 改，构建产物经 `deploy/build-newapi.sh` 拷入 `server/newapi/web/dist` 随镜像部署。改动步骤沉淀进 `docs/newapi-customization.md`。
 
 | 任务 | 关键点 |
 |---|---|
@@ -426,7 +426,7 @@ xju-api/
 
 | 任务 | 关键点 |
 |---|---|
-| 三脚本 | `issue_card.sh` / `renew_card.sh` / `toggle_card.sh`，读 `.env`（占位）里的 `ACCESS_TOKEN` |
+| 三脚本 | `issue-card.sh` / `renew-card.sh` / `toggle-card.sh`，读 `.env`（占位）里的 `ACCESS_TOKEN` |
 | 续卡正确性 | 严格走完整 PUT（`status:1` + 未来 `expired_time`），覆盖「已过期复活」用例 |
 | （可选）卡密自助激活 | 用户输卡密 → 脚本调建/续接口写 `expired_time` |
 
@@ -470,7 +470,7 @@ xju-api/
 | 5 | **多项目共用机干扰** | 已有 redis/postgres/dev-server 占 0.0.0.0；`:2022` 用途未明 | Phase 0 查明 `:2022`；所有端口/防火墙走增量 |
 | 6 | **CF 橙云拦 ACME** | 首签期橙云代理可能拦 HTTP-01/TLS-ALPN | 首签先灰云，签发后再评估是否开代理 |
 | 7 | **号池搬运** | 真实 `auths/*.json` 在现跑号池的机器上，本仓 `auths/` 只有 `.gitkeep` | Phase 1 rsync 搬运，勿从代码仓找 |
-| 8 | **new-api 上游升级** | 源码已 vendored 进本仓（脱离上游 git），前端定制直接改 `new-api/web/default` | 升级=手动 merge 上游 tag 到 `new-api/`，冲突处按 `newapi-customization/` 说明重放；升级前打 tag 可回滚 |
+| 8 | **new-api 上游升级** | 源码已内化进本仓（脱离上游 git），前端定制直接改顶层 `web/` | 2026-07 起上游可升级性**非目标**（REFACTOR-PLAN §6）：与上游永久分叉，安全修复人工阅读、手工移植 |
 | 9 | **自助支付边界** | 现阶段发卡=后台开票，不做自助支付；subscriptions 已删 | 未来若要自助购卡，正确路径是「支付成功 → 调 token API 写 expired_time」的后端改造，非当前范围 |
 
 ---

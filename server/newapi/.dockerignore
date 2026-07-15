@@ -1,0 +1,11 @@
+.github
+.git
+*.md
+.vscode
+.gitignore
+docs
+.eslintcache
+.gocache
+# go:embed 接收槽不进 context(树内只有占位);真产物走 prebuilt/dist 显式 COPY
+/web/dist
+!THIRD-PARTY-LICENSES.md

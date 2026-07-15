@@ -1,7 +1,7 @@
 # 日卡三接口速查（curl 版）
 
 > 机制详见 [PLAN.md §4](../PLAN.md#4-日卡系统设计)。本文全部凭证为占位符。
-> 对应脚本：[`scripts/issue_card.sh`](../scripts/issue_card.sh) / [`renew_card.sh`](../scripts/renew_card.sh) / [`toggle_card.sh`](../scripts/toggle_card.sh)。
+> 对应脚本：[`scripts/issue-card.sh`](../scripts/issue-card.sh) / [`renew-card.sh`](../scripts/renew-card.sh) / [`toggle-card.sh`](../scripts/toggle-card.sh)。
 
 ## 通用鉴权
 

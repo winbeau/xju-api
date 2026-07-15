@@ -7,8 +7,8 @@
 | 组件 | 落位 | 监听 | 数据 |
 |---|---|---|---|
 | Caddy | 系统服务 `/etc/caddy/Caddyfile` | `0.0.0.0:80/443` | 证书 `/var/lib/caddy` |
-| new-api | docker `new-api`（[deploy/new-api.run.sh](../deploy/new-api.run.sh)） | `127.0.0.1:3000` | `/opt/new-api/data/one-api.db` |
-| CLIProxyAPI | docker compose `/opt/cli-proxy-api/`（[deploy/cli-proxy.docker-compose.yml](../deploy/cli-proxy.docker-compose.yml)） | `127.0.0.1:8317` | `config.yaml` + `auths/` |
+| new-api | docker `new-api`（[deploy/run-newapi.sh](../deploy/run-newapi.sh)） | `127.0.0.1:3000` | `/opt/new-api/data/one-api.db` |
+| CLIProxyAPI | docker compose `/opt/cli-proxy-api/`（[deploy/docker-compose.cliproxy.yml](../deploy/docker-compose.cliproxy.yml)） | `127.0.0.1:8317` | `config.yaml` + `auths/` |
 
 ## 升级（先 pin tag，勿追 latest）
 
@@ -17,8 +17,13 @@
 ```bash
 # new-api: 仓库在 /home/winbeau/opt/xju-api;数据在宿主 volume,换镜像不丢
 cd /home/winbeau/opt/xju-api && git pull --ff-only origin main    # 拉最新定制代码(勿 reset --hard)
-bash deploy/build-newapi.sh v0.5.x                               # 构建定制镜像(BuildKit 缓存,go build ~7s)
-IMAGE=winbeau/xju-newapi:v0.5.x bash deploy/new-api.run.sh        # 脚本内含 rm -f 旧容器
+# 前端产物由本机(claude-vps)构建后搬来(tri 跑 bun build 会 OOM):
+#   本机: cd web && bun run build && tar czf /tmp/dist.tgz -C dist .
+#         scp -P 48687 /tmp/dist.tgz winbeau@70.39.193.15:/tmp/
+#   tri:  rm -rf server/newapi/prebuilt/dist && mkdir -p server/newapi/prebuilt/dist \
+#         && tar xzf /tmp/dist.tgz -C server/newapi/prebuilt/dist
+SKIP_WEB=1 bash deploy/build-newapi.sh v0.6.x                    # Go-only 构建(-p 2 压内存峰值)
+IMAGE=winbeau/xju-newapi:v0.6.x bash deploy/run-newapi.sh        # 脚本内含 rm -f 旧容器
 curl -fsS http://127.0.0.1:3000/api/status                       # 验活
 
 # CLIProxyAPI(默认零改动,可直接换上游 tag)
@@ -27,7 +32,7 @@ docker compose pull && docker compose up -d
 curl -fsS http://127.0.0.1:8317/v1/models -H "Authorization: Bearer <内部api-key>"
 ```
 
-**回滚** = 用上一版镜像 tag 重跑 `IMAGE=winbeau/xju-newapi:<旧tag> bash deploy/new-api.run.sh`(旧镜像仍在本机;数据在宿主 volume 不受影响)。升级前记下当前 tag。
+**回滚** = 用上一版镜像 tag 重跑 `IMAGE=winbeau/xju-newapi:<旧tag> bash deploy/run-newapi.sh`(旧镜像仍在本机;数据在宿主 volume 不受影响)。升级前记下当前 tag。
 
 ## 备份 / 恢复
 
@@ -42,7 +47,7 @@ curl -fsS http://127.0.0.1:8317/v1/models -H "Authorization: Bearer <内部api-k
 |---|---|---|
 | 登录后立即掉登录 / 登录不上 | 容器 env | `SESSION_COOKIE_SECURE` / `SESSION_COOKIE_TRUSTED_URL=https://api.selab.top` 未设或不匹配（PLAN.md §8-7）；`SESSION_SECRET` 变了会全员失效 |
 | 证书签不下来 | `journalctl -u caddy` | Cloudflare 橙云拦 ACME 挑战 → 先切「仅 DNS/灰云」（PLAN.md §9-6）；80/443 未放行 |
-| 用户请求 401 | 令牌状态/到期 | 日卡到期即时 401 属正常；复活走 `scripts/renew_card.sh`（两步，见 docs/daycard-api.md ②） |
+| 用户请求 401 | 令牌状态/到期 | 日卡到期即时 401 属正常；复活走 `scripts/renew-card.sh`（两步，见 docs/daycard-api.md ②） |
 | 渠道测试失败 | new-api 渠道配置 | Base URL 应为 `http://127.0.0.1:8317`，Key= CLIProxyAPI `config.yaml` 的 `api-keys` 之一 |
 | 上游全部报错 | `docker logs cli-proxy-api` | 号池凭证过期 → 重新 OAuth（临时开回调口走 SSH 隧道，PLAN.md §8-2）；配额耗尽等冷却 |
 | 机器变慢 / OOM | `free -h`、`docker stats` | 本机内存只有 3.8Gi 且多项目共用 —— 不要再起新容器 |
