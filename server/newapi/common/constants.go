@@ -14,7 +14,9 @@ import (
 
 var StartTime = time.Now().Unix() // unit: second
 var Version = "v0.0.0"            // this hard coding will be replaced automatically when building, no need to manually change
-var SystemName = "New API"
+// xju-api:edit — 产品显示名默认值改为 XJU API(空库/未设 SystemName option 时的
+// 兜底;运营仍可在系统设置里覆盖)。footer 的上游归属 ProjectAttribution 不受影响。
+var SystemName = "XJU API"
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""
