@@ -141,6 +141,15 @@ func AddPoolAuthFile(c *gin.Context) {
 	// credential the pool actually understands.
 	content, name := unwrapPoolAuthContent(content, reqBody.Name)
 
+	// xju-api:new — refuse a file that carries another pool's marker.
+	if fp, misrouted := foreignPoolMarker(name, c.Query("pool")); misrouted {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": fmt.Sprintf("this file name contains \"-%s-\", so it looks like a %q pool account; switch to that pool (or rename) before adding", fp, fp),
+		})
+		return
+	}
+
 	ok := poolMgmtProxy(
 		c, c.Query("pool"), http.MethodPost,
 		"/v0/management/auth-files?name="+url.QueryEscape(name),
@@ -364,6 +373,27 @@ func auditPoolID(poolID string) string {
 	return poolID
 }
 
+// xju-api:new — cross-pool import guard. The batch importer stamps a pool's
+// files with "-<poolID>-" in their name (e.g. "alice@x.com-k12-<hash>.json"), so
+// a file whose name carries a *different* configured pool's marker almost
+// certainly belongs to that other pool. This catches the real incident where an
+// operator imported the k12 zip into the default pool by forgetting to switch
+// the pool selector, silently polluting it with 500 accounts. Returns the
+// foreign pool id when the name looks misrouted.
+func foreignPoolMarker(name, targetPool string) (string, bool) {
+	target := auditPoolID(targetPool)
+	lower := strings.ToLower(name)
+	for _, p := range common.ListConfiguredPools() {
+		if p.ID == target {
+			continue
+		}
+		if strings.Contains(lower, "-"+strings.ToLower(p.ID)+"-") {
+			return p.ID, true
+		}
+	}
+	return "", false
+}
+
 // sanitizePoolAuthName keeps the name a plain `*.json` basename. The pool side
 // has its own guard, but stripping path separators here means a bad name can
 // never be composed into a traversal against the management API.
@@ -492,6 +522,12 @@ func ImportPoolAuthFiles(c *gin.Context) {
 		}
 		// Reuse the single-add normalization: unwrap export bundles, derive a safe name.
 		normalized, name := unwrapPoolAuthContent(content, base)
+		// xju-api:new — skip files that belong to another pool (name carries its
+		// marker), so a mis-targeted zip can't silently pollute this pool.
+		if fp, misrouted := foreignPoolMarker(name, poolID); misrouted {
+			skipped = append(skipped, importSkip{Name: base, Reason: "belongs to pool " + fp + " (name contains -" + fp + "-)"})
+			continue
+		}
 		part, err := mw.CreateFormFile("files", name)
 		if err != nil {
 			skipped = append(skipped, importSkip{Name: base, Reason: "internal error"})
