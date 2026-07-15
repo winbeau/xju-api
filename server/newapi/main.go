@@ -130,7 +130,7 @@ func main() {
 	service.StartSystemInstanceReporter()
 
 	// xju-api:inject — hourly sweep that disables stale/unavailable account-pool entries
-	// when PoolAutoCleanEnabled is on (see service/pool_cleanup.go).
+	// when PoolAutoCleanEnabled is on (see service/xju_pool_cleanup.go).
 	service.StartPoolAutoCleanTask()
 
 	// Wire task polling adaptor factory (breaks service -> relay import cycle).

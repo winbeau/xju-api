@@ -1,9 +1,7 @@
 package service
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -30,8 +28,6 @@ var poolCleanupOnce sync.Once
 
 const poolCleanupInterval = time.Hour
 
-var poolCleanupClient = &http.Client{Timeout: 20 * time.Second}
-
 // StartPoolAutoCleanTask launches the hourly sweep. It always starts; each tick
 // checks PoolAutoCleanEnabled, so the admin toggle takes effect without a restart.
 func StartPoolAutoCleanTask() {
@@ -50,16 +46,22 @@ func runPoolAutoCleanOnce() {
 	if !common.PoolAutoCleanEnabled {
 		return
 	}
-	if _, _, ok := common.ResolvePoolMgmt("default"); !ok {
+	// xju-api:edit — 多实例守卫(REFACTOR-PLAN §5.2):sweep 会改池内账号状态,
+	// 多节点部署时只允许 master 执行,避免重复清理与并发状态写。
+	if !common.IsMasterNode {
 		return
 	}
-	disabled, err := SweepPoolOnce(common.PoolAutoCleanHours)
-	if err != nil {
-		common.SysError("pool auto-clean sweep failed: " + err.Error())
-		return
-	}
-	if disabled > 0 {
-		common.SysLog(fmt.Sprintf("pool auto-clean: disabled %d stale account(s)", disabled))
+	// xju-api:edit — 多池决断(owner 拍板纳入):遍历全部已配置池逐池 sweep,
+	// 消灭「default 自动清、K12 只能手动清」的隐性行为差异。
+	for _, pool := range common.ListConfiguredPools() {
+		disabled, err := SweepPoolOnceForPool(pool.ID, common.PoolAutoCleanHours)
+		if err != nil {
+			common.SysError("pool auto-clean sweep failed for pool " + pool.ID + ": " + err.Error())
+			continue
+		}
+		if disabled > 0 {
+			common.SysLog(fmt.Sprintf("pool auto-clean: disabled %d stale account(s) in pool %s", disabled, pool.ID))
+		}
 	}
 }
 
@@ -73,11 +75,6 @@ type poolAuthEntry struct {
 
 type poolListResponse struct {
 	Files []poolAuthEntry `json:"files"`
-}
-
-// SweepPoolOnce sweeps the default pool. Kept for the hourly auto-clean task.
-func SweepPoolOnce(hours int) (int, error) {
-	return SweepPoolOnceForPool("default", hours)
 }
 
 // SweepPoolOnceForPool disables every account in the given pool that is
@@ -135,7 +132,8 @@ func parsePoolTimestamp(v string) time.Time {
 }
 
 func listPoolEntries(baseURL, secret string) ([]poolAuthEntry, error) {
-	body, err := poolMgmtRequest(baseURL, secret, http.MethodGet, "/v0/management/auth-files", nil)
+	// xju-api:edit — round-trip 单一来源:改走 xju_pool_client.go 的 PoolMgmtRequest
+	body, err := PoolMgmtRequest(baseURL, secret, http.MethodGet, "/v0/management/auth-files", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -151,30 +149,6 @@ func disablePoolEntry(baseURL, secret, name string) error {
 	if err != nil {
 		return err
 	}
-	_, err = poolMgmtRequest(baseURL, secret, http.MethodPatch, "/v0/management/auth-files/status", strings.NewReader(string(payload)))
+	_, err = PoolMgmtRequest(baseURL, secret, http.MethodPatch, "/v0/management/auth-files/status", strings.NewReader(string(payload)))
 	return err
-}
-
-func poolMgmtRequest(baseURL, secret, method, path string, body io.Reader) ([]byte, error) {
-	req, err := http.NewRequestWithContext(context.Background(), method, baseURL+path, body)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+secret)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := poolCleanupClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("pool management HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(data)))
-	}
-	return data, nil
 }

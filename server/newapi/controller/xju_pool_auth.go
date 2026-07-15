@@ -3,7 +3,6 @@ package controller
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -36,59 +35,37 @@ import (
 // When POOL_MGMT_SECRET is empty the feature is simply off and every handler
 // answers 503, so a deployment that doesn't wire it up degrades cleanly.
 
-var poolMgmtClient = &http.Client{Timeout: 20 * time.Second}
-
-// poolMgmtRoundTrip performs one authenticated call to a pool's management API
-// and returns the raw status + body, so callers can either pipe it through or
-// merge it with locally-computed results (the batch importer does the latter).
-func poolMgmtRoundTrip(ctx context.Context, baseURL, secret, method, path string, body io.Reader, contentType string) (int, []byte, error) {
-	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, body)
-	if err != nil {
-		return 0, nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+secret)
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
-	resp, err := poolMgmtClient.Do(req)
-	if err != nil {
-		return 0, nil, err
-	}
-	defer resp.Body.Close()
-	payload, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return resp.StatusCode, nil, err
-	}
-	return resp.StatusCode, payload, nil
-}
-
 // poolMgmtProxy forwards a request to the given pool's management API and copies
 // the upstream status + body back to the caller under the uniform envelope.
-func poolMgmtProxy(c *gin.Context, poolID, method, path string, body io.Reader, contentType string) {
+// It reports whether the upstream call succeeded so mutating handlers can write
+// their audit entry only for operations that actually happened.
+// HTTP 传输走 service.PoolMgmtRoundTrip(round-trip 单一来源,REFACTOR-PLAN §5.2)。
+func poolMgmtProxy(c *gin.Context, poolID, method, path string, body io.Reader, contentType string) bool {
 	baseURL, secret, ok := common.ResolvePoolMgmt(poolID)
 	if !ok {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"success": false,
 			"message": "pool management is not configured for pool: " + poolID,
 		})
-		return
+		return false
 	}
-	status, payload, err := poolMgmtRoundTrip(c.Request.Context(), baseURL, secret, method, path, body, contentType)
+	status, payload, err := service.PoolMgmtRoundTrip(c.Request.Context(), baseURL, secret, method, path, body, contentType)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{
 			"success": false,
 			"message": fmt.Sprintf("pool management unreachable: %v", err),
 		})
-		return
+		return false
 	}
 	if status >= 200 && status < 300 {
 		c.Data(http.StatusOK, "application/json; charset=utf-8", wrapPoolSuccess(payload))
-		return
+		return true
 	}
 	c.JSON(status, gin.H{
 		"success": false,
 		"message": poolErrorMessage(payload, status),
 	})
+	return false
 }
 
 // ListPools GET /api/pool/pools — the configured pools (default + k12) so the
@@ -164,12 +141,20 @@ func AddPoolAuthFile(c *gin.Context) {
 	// credential the pool actually understands.
 	content, name := unwrapPoolAuthContent(content, reqBody.Name)
 
-	poolMgmtProxy(
+	ok := poolMgmtProxy(
 		c, c.Query("pool"), http.MethodPost,
 		"/v0/management/auth-files?name="+url.QueryEscape(name),
 		strings.NewReader(content),
 		"application/json",
 	)
+	if ok {
+		// xju-api:edit — 审计对齐(对标 invite_code.go 的 recordManageAudit 规范):
+		// 只记池与文件名,凭证内容永不入审计。
+		recordManageAudit(c, "pool_auth.add", map[string]interface{}{
+			"pool": auditPoolID(c.Query("pool")),
+			"name": name,
+		})
+	}
 }
 
 // unwrapPoolAuthContent normalizes a pasted auth blob into (single-account JSON,
@@ -229,18 +214,26 @@ func SetPoolAuthFileStatus(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "name and disabled are required"})
 		return
 	}
+	name := sanitizePoolAuthName(reqBody.Name)
 	body, err := common.Marshal(map[string]any{
-		"name":     sanitizePoolAuthName(reqBody.Name),
+		"name":     name,
 		"disabled": *reqBody.Disabled,
 	})
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	poolMgmtProxy(
+	ok := poolMgmtProxy(
 		c, c.Query("pool"), http.MethodPatch, "/v0/management/auth-files/status",
 		strings.NewReader(string(body)), "application/json",
 	)
+	if ok {
+		recordManageAudit(c, "pool_auth.status", map[string]interface{}{
+			"pool":     auditPoolID(c.Query("pool")),
+			"name":     name,
+			"disabled": *reqBody.Disabled,
+		})
+	}
 }
 
 // CleanPoolAuthFilesNow POST /api/pool/auth-files/clean — run the stale-account
@@ -260,6 +253,10 @@ func CleanPoolAuthFilesNow(c *gin.Context) {
 		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
 		return
 	}
+	recordManageAudit(c, "pool_auth.clean", map[string]interface{}{
+		"pool":     auditPoolID(poolID),
+		"disabled": disabled,
+	})
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"disabled": disabled}})
 }
 
@@ -270,11 +267,26 @@ func DeletePoolAuthFile(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "name is required"})
 		return
 	}
-	poolMgmtProxy(
+	ok := poolMgmtProxy(
 		c, c.Query("pool"), http.MethodDelete,
 		"/v0/management/auth-files?name="+url.QueryEscape(name),
 		nil, "",
 	)
+	if ok {
+		recordManageAudit(c, "pool_auth.delete", map[string]interface{}{
+			"pool": auditPoolID(c.Query("pool")),
+			"name": name,
+		})
+	}
+}
+
+// auditPoolID normalizes the pool query param for audit entries ("" resolves
+// to the default pool, mirroring common.ResolvePoolMgmt).
+func auditPoolID(poolID string) string {
+	if strings.TrimSpace(poolID) == "" {
+		return "default"
+	}
+	return poolID
 }
 
 // sanitizePoolAuthName keeps the name a plain `*.json` basename. The pool side
@@ -424,7 +436,7 @@ func ImportPoolAuthFiles(c *gin.Context) {
 	failed := make([]importFail, 0)
 	imported := 0
 	if forwarded > 0 {
-		status, payload, err := poolMgmtRoundTrip(
+		status, payload, err := service.PoolMgmtRoundTrip(
 			c.Request.Context(), baseURL, secret,
 			http.MethodPost, "/v0/management/auth-files", &body, mw.FormDataContentType(),
 		)
@@ -456,6 +468,12 @@ func ImportPoolAuthFiles(c *gin.Context) {
 		}
 	}
 
+	recordManageAudit(c, "pool_auth.import", map[string]interface{}{
+		"pool":     auditPoolID(poolID),
+		"imported": imported,
+		"skipped":  len(skipped),
+		"failed":   len(failed),
+	})
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{

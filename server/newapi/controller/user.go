@@ -243,16 +243,16 @@ func Register(c *gin.Context) {
 	affCode := user.AffCode
 	inviterId, _ := model.GetUserIdByAffCode(affCode)
 
-	inviteConsumed := false
-	if common.InviteCodeRequired {
-		// Consume atomically up front so a valid code can't be spent twice by
-		// two concurrent registrations; released again if account creation fails.
-		if err := model.ConsumeInviteCode(affCode, 0); err != nil {
-			common.ApiErrorI18n(c, i18n.MsgUserInviteCodeRequired)
-			return
-		}
-		inviteConsumed = true
+	// xju-api:edit — Register 收口(REFACTOR-PLAN §5.2):邀请码的消费/回滚/
+	// 归属协议整体收敛进 service.ConsumeInviteCodeForRegistration,这里只留
+	// 调用 + defer;任何失败返回路径由 defer 回滚,成功路径 commit 后 release
+	// 自动失效。
+	inviteRelease, inviteCommit, err := service.ConsumeInviteCodeForRegistration(affCode)
+	if err != nil {
+		common.ApiErrorI18n(c, i18n.MsgUserInviteCodeRequired)
+		return
 	}
+	defer inviteRelease()
 
 	cleanUser := model.User{
 		Username:    user.Username,
@@ -265,9 +265,6 @@ func Register(c *gin.Context) {
 		cleanUser.Email = user.Email
 	}
 	if err := cleanUser.Insert(inviterId); err != nil {
-		if inviteConsumed {
-			_ = model.ReleaseInviteCode(affCode)
-		}
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
 			common.ApiErrorI18n(c, i18n.MsgUserEmailAlreadyTaken)
 			return
@@ -279,15 +276,10 @@ func Register(c *gin.Context) {
 	// 获取插入后的用户ID
 	var insertedUser model.User
 	if err := model.DB.Where("username = ?", cleanUser.Username).First(&insertedUser).Error; err != nil {
-		if inviteConsumed {
-			_ = model.ReleaseInviteCode(affCode)
-		}
 		common.ApiErrorI18n(c, i18n.MsgUserRegisterFailed)
 		return
 	}
-	if inviteConsumed {
-		_ = model.SetInviteCodeUser(affCode, insertedUser.Id)
-	}
+	inviteCommit(insertedUser.Id)
 	// 生成默认令牌
 	if constant.GenerateDefaultToken {
 		key, err := common.GenerateKey()

@@ -45,6 +45,12 @@ func InitOptionMap() {
 	common.OptionMap["WeChatAuthEnabled"] = strconv.FormatBool(common.WeChatAuthEnabled)
 	common.OptionMap["TurnstileCheckEnabled"] = strconv.FormatBool(common.TurnstileCheckEnabled)
 	common.OptionMap["RegisterEnabled"] = strconv.FormatBool(common.RegisterEnabled)
+	// xju-api:inject — 自有 Option key 契约(REFACTOR-PLAN §5.2,新增键照此登记):
+	//   InviteCodeRequired   bool  不带 *Enabled 后缀,靠 updateOptionMap 的显式
+	//                              allowlist(见下方 if 链)进 bool switch 生效
+	//   PoolAutoCleanEnabled bool  走 *Enabled 后缀通道 + bool switch case
+	//   PoolAutoCleanHours   int   走 updateOptionMap 的特判(>0 才生效,默认 24)
+	// 三键均持久化于 options 表并热更新,不需要重启。
 	common.OptionMap["InviteCodeRequired"] = strconv.FormatBool(common.InviteCodeRequired)
 	common.OptionMap["PoolAutoCleanEnabled"] = strconv.FormatBool(common.PoolAutoCleanEnabled)
 	common.OptionMap["PoolAutoCleanHours"] = strconv.Itoa(common.PoolAutoCleanHours)
