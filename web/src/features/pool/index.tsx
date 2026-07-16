@@ -258,10 +258,26 @@ export function Pool() {
   const activeBuildMode =
     pools.find((p) => p.id === pool)?.build_mode ?? 'cliproxy'
 
+  // xju-api:new — the initial selection ('default') is only a pre-load
+  // placeholder; the env-seeded default/k12 pools can be retired in favour of
+  // dynamic pools, so 'default' may not exist. Once the real list loads, snap
+  // the selection to the first pool whenever the current id isn't among them
+  // (first paint, or after the active pool is deleted) so a pool is always
+  // selected instead of spinning on a non-existent one.
+  useEffect(() => {
+    const list = poolsQuery.data
+    if (!list || list.length === 0) return
+    if (!list.some((p) => p.id === pool)) setPool(list[0].id)
+  }, [poolsQuery.data, pool])
+
   const listQuery = useQuery({
     queryKey: ['pool', 'auth-files', pool],
     queryFn: () => listPoolAuthFiles(pool),
     staleTime: 10_000,
+    // Don't fetch a pool that isn't in the configured list (e.g. the transient
+    // 'default' placeholder before the auto-select effect corrects it) — that
+    // just 503s. Wait until the selection is a real pool.
+    enabled: (poolsQuery.data ?? []).some((p) => p.id === pool),
   })
 
   const invalidate = () =>
@@ -472,7 +488,9 @@ export function Pool() {
     mutationFn: (id: string) => deletePool(id),
     onSuccess: async (_data, id) => {
       setDeleteTarget(null)
-      if (pool === id) setPool('default')
+      // Fall back to the first remaining pool; the auto-select effect is the
+      // safety net once the refreshed list arrives.
+      if (pool === id) setPool(pools.find((p) => p.id !== id)?.id ?? '')
       await queryClient.invalidateQueries({ queryKey: ['pool', 'pools'] })
       toast.success(t('Pool deleted'))
     },
@@ -511,7 +529,10 @@ export function Pool() {
   }
 
   const files = listQuery.data ?? []
-  const listReady = !listQuery.isLoading && !listQuery.isError
+  // The account list is "loading" both while the pool list itself resolves (the
+  // gated auth-files query is disabled until then) and while that query runs.
+  const listLoading = poolsQuery.isLoading || listQuery.isLoading
+  const listReady = !listLoading && !listQuery.isError
   const stats = poolStats(files, verdicts)
   const verifyingName = verifyMutation.isPending
     ? verifyMutation.variables
@@ -638,13 +659,13 @@ export function Pool() {
             </CardHeader>
             <CardContent>
               <div className='border-border overflow-hidden rounded-md border'>
-                {listQuery.isLoading && (
+                {listLoading && (
                   <div className='text-muted-foreground flex items-center gap-2 p-4 text-sm'>
                     <Loader2 className='size-4 animate-spin' />
                     {t('Loading...')}
                   </div>
                 )}
-                {!listQuery.isLoading && listQuery.isError && (
+                {!listLoading && listQuery.isError && (
                   <div className='text-destructive p-4 text-sm'>
                     {(listQuery.error as Error).message}
                   </div>
