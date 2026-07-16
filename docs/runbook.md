@@ -8,7 +8,9 @@
 |---|---|---|---|
 | Caddy | 系统服务 `/etc/caddy/Caddyfile` | `0.0.0.0:80/443` | 证书 `/var/lib/caddy` |
 | new-api | docker `new-api`（[deploy/run-newapi.sh](../deploy/run-newapi.sh)） | `127.0.0.1:3000` | `/opt/new-api/data/one-api.db` |
-| CLIProxyAPI | docker compose `/opt/cli-proxy-api/`（[deploy/docker-compose.cliproxy.yml](../deploy/docker-compose.cliproxy.yml)） | `127.0.0.1:8317` | `config.yaml` + `auths/` |
+| CLIProxyAPI 号池 | **动态池容器** `cli-proxy-api-<id>`（provision watcher 起）——现役 `main`(=default 组,8317) / `k12-pool`(=k12 组,8318) + 任意一键开的池 | `127.0.0.1:<port>` | `config.<id>.yaml` + `auths-<id>/` |
+
+> **2026-07-16 起:default / k12 也已并入动态池统一管理**(见下「统一动态池」节)。原 compose 管的 `cli-proxy-api` / `cli-proxy-api-k12` 两静态容器已删除,`docker-compose.cliproxy.yml` 退役——**切勿再 `docker compose up`**,否则会重建 8317/8318 静态容器与动态池 `cli-proxy-api-main` / `cli-proxy-api-k12-pool` 抢端口。env 播种的 default/k12 池已通过清空 `POOL_MGMT_SECRET`/`POOL_K12_MGMT_SECRET`(即把 `.pool-mgmt.env` / `.pool-mgmt-k12.env` 改名 `.retired`)从前端隐藏。
 
 ## 升级（先 pin tag，勿追 latest）
 
@@ -29,20 +31,23 @@ curl -fsS http://127.0.0.1:3000/api/status                       # 验活
 # CLIProxyAPI(自建镜像 winbeau/cli-proxy-api:<tag> —— 含仓内 cliproxy 改动,不能追 eceasy 上游)
 cd /home/winbeau/opt/xju-api && git pull --ff-only origin main
 bash deploy/build-cliproxy.sh v0.9.x                 # 在 tri 构建;镜像入本地 docker(同机 run 免 registry)
-# default + k12 池(compose 管;compose 已指 v0.9.x):
-cd /opt/cli-proxy-api && docker compose up -d --force-recreate
-curl -fsS http://127.0.0.1:8317/v1/models -H "Authorization: Bearer <内部api-key>"
 
-# 动态一键池:provision watcher 只有 create/delete,无 image-upgrade —— 逐个手工重建
-# (auths-<id>/ 是挂载卷,重建不丢号;实参照 provision-poold.sh 的 docker run):
-#   docker rm -f cli-proxy-api-<id>
-#   docker run -d --name cli-proxy-api-<id> --restart unless-stopped \
-#     --network xju-net -p 127.0.0.1:<port>:<port> \
-#     -v /opt/cli-proxy-api/config.<id>.yaml:/CLIProxyAPI/config.yaml \
-#     -v /opt/cli-proxy-api/auths-<id>:/root/.cli-proxy-api \
-#     -v /opt/cli-proxy-api/logs-<id>:/CLIProxyAPI/logs \
-#     --env-file /opt/cli-proxy-api/.pool-mgmt-<id>.env \
-#     winbeau/cli-proxy-api:v0.9.x
+# 所有池现在都是动态池(含 default=main / k12=k12-pool);provision watcher 只有 create/delete,
+# 无 image-upgrade —— 逐个手工重建。auths-<id>/ 是挂载卷,重建不丢号;端口/config/env 都按池 id 区分。
+# 现役池: main(8317)、k12-pool(8318),外加任意一键开的池。逐个:
+for id_port in main:8317 k12-pool:8318; do
+  id="${id_port%%:*}"; port="${id_port##*:}"
+  docker rm -f "cli-proxy-api-$id"
+  docker run -d --name "cli-proxy-api-$id" --restart unless-stopped \
+    --network xju-net -p "127.0.0.1:$port:$port" \
+    -v "/opt/cli-proxy-api/config.$id.yaml":/CLIProxyAPI/config.yaml \
+    -v "/opt/cli-proxy-api/auths-$id":/root/.cli-proxy-api \
+    -v "/opt/cli-proxy-api/logs-$id":/CLIProxyAPI/logs \
+    --env-file "/opt/cli-proxy-api/.pool-mgmt-$id.env" \
+    winbeau/cli-proxy-api:v0.9.x
+  curl -fsS "http://127.0.0.1:$port/healthz"          # 验活
+done
+# 其余动态池:docker ps --format '{{.Names}}' | grep '^cli-proxy-api-' 列全,同法逐个重建。
 # (backlog:给 provision-poold.sh 加 upgrade/recreate action 可自动化这步。)
 
 # 新 tag verify 通过后,立即回收被取代的旧构建(资源卫生;安全,不碰运行中镜像/回滚锚):
@@ -50,6 +55,20 @@ bash deploy/prune-docker.sh && docker system df
 ```
 
 **回滚** = 用上一版镜像 tag 重跑 `IMAGE=winbeau/xju-newapi:<旧tag> bash deploy/run-newapi.sh`(旧镜像仍在本机;数据在宿主 volume 不受影响)。升级前记下当前 tag。
+
+## 统一动态池（2026-07-16 迁移完成）
+
+原来 default / k12 是 **env 播种的静态池**(compose 起 `cli-proxy-api` / `cli-proxy-api-k12`,new-api 靠 `POOL_MGMT_SECRET` / `POOL_K12_MGMT_SECRET` 识别)。现已并入**动态池**统一管理:
+
+| 池 id | 前端 label | 承载组(卡路由) | 容器 / 端口 | 号数(迁移时) |
+|---|---|---|---|---|
+| `main` | Default | `default` | `cli-proxy-api-main` / 8317 | 5(3 停用/2 活) |
+| `k12-pool` | K12 | `k12` | `cli-proxy-api-k12-pool` / 8318 | 501(**全部 disabled**——源文件即如此,非迁移所致) |
+
+- **迁移动作**(已完成,勿重复):停旧静态容器 → provision watcher 建 `main`/`k12-pool` 动态池(端口沿用 8317/8318)→ `cp -a` 旧 `auths/`→`auths-main/`、`auths-k12/`→`auths-k12-pool/`(号原样搬,disabled 位保真)→ 新 channel 3/4 建成后**改回 `default`/`k12` 组**(存量卡不用换发)→ 停旧 channel 1/2 → 删 GroupRatio/UserUsableGroups 里多余的 `main`/`k12-pool` 组 → 清空 env 密钥隐藏静态池 → 删旧静态容器。
+- **channel 1 必须留(即便 disabled)**:`createPoolChannel` 克隆 channel id 1 的 models 当模板,删了则一键开新池会报 "cannot read primary channel"。
+- **回滚(破玻璃)**:旧号在 `auths/` + `auths-k12/` 原样保留;旧 config(`config.yaml`/`config.k12.yaml`)、旧密钥(`.pool-mgmt.env.retired` / `.pool-mgmt-k12.env.retired`)、旧镜像 `winbeau/cli-proxy-api:v0.8.6` 均在位。回滚 = 停 `main`/`k12-pool` → 把 `.retired` 改回 → compose(或 docker run)起旧静态容器 → 前端 channel 3/4 停、1/2 启 → 重跑 `run-newapi.sh`(注入回旧密钥)。
+- **k12 池 501 号全 disabled** 是迁移前就有的存量状态(旧 k12 channel 同样不出模型),不是本次迁移引入;要激活需对号做验活/enriched 重登。
 
 ## 双池密钥（default + K12）
 
