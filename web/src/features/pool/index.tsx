@@ -270,14 +270,17 @@ export function Pool() {
     if (!list.some((p) => p.id === pool)) setPool(list[0].id)
   }, [poolsQuery.data, pool])
 
+  // Every pool-scoped query must wait until the selection is a real configured
+  // pool. The transient 'default' placeholder (before the auto-select effect
+  // corrects it) 503s, and the global response interceptor turns that 503 into
+  // an error toast ("pool management is not configured for pool: default").
+  const poolConfigured = (poolsQuery.data ?? []).some((p) => p.id === pool)
+
   const listQuery = useQuery({
     queryKey: ['pool', 'auth-files', pool],
     queryFn: () => listPoolAuthFiles(pool),
     staleTime: 10_000,
-    // Don't fetch a pool that isn't in the configured list (e.g. the transient
-    // 'default' placeholder before the auto-select effect corrects it) — that
-    // just 503s. Wait until the selection is a real pool.
-    enabled: (poolsQuery.data ?? []).some((p) => p.id === pool),
+    enabled: poolConfigured,
   })
 
   const invalidate = () =>
@@ -366,6 +369,7 @@ export function Pool() {
   const usageQuery = useQuery({
     queryKey: ['pool', 'usage', pool],
     queryFn: () => getPoolUsage(pool),
+    enabled: poolConfigured,
     // Poll while a whole-pool refresh is running; otherwise the cache is stable.
     refetchInterval: (query) => (query.state.data?.job?.running ? 3000 : false),
   })
@@ -422,6 +426,7 @@ export function Pool() {
   const progressQuery = useQuery({
     queryKey: ['pool', 'verify', pool],
     queryFn: () => getVerifyProgress(pool),
+    enabled: poolConfigured,
     // Poll while a run is in flight; otherwise leave the last snapshot in place.
     refetchInterval: (query) =>
       query.state.data?.running ? 2000 : false,
