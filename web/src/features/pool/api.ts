@@ -393,6 +393,18 @@ export async function deletePool(poolId: string): Promise<void> {
   }
 }
 
+// Rename a pool's display label + its routing channel's display name. The numeric
+// id / container / group / card routing are untouched.
+export async function renamePool(poolId: string, label: string): Promise<void> {
+  const res = await api.post<ApiEnvelope<unknown>>('/api/pool/rename', {
+    pool_id: poolId,
+    label,
+  })
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to rename pool')
+  }
+}
+
 /**
  * Derive a stable, human-legible filename from a pasted codex auth JSON. Codex
  * files carry an email/account id; use it so the pool list is readable and

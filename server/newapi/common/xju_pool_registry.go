@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -270,4 +271,33 @@ func AllocateNextPoolPort() int {
 		}
 	}
 	return highest + 1
+}
+
+// AllocateNextPoolID returns the next numeric pool id as a string. Pool ids are
+// numeric and independent of the display label, so two pools may share a label
+// (or be renamed freely) without their ids / containers / channels ever
+// colliding. It scans existing numeric ids and returns max+1, starting at 1;
+// non-numeric ids (the legacy main/k12-pool/test) are ignored.
+func AllocateNextPoolID() string {
+	highest := 0
+	for _, e := range loadPoolRegistry() {
+		if n, err := strconv.Atoi(strings.TrimSpace(e.ID)); err == nil && n > highest {
+			highest = n
+		}
+	}
+	return strconv.Itoa(highest + 1)
+}
+
+// SetPoolLabel updates a dynamic pool's display label in the registry. It errors
+// if the pool id is not a registered dynamic pool.
+func SetPoolLabel(id, label string) error {
+	id = strings.TrimSpace(id)
+	entries := append([]PoolEntry(nil), loadPoolRegistry()...)
+	for i := range entries {
+		if entries[i].ID == id {
+			entries[i].Label = strings.TrimSpace(label)
+			return SavePoolRegistry(entries)
+		}
+	}
+	return fmt.Errorf("pool not found: %s", id)
 }

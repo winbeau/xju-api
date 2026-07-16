@@ -600,6 +600,33 @@ func DeletePoolInstance(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
+type renamePoolInstanceRequest struct {
+	PoolID string `json:"pool_id"`
+	Label  string `json:"label"`
+}
+
+// RenamePoolInstance POST /api/pool/rename — change a dynamic pool's display
+// label and its routing channel's display name. It touches only operator-facing
+// names, never the numeric id / container / group / card routing. Built-in pools
+// are refused.
+func RenamePoolInstance(c *gin.Context) {
+	var reqBody renamePoolInstanceRequest
+	if err := common.DecodeJson(c.Request.Body, &reqBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request body"})
+		return
+	}
+	poolID := strings.TrimSpace(reqBody.PoolID)
+	if err := service.RenamePool(poolID, reqBody.Label); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	recordManageAudit(c, "pool_auth.rename_pool", map[string]interface{}{
+		"pool":  poolID,
+		"label": strings.TrimSpace(reqBody.Label),
+	})
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
 // GetPoolCreateStatus GET /api/pool/create/status?id=xxx — poll provisioning
 // progress. On success the pool is registered and status becomes "ready".
 func GetPoolCreateStatus(c *gin.Context) {

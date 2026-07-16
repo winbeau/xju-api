@@ -170,3 +170,33 @@ func TestListConfiguredPoolsBuildModeDefault(t *testing.T) { // T3.2
 	assert.Equal(t, "cliproxy", byID["legacy"])  // 老条目无字段 → 回填 cliproxy
 	assert.Equal(t, "gopool", byID["go1"])       // 透传
 }
+
+func TestAllocateNextPoolID(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "pools.json")
+	t.Setenv("POOL_REGISTRY_FILE", file)
+	resetPoolRegCache()
+	t.Cleanup(resetPoolRegCache)
+
+	// Empty registry → the first numeric id is 1.
+	assert.Equal(t, "1", AllocateNextPoolID())
+
+	// Non-numeric legacy ids are ignored; numeric ids drive max+1.
+	require.NoError(t, AddPoolToRegistry(PoolEntry{ID: "main", Label: "Default", MgmtURL: "u", MgmtSecret: "s"}))
+	require.NoError(t, AddPoolToRegistry(PoolEntry{ID: "3", Label: "Three", MgmtURL: "u", MgmtSecret: "s"}))
+	assert.Equal(t, "4", AllocateNextPoolID(), "max numeric (3) + 1, legacy 'main' ignored")
+}
+
+func TestSetPoolLabel(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "pools.json")
+	t.Setenv("POOL_REGISTRY_FILE", file)
+	resetPoolRegCache()
+	t.Cleanup(resetPoolRegCache)
+
+	require.NoError(t, AddPoolToRegistry(PoolEntry{ID: "1", Label: "Old", MgmtURL: "u", MgmtSecret: "s"}))
+	require.NoError(t, SetPoolLabel("1", "  New Name  "))
+	got, ok := GetPoolEntry("1")
+	require.True(t, ok)
+	assert.Equal(t, "New Name", got.Label, "label updated and trimmed")
+
+	assert.Error(t, SetPoolLabel("nope", "X"), "unknown pool id errors")
+}

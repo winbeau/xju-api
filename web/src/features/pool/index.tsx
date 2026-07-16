@@ -23,6 +23,7 @@ import {
   FileArchive,
   Gauge,
   Loader2,
+  Pencil,
   Play,
   Plus,
   Power,
@@ -78,6 +79,7 @@ import {
   listPoolAuthFiles,
   listPools,
   refreshPoolAccountUsage,
+  renamePool,
   resetPoolAccountQuota,
   setPoolAuthFileDisabled,
   startPoolUsageRefreshAll,
@@ -235,6 +237,9 @@ export function Pool() {
   const [newMode, setNewMode] = useState<'cliproxy' | 'gopool'>('cliproxy')
   const [creatingId, setCreatingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<PoolInfo | null>(null)
+  // xju-api:new — pool rename (display label + its channel display name).
+  const [renameTarget, setRenameTarget] = useState<PoolInfo | null>(null)
+  const [renameLabel, setRenameLabel] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const zipInputRef = useRef<HTMLInputElement>(null)
 
@@ -520,6 +525,17 @@ export function Pool() {
     onError: (error: Error) => toast.error(error.message),
   })
 
+  const renamePoolMutation = useMutation({
+    mutationFn: (args: { id: string; label: string }) =>
+      renamePool(args.id, args.label),
+    onSuccess: async () => {
+      setRenameTarget(null)
+      await queryClient.invalidateQueries({ queryKey: ['pool', 'pools'] })
+      toast.success(t('Pool renamed'))
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText()
@@ -644,6 +660,23 @@ export function Pool() {
                   </div>
                 )}
                 <div className='flex items-center gap-2'>
+                  {/* xju-api:new — rename a dynamically-created pool (display
+                      label + its channel display name). */}
+                  {isDynamicPool(pool) && (
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      onClick={() => {
+                        const p = pools.find((x) => x.id === pool)
+                        setRenameLabel(p?.label ?? pool)
+                        setRenameTarget(p ?? { id: pool, label: pool })
+                      }}
+                    >
+                      <Pencil className='size-4' />
+                      {t('Rename')}
+                    </Button>
+                  )}
                   {/* xju-api:new — delete a dynamically-created pool; the
                       env-seeded default/k12 pools cannot be removed here. */}
                   {isDynamicPool(pool) && (
@@ -1362,6 +1395,73 @@ export function Pool() {
                 <Plus />
               )}
               {t('Create')}
+            </Button>
+          </div>
+        </Dialog>
+
+        {/* xju-api:new — rename pool dialog. Only the display label + channel
+            display name change; the numeric id and card routing are untouched. */}
+        <Dialog
+          open={!!renameTarget}
+          onOpenChange={(o) => {
+            if (!o) setRenameTarget(null)
+          }}
+          title={t('Rename pool')}
+          description={t(
+            'Change this pool’s display name and its channel’s name. The internal id and card routing are unchanged.'
+          )}
+          contentClassName='max-w-md'
+          bodyClassName='space-y-3'
+        >
+          <div className='grid gap-1'>
+            <label className='text-muted-foreground text-xs'>
+              {t('New name')}
+            </label>
+            <Input
+              autoFocus
+              value={renameLabel}
+              placeholder={t('e.g. Campus, Trial, Team B')}
+              onChange={(e) => setRenameLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (
+                  e.key === 'Enter' &&
+                  renameLabel.trim() &&
+                  renameTarget &&
+                  !renamePoolMutation.isPending
+                ) {
+                  renamePoolMutation.mutate({
+                    id: renameTarget.id,
+                    label: renameLabel.trim(),
+                  })
+                }
+              }}
+            />
+          </div>
+          <div className='flex justify-end gap-2'>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => setRenameTarget(null)}
+              disabled={renamePoolMutation.isPending}
+            >
+              {t('Cancel')}
+            </Button>
+            <Button
+              type='button'
+              onClick={() => {
+                if (renameTarget) {
+                  renamePoolMutation.mutate({
+                    id: renameTarget.id,
+                    label: renameLabel.trim(),
+                  })
+                }
+              }}
+              disabled={!renameLabel.trim() || renamePoolMutation.isPending}
+            >
+              {renamePoolMutation.isPending && (
+                <Loader2 className='animate-spin' />
+              )}
+              {t('Save')}
             </Button>
           </div>
         </Dialog>

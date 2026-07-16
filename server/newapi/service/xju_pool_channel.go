@@ -32,17 +32,28 @@ func findChannelByName(name string) int {
 
 // poolTemplateModels returns the model set to seed a new pool channel with. Every
 // cliproxy pool shares the same model set, so it clones from any existing pool
-// channel (name prefix "cliproxy-pool"), lowest id first. This replaces the old
-// hard dependency on channel id 1 — the retired static default pool's channel —
-// so that channel can be deleted after the unified-dynamic-pool migration.
+// channel. It resolves the channel by a registered pool's channel id first — that
+// survives a channel rename (which moves the name away from the cliproxy-pool
+// prefix) — and falls back to the name prefix for any channel not yet in the
+// registry. This replaces the old hard dependency on channel id 1.
 func poolTemplateModels() (string, error) {
+	// Primary: a registered pool's channel, resolved by id (rename-proof).
+	for _, p := range common.ListConfiguredPools() {
+		entry, ok := common.GetPoolEntry(p.ID)
+		if !ok || entry.ChannelID == 0 {
+			continue
+		}
+		if ch, err := model.GetChannelById(entry.ChannelID, false); err == nil && ch != nil && strings.TrimSpace(ch.Models) != "" {
+			return ch.Models, nil
+		}
+	}
+	// Fallback: any channel still using the cliproxy-pool name prefix.
 	var ch model.Channel
-	err := model.DB.
+	if err := model.DB.
 		Where("type = ? AND name LIKE ? AND models <> ''", poolChannelType, "cliproxy-pool%").
 		Order("id").
 		Select("models").
-		First(&ch).Error
-	if err != nil {
+		First(&ch).Error; err != nil {
 		return "", fmt.Errorf("no existing cliproxy pool channel to clone models from: %w", err)
 	}
 	return ch.Models, nil
@@ -144,6 +155,35 @@ func removePoolGroupOptions(poolID string) {
 		delete(uug, poolID)
 		if b, err := common.Marshal(uug); err == nil {
 			_ = model.UpdateOption("UserUsableGroups", string(b))
+		}
+	}
+}
+
+// renamePoolChannel updates a pool's routing-channel display name and its group's
+// usable-group label to the new pool label — the operator-facing names. It is
+// best-effort: relay routes off the group id, not these names, so failures are
+// logged rather than propagated (the pool is already renamed in the registry).
+func renamePoolChannel(poolID string, channelID int, newLabel string) {
+	if channelID == 0 {
+		channelID = findChannelByName(poolChannelName(poolID))
+	}
+	if channelID != 0 {
+		if err := model.DB.Model(&model.Channel{}).Where("id = ?", channelID).Update("name", newLabel).Error; err != nil {
+			common.SysError("pool rename: channel name update failed for " + poolID + ": " + err.Error())
+		}
+	}
+	// Refresh the group's display label (shown when issuing cards); its ratio
+	// entry in GroupRatio is left untouched.
+	uug := setting.GetUserUsableGroupsCopy()
+	if uug == nil {
+		uug = map[string]string{}
+	}
+	if uug[poolID] != newLabel {
+		uug[poolID] = newLabel
+		if b, err := common.Marshal(uug); err == nil {
+			if err := model.UpdateOption("UserUsableGroups", string(b)); err != nil {
+				common.SysError("pool rename: usable-group label update failed for " + poolID + ": " + err.Error())
+			}
 		}
 	}
 }

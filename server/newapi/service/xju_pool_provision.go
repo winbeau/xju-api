@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -24,6 +25,28 @@ import (
 // POOL_PROVISION_DIR unset → the feature is off and every call errors cleanly.
 
 func provisionDir() string { return strings.TrimSpace(os.Getenv("POOL_PROVISION_DIR")) }
+
+// allocatePoolID picks the next numeric pool id, considering both registered
+// pools (common.AllocateNextPoolID) and requests still in flight in the provision
+// dir (requests/processed/results). Without the dir scan, two creates fired
+// before the first finishes registering would both land on the same id.
+func allocatePoolID(dir string) string {
+	next, _ := strconv.Atoi(common.AllocateNextPoolID()) // registry max + 1 (>= 1)
+	for _, sub := range []string{"requests", "processed", "results"} {
+		entries, err := os.ReadDir(filepath.Join(dir, sub))
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			// processed files are named <id>.<unix-ts>.json; take the id segment.
+			base := strings.SplitN(strings.TrimSuffix(e.Name(), ".json"), ".", 2)[0]
+			if n, err := strconv.Atoi(base); err == nil && n+1 > next {
+				next = n + 1
+			}
+		}
+	}
+	return strconv.Itoa(next)
+}
 
 // ProvisionEnabled reports whether one-click pool creation is wired up.
 func ProvisionEnabled() bool { return provisionDir() != "" }
@@ -59,46 +82,20 @@ type provisionResult struct {
 	Error       string `json:"error"`
 }
 
-// slugifyPoolID turns a human label into a safe pool id: lowercase, alnum runs
-// joined by single dashes, trimmed, capped at 31 chars. Matches the watcher's
-// valid_pool_id guard.
-func slugifyPoolID(label string) string {
-	var b strings.Builder
-	lastDash := false
-	for _, r := range strings.ToLower(strings.TrimSpace(label)) {
-		switch {
-		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
-			b.WriteRune(r)
-			lastDash = false
-		case b.Len() > 0 && !lastDash:
-			b.WriteByte('-')
-			lastDash = true
-		}
-	}
-	slug := strings.Trim(b.String(), "-")
-	if len(slug) > 31 {
-		slug = strings.Trim(slug[:31], "-")
-	}
-	return slug
-}
-
-// RequestPoolProvision validates the label, allocates a port, and drops a create
-// request for the host watcher. Returns the derived pool id.
+// RequestPoolProvision allocates a numeric pool id + management port and drops a
+// create request for the host watcher. Returns the new pool id. The id is numeric
+// and independent of the label, so two pools can share a display name (or be
+// renamed freely) without their ids / containers / channels ever colliding.
 func RequestPoolProvision(label, mode string) (string, error) {
 	dir := provisionDir()
 	if dir == "" {
 		return "", fmt.Errorf("pool provisioning is not enabled")
 	}
-	id := slugifyPoolID(label)
-	if id == "" {
-		return "", fmt.Errorf("invalid pool name")
+	label = strings.TrimSpace(label)
+	if label == "" {
+		return "", fmt.Errorf("pool name is required")
 	}
-	if common.IsReservedPoolID(id) {
-		return "", fmt.Errorf("reserved pool id: %s", id)
-	}
-	if _, _, ok := common.ResolvePoolMgmt(id); ok {
-		return "", fmt.Errorf("pool already exists: %s", id)
-	}
+	id := allocatePoolID(dir)
 	m := normalizeBuildMode(mode)
 	pendingModeMu.Lock()
 	pendingMode[id] = m
@@ -106,7 +103,7 @@ func RequestPoolProvision(label, mode string) (string, error) {
 	req := map[string]any{
 		"action":  "create",
 		"pool_id": id,
-		"label":   strings.TrimSpace(label),
+		"label":   label,
 		"port":    common.AllocateNextPoolPort(),
 		"mode":    m,
 	}
@@ -114,6 +111,33 @@ func RequestPoolProvision(label, mode string) (string, error) {
 		return "", err
 	}
 	return id, nil
+}
+
+// RenamePool changes a dynamic pool's display label and its routing channel's
+// display name — the two things operators see. Neither touches the numeric id,
+// container, group, or card routing, so renaming is safe and reversible. Built-in
+// pools cannot be renamed.
+func RenamePool(poolID, newLabel string) error {
+	poolID = strings.TrimSpace(poolID)
+	newLabel = strings.TrimSpace(newLabel)
+	if newLabel == "" {
+		return fmt.Errorf("new pool name is required")
+	}
+	if common.IsReservedPoolID(poolID) {
+		return fmt.Errorf("cannot rename a built-in pool: %s", poolID)
+	}
+	entry, ok := common.GetPoolEntry(poolID)
+	if !ok {
+		return fmt.Errorf("pool not found: %s", poolID)
+	}
+	if err := common.SetPoolLabel(poolID, newLabel); err != nil {
+		return err
+	}
+	// The channel display name + the group's usable-group label are non-critical
+	// (relay routes off the group id, not these), so the pool is already renamed in
+	// the registry even if the channel-side update logs an error.
+	renamePoolChannel(poolID, entry.ChannelID, newLabel)
+	return nil
 }
 
 // PollPoolProvision reports a create's status: "ready" once the pool is
