@@ -32,7 +32,7 @@
 > 方案与背景机制见 `docs/pool-enrichment-design.md` 与 `docs/architecture-and-pool-tech.md`。
 
 1. **单账号周限额 + 重置券** —— 号池页逐账号 5h/周窗口用量 + 重置券统计,手动/自动刷新(基础已落地,持续打磨)。
-2. **单账号订阅期限** —— 让每个号显示 ChatGPT 订阅到期。卡点:账号 token 是否 enriched——go-pool 精简号的订阅日期 token 里根本没有(实测),refresh / 主动拉取均被 OpenAI 挡(token 端点 400 / 账号端点 Cloudflare 403),只能靠 enriched authorize 登录产出。
+2. **单账号订阅期限(外部阻塞,非待编码项)** —— 让每个号显示 ChatGPT 订阅到期。**这不是仓里缺代码**:精简号 token 里没有订阅日期,refresh 被 OpenAI 挡(400)、主动拉取被 Cloudflare 挡(403),**唯一产出路径是 enriched authorize 重新登录**(见 `docs/pool-enrichment-design.md` §Honest limits / §Existing lean accounts)。仓内该做的已做:JWT 有日期就显示、access_token 兜底、P2 top-level plan 兜底、前端数值 epoch 防护。剩下的是**运营动作**(对存量精简号走 enriched 重新登录),不是编码任务。
 3. **统一的号池模式** —— 建池选双模:**CLIProxy enriched 登录(默认)** / **go-pool 批量**;go-pool 分支需在自己的 authorize 请求补三参数(`id_token_add_organizations=true` + `codex_cli_simplified_flow=true` + scope 加 `offline_access`)且用 OpenAI 已注册的 `redirect_uri`,导出才带订阅日期。
 
 ## 仓库结构
