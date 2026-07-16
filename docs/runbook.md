@@ -104,6 +104,20 @@ IMAGE=winbeau/xju-newapi:<tag> bash deploy/run-newapi.sh
 - **区域代理(可选)**:若池要做 enriched 登录/在非受支持区域跑,给该池 live `config.<id>.yaml` 填
   `proxy-url: "socks5://…"`(模板 `config.example.yaml`/`config.k12.example.yaml` 已留注释占位),重建容器生效。
 
+## 维护清理(定期在 tri 跑,腾磁盘)
+
+> 原则:上线部署尽管供应资源;维护时清掉重复构建的垃圾。tri/vps 磁盘紧的主因是 docker
+> 重复构建的旧镜像 / dangling 层 / build cache。
+
+```bash
+# 安全:只清 dangling + 超"当前+回滚"的旧 tag + 超量 build cache;运行中镜像与回滚锚不动
+bash /home/winbeau/opt/xju-api/deploy/prune-docker.sh
+# 临时调参:KEEP=3 CACHE_KEEP=5GB bash deploy/prune-docker.sh
+docker system df    # 看回收效果
+```
+- 升级后新 tag verify 通过即可跑一次,回收被取代的旧构建。
+- 本机(claude-vps)docker build 已坏、无 docker 垃圾;但注意清 `web/dist`、`/tmp/dist.tgz` 等构建临时产物。
+
 ## 备份 / 恢复
 
 - 备份：[deploy/backup.sh](../deploy/backup.sh)，cron 每日 04:30，滚动保 7 份于 `/opt/backups/xju-api/`。
