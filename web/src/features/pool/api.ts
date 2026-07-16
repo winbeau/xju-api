@@ -78,7 +78,11 @@ function normalizeList(data: unknown): PoolAuthFile[] {
   return []
 }
 
-export type PoolInfo = { id: string; label: string }
+export type PoolInfo = {
+  id: string
+  label: string
+  build_mode?: 'cliproxy' | 'gopool'
+}
 
 export type ImportResult = {
   imported: number
@@ -350,10 +354,13 @@ export type PoolCreateStatus = {
   error?: string
 }
 
-export async function createPool(label: string): Promise<{ pool_id: string }> {
+export async function createPool(
+  label: string,
+  mode: 'cliproxy' | 'gopool' = 'cliproxy'
+): Promise<{ pool_id: string }> {
   const res = await api.post<ApiEnvelope<{ pool_id: string; status: string }>>(
     '/api/pool/create',
-    { label }
+    { label, mode }
   )
   if (!res.data.success || !res.data.data) {
     throw new Error(res.data.message || 'Failed to create pool')

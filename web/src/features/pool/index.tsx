@@ -232,6 +232,7 @@ export function Pool() {
   // xju-api:new — one-click pool creation + deletion (#4 Phase D).
   const [createOpen, setCreateOpen] = useState(false)
   const [newLabel, setNewLabel] = useState('')
+  const [newMode, setNewMode] = useState<'cliproxy' | 'gopool'>('cliproxy')
   const [creatingId, setCreatingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<PoolInfo | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -252,6 +253,10 @@ export function Pool() {
   const pools: PoolInfo[] = poolsQuery.data ?? [
     { id: 'default', label: 'Default' },
   ]
+  // xju-api:new — dual build modes (③). The active pool's build_mode only
+  // steers UI guidance (import copy); the backend treats both modes alike.
+  const activeBuildMode =
+    pools.find((p) => p.id === pool)?.build_mode ?? 'cliproxy'
 
   const listQuery = useQuery({
     queryKey: ['pool', 'auth-files', pool],
@@ -433,7 +438,7 @@ export function Pool() {
   // xju-api:new — create a pool, then poll provisioning until it's ready and
   // switch to its tab.
   const createMutation = useMutation({
-    mutationFn: () => createPool(newLabel.trim()),
+    mutationFn: () => createPool(newLabel.trim(), newMode),
     onSuccess: (res) => setCreatingId(res.pool_id),
     onError: (error: Error) => toast.error(error.message),
   })
@@ -453,6 +458,7 @@ export function Pool() {
       setCreatingId(null)
       setCreateOpen(false)
       setNewLabel('')
+      setNewMode('cliproxy')
       queryClient.invalidateQueries({ queryKey: ['pool', 'pools'] })
       setPool(id)
       toast.success(t('Pool created — now import accounts into it'))
@@ -877,9 +883,13 @@ export function Pool() {
               <CardHeader>
                 <CardTitle className='text-base'>{t('Add account')}</CardTitle>
                 <CardDescription>
-                  {t(
-                    'Paste a codex auth JSON, or import a .zip of many accounts. The pool reloads instantly.'
-                  )}
+                  {activeBuildMode === 'gopool'
+                    ? t(
+                        'Bulk import a .zip of many accounts, or paste a single codex auth JSON. The pool reloads instantly.'
+                      )
+                    : t(
+                        'Enriched login → paste the codex auth JSON. Bulk .zip import also works. The pool reloads instantly.'
+                      )}
                 </CardDescription>
               </CardHeader>
               <CardContent className='grid gap-2'>
@@ -1237,7 +1247,10 @@ export function Pool() {
           onOpenChange={(o) => {
             if (!creatingId) {
               setCreateOpen(o)
-              if (!o) setNewLabel('')
+              if (!o) {
+                setNewLabel('')
+                setNewMode('cliproxy')
+              }
             }
           }}
           title={t('New pool')}
@@ -1261,6 +1274,29 @@ export function Pool() {
                 }
               }}
             />
+          </div>
+          <div className='grid gap-1'>
+            <label className='text-muted-foreground text-xs'>
+              {t('Build mode')}
+            </label>
+            <div className='flex gap-2'>
+              <Button
+                type='button'
+                variant={newMode === 'cliproxy' ? 'default' : 'outline'}
+                disabled={!!creatingId}
+                onClick={() => setNewMode('cliproxy')}
+              >
+                {t('CLIProxy enriched login')}
+              </Button>
+              <Button
+                type='button'
+                variant={newMode === 'gopool' ? 'default' : 'outline'}
+                disabled={!!creatingId}
+                onClick={() => setNewMode('gopool')}
+              >
+                {t('go-pool bulk')}
+              </Button>
+            </div>
           </div>
           {creatingId && (
             <div className='text-muted-foreground flex items-center gap-2 text-sm'>

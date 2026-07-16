@@ -25,3 +25,19 @@ declare module '@visactor/react-vchart' {
 declare module '@visactor/vchart-semi-theme' {
   export const initVChartSemiTheme: (opts?: Record<string, unknown>) => void
 }
+
+// Minimal surface of bun's test runner used by *.test.ts files that need
+// module mocking (node:test has no mock.module under bun). The project only
+// types "node", so declare just what the tests consume instead of pulling in
+// the full bun-types package.
+declare module 'bun:test' {
+  export function describe(name: string, fn: () => void): void
+  export function test(name: string, fn: () => void | Promise<void>): void
+  export function expect(actual: unknown): {
+    toEqual(expected: unknown): void
+    toBe(expected: unknown): void
+  }
+  export const mock: {
+    module(specifier: string, factory: () => unknown): void
+  }
+}
