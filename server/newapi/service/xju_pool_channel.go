@@ -12,9 +12,9 @@ import (
 
 // xju-api:new — pool routing channel (#4 Phase C). A dynamically-created pool is
 // only reachable for relay once a new-api channel routes its group to the pool's
-// cliproxy instance. This mirrors scripts/create-k12-channel.sh in Go: clone the
-// primary channel's model set, create an OpenAI-compatible channel keyed by the
-// pool's internal relay key, and register the group in the ratio/usable-group
+// cliproxy instance. This mirrors scripts/create-k12-channel.sh in Go: clone an
+// existing pool channel's model set, create an OpenAI-compatible channel keyed by
+// the pool's internal relay key, and register the group in the ratio/usable-group
 // options so cards in that group bill and route correctly.
 
 const poolChannelType = 1 // OpenAI-compatible
@@ -30,12 +30,30 @@ func findChannelByName(name string) int {
 	return ch.Id
 }
 
+// poolTemplateModels returns the model set to seed a new pool channel with. Every
+// cliproxy pool shares the same model set, so it clones from any existing pool
+// channel (name prefix "cliproxy-pool"), lowest id first. This replaces the old
+// hard dependency on channel id 1 — the retired static default pool's channel —
+// so that channel can be deleted after the unified-dynamic-pool migration.
+func poolTemplateModels() (string, error) {
+	var ch model.Channel
+	err := model.DB.
+		Where("type = ? AND name LIKE ? AND models <> ''", poolChannelType, "cliproxy-pool%").
+		Order("id").
+		Select("models").
+		First(&ch).Error
+	if err != nil {
+		return "", fmt.Errorf("no existing cliproxy pool channel to clone models from: %w", err)
+	}
+	return ch.Models, nil
+}
+
 // createPoolChannel creates the routing channel for a pool (idempotent by name)
 // and registers its group. Returns the channel id.
 func createPoolChannel(poolID, internalKey, baseURL, label string) (int, error) {
-	src, err := model.GetChannelById(1, false)
-	if err != nil || src == nil || strings.TrimSpace(src.Models) == "" {
-		return 0, fmt.Errorf("cannot read primary channel (id 1) models: %v", err)
+	models, err := poolTemplateModels()
+	if err != nil {
+		return 0, err
 	}
 	name := poolChannelName(poolID)
 	if existing := findChannelByName(name); existing != 0 {
@@ -47,7 +65,7 @@ func createPoolChannel(poolID, internalKey, baseURL, label string) (int, error) 
 		Name:    name,
 		Key:     internalKey,
 		BaseURL: &base,
-		Models:  src.Models,
+		Models:  models,
 		Group:   poolID,
 		Status:  1, // enabled
 	}
