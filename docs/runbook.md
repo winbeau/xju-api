@@ -26,10 +26,27 @@ SKIP_WEB=1 bash deploy/build-newapi.sh v0.6.x                    # Go-only 构�
 IMAGE=winbeau/xju-newapi:v0.6.x bash deploy/run-newapi.sh        # 脚本内含 rm -f 旧容器
 curl -fsS http://127.0.0.1:3000/api/status                       # 验活
 
-# CLIProxyAPI(默认零改动,可直接换上游 tag)
-cd /opt/cli-proxy-api && sed -i 's|cli-proxy-api:.*|cli-proxy-api:<新tag>|' docker-compose.yml
-docker compose pull && docker compose up -d
+# CLIProxyAPI(自建镜像 winbeau/cli-proxy-api:<tag> —— 含仓内 cliproxy 改动,不能追 eceasy 上游)
+cd /home/winbeau/opt/xju-api && git pull --ff-only origin main
+bash deploy/build-cliproxy.sh v0.9.x                 # 在 tri 构建;镜像入本地 docker(同机 run 免 registry)
+# default + k12 池(compose 管;compose 已指 v0.9.x):
+cd /opt/cli-proxy-api && docker compose up -d --force-recreate
 curl -fsS http://127.0.0.1:8317/v1/models -H "Authorization: Bearer <内部api-key>"
+
+# 动态一键池:provision watcher 只有 create/delete,无 image-upgrade —— 逐个手工重建
+# (auths-<id>/ 是挂载卷,重建不丢号;实参照 provision-poold.sh 的 docker run):
+#   docker rm -f cli-proxy-api-<id>
+#   docker run -d --name cli-proxy-api-<id> --restart unless-stopped \
+#     --network xju-net -p 127.0.0.1:<port>:<port> \
+#     -v /opt/cli-proxy-api/config.<id>.yaml:/CLIProxyAPI/config.yaml \
+#     -v /opt/cli-proxy-api/auths-<id>:/root/.cli-proxy-api \
+#     -v /opt/cli-proxy-api/logs-<id>:/CLIProxyAPI/logs \
+#     --env-file /opt/cli-proxy-api/.pool-mgmt-<id>.env \
+#     winbeau/cli-proxy-api:v0.9.x
+# (backlog:给 provision-poold.sh 加 upgrade/recreate action 可自动化这步。)
+
+# 新 tag verify 通过后,立即回收被取代的旧构建(资源卫生;安全,不碰运行中镜像/回滚锚):
+bash deploy/prune-docker.sh && docker system df
 ```
 
 **回滚** = 用上一版镜像 tag 重跑 `IMAGE=winbeau/xju-newapi:<旧tag> bash deploy/run-newapi.sh`(旧镜像仍在本机;数据在宿主 volume 不受影响)。升级前记下当前 tag。
