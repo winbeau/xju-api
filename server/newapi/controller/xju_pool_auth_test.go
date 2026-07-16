@@ -103,3 +103,51 @@ func TestImportPoolAuthFilesUnconfiguredPool(t *testing.T) {
 	ImportPoolAuthFiles(c)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
+
+func TestParsePoolAuthAccounts(t *testing.T) {
+	t.Run("bare codex object derives name from email", func(t *testing.T) {
+		items := parsePoolAuthAccounts(`{"email":"a@b.com","access_token":"tok"}`, "")
+		require.Len(t, items, 1)
+		assert.Equal(t, "codex-a-b-com.json", items[0].name)
+		assert.Contains(t, items[0].content, "a@b.com")
+	})
+	t.Run("bare object keeps caller-supplied name", func(t *testing.T) {
+		items := parsePoolAuthAccounts(`{"email":"a@b.com"}`, "codex-custom.json")
+		require.Len(t, items, 1)
+		assert.Equal(t, "codex-custom.json", items[0].name)
+	})
+	t.Run("exporter bundle expands every account", func(t *testing.T) {
+		blob := `{"type":"x","version":1,"accounts":[
+			{"name":"one","credentials":{"email":"one@x.com","access_token":"t1"}},
+			{"name":"two","credentials":{"email":"two@x.com","access_token":"t2"}},
+			{"credentials":{"email":"three@x.com","access_token":"t3"}}
+		]}`
+		items := parsePoolAuthAccounts(blob, "ignored.json")
+		require.Len(t, items, 3)
+		assert.ElementsMatch(t,
+			[]string{"codex-one-x-com.json", "codex-two-x-com.json", "codex-three-x-com.json"},
+			[]string{items[0].name, items[1].name, items[2].name})
+		// Each item carries only the inner credential, not the account wrapper.
+		assert.Contains(t, items[0].content, "access_token")
+	})
+	t.Run("json array of bare objects expands", func(t *testing.T) {
+		blob := `[{"email":"x@y.com","access_token":"t"},{"email":"z@y.com","access_token":"t2"}]`
+		items := parsePoolAuthAccounts(blob, "")
+		require.Len(t, items, 2)
+		assert.ElementsMatch(t, []string{"codex-x-y-com.json", "codex-z-y-com.json"},
+			[]string{items[0].name, items[1].name})
+	})
+	t.Run("account without email falls back to account name then index", func(t *testing.T) {
+		blob := `{"accounts":[{"name":"Alpha","credentials":{"access_token":"t"}},{"credentials":{"access_token":"t2"}}]}`
+		items := parsePoolAuthAccounts(blob, "")
+		require.Len(t, items, 2)
+		assert.Equal(t, "codex-alpha.json", items[0].name)
+		assert.Equal(t, "codex-account-2.json", items[1].name)
+	})
+	t.Run("non-JSON passes through unchanged for the pool to reject", func(t *testing.T) {
+		items := parsePoolAuthAccounts("not json", "raw.json")
+		require.Len(t, items, 1)
+		assert.Equal(t, "raw.json", items[0].name)
+		assert.Equal(t, "not json", items[0].content)
+	})
+}

@@ -3,6 +3,7 @@ package controller
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -136,67 +137,155 @@ func AddPoolAuthFile(c *gin.Context) {
 		return
 	}
 
-	// A pasted export can be a single codex auth object OR an exporter bundle
-	// (`{accounts:[{credentials:{...}}]}`). Unwrap the bundle to the inner
-	// credential the pool actually understands.
-	content, name := unwrapPoolAuthContent(content, reqBody.Name)
-
-	// xju-api:new — refuse a file that carries another pool's marker.
-	if fp, misrouted := foreignPoolMarker(name, c.Query("pool")); misrouted {
-		c.JSON(http.StatusBadRequest, gin.H{
+	poolID := c.Query("pool")
+	baseURL, secret, ok := common.ResolvePoolMgmt(poolID)
+	if !ok {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"success": false,
-			"message": fmt.Sprintf("this file name contains \"-%s-\", so it looks like a %q pool account; switch to that pool (or rename) before adding", fp, fp),
+			"message": "pool management is not configured for pool: " + poolID,
 		})
 		return
 	}
 
-	ok := poolMgmtProxy(
-		c, c.Query("pool"), http.MethodPost,
-		"/v0/management/auth-files?name="+url.QueryEscape(name),
-		strings.NewReader(content),
-		"application/json",
-	)
-	if ok {
-		// xju-api:edit — 审计对齐(对标 invite_code.go 的 recordManageAudit 规范):
-		// 只记池与文件名,凭证内容永不入审计。
-		recordManageAudit(c, "pool_auth.add", map[string]interface{}{
-			"pool": auditPoolID(c.Query("pool")),
-			"name": name,
-		})
+	// A pasted blob can be one codex object, or an exporter bundle / JSON array
+	// holding many accounts; expand it so every account is imported, not just the
+	// first. Names come from each account's email.
+	items := parsePoolAuthAccounts(content, reqBody.Name)
+	if len(items) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "no account found in the JSON"})
+		return
+	}
+
+	imported, failed, skipped, err := forwardPoolAuthItems(c.Request.Context(), baseURL, secret, poolID, items)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	// xju-api:edit — 审计只记池与计数,凭证内容/文件名永不入审计。
+	recordManageAudit(c, "pool_auth.add", map[string]interface{}{
+		"pool":     auditPoolID(poolID),
+		"imported": imported,
+		"skipped":  len(skipped),
+		"failed":   len(failed),
+	})
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"imported": imported,
+			"skipped":  skipped,
+			"failed":   failed,
+		},
+	})
+}
+
+// poolAuthItem is one single-account auth file ready to upload: a pool-safe
+// basename and the exact JSON the pool stores.
+type poolAuthItem struct {
+	name    string
+	content string
+}
+
+// parsePoolAuthAccounts expands a pasted or uploaded JSON blob into one or more
+// single-account items. It accepts a bare codex auth object, an exporter bundle
+// {accounts:[{credentials:{...}}]}, or a JSON array of either — so one file or one
+// paste can carry many accounts and every one of them is imported, not just the
+// first. Each expanded account's name is derived from its email as
+// codex-<slug>.json (mirroring the frontend), so a bundle of N accounts yields N
+// distinct files. rawName is the fallback name only for a single bare object with
+// no email (the frontend already supplies one). A blob that is not valid JSON
+// passes through unchanged as one item so the pool side returns the parse error.
+func parsePoolAuthAccounts(content, rawName string) []poolAuthItem {
+	trimmed := strings.TrimSpace(content)
+	var top any
+	if err := common.UnmarshalJsonStr(trimmed, &top); err != nil {
+		return []poolAuthItem{{name: sanitizePoolAuthName(rawName), content: trimmed}}
+	}
+	switch v := top.(type) {
+	case map[string]any:
+		if accounts, ok := v["accounts"].([]any); ok && len(accounts) > 0 {
+			return expandPoolAuthAccounts(accounts)
+		}
+		return []poolAuthItem{singlePoolAuthItem(v, rawName, trimmed)}
+	case []any:
+		return expandPoolAuthAccounts(v)
+	default:
+		return []poolAuthItem{{name: sanitizePoolAuthName(rawName), content: trimmed}}
 	}
 }
 
-// unwrapPoolAuthContent normalizes a pasted auth blob into (single-account JSON,
-// filename). A bare codex object passes through; an exporter bundle's first
-// account's `credentials` is extracted. Name is derived from the account email
-// when the caller didn't supply one.
-func unwrapPoolAuthContent(content, rawName string) (string, string) {
-	var obj map[string]any
-	if err := common.UnmarshalJsonStr(content, &obj); err != nil {
-		return content, sanitizePoolAuthName(rawName)
+// expandPoolAuthAccounts turns a list of account entries — each either a bundle
+// account with a nested `credentials`, or a bare codex object — into items,
+// dropping any element that is not an object or cannot be re-marshaled.
+func expandPoolAuthAccounts(list []any) []poolAuthItem {
+	items := make([]poolAuthItem, 0, len(list))
+	for i, el := range list {
+		obj, ok := el.(map[string]any)
+		if !ok {
+			continue
+		}
+		cred := obj
+		accountName := stringField(obj, "name")
+		if inner, ok := obj["credentials"].(map[string]any); ok {
+			cred = inner
+		}
+		raw, err := common.Marshal(cred)
+		if err != nil {
+			continue
+		}
+		items = append(items, poolAuthItem{
+			name:    poolAuthAccountName(cred, accountName, i),
+			content: string(raw),
+		})
 	}
+	return items
+}
 
-	// Exporter bundle: {exported_at, proxies, accounts:[{credentials:{...}}]}
-	if accounts, ok := obj["accounts"].([]any); ok && len(accounts) > 0 {
-		if first, ok := accounts[0].(map[string]any); ok {
-			if creds, ok := first["credentials"].(map[string]any); ok {
-				if inner, err := common.Marshal(creds); err == nil {
-					n := rawName
-					if n == "" {
-						n = stringField(creds, "email")
-					}
-					return string(inner), sanitizePoolAuthName(n)
-				}
-			}
+// singlePoolAuthItem wraps a bare codex object, keeping the caller-supplied name
+// when present (the frontend derives it) and otherwise deriving one from the
+// object's email.
+func singlePoolAuthItem(obj map[string]any, rawName, content string) poolAuthItem {
+	name := strings.TrimSpace(rawName)
+	if name == "" {
+		name = poolAuthAccountName(obj, "", 0)
+	}
+	return poolAuthItem{name: sanitizePoolAuthName(name), content: content}
+}
+
+// poolAuthAccountName builds codex-<slug>.json from the account email, falling
+// back to the account's display name, then a 1-based index, so every expanded
+// account gets a stable, collision-free basename.
+func poolAuthAccountName(cred map[string]any, accountName string, index int) string {
+	if slug := poolAuthSlug(stringField(cred, "email")); slug != "" {
+		return "codex-" + slug + ".json"
+	}
+	if slug := poolAuthSlug(accountName); slug != "" {
+		return "codex-" + slug + ".json"
+	}
+	return fmt.Sprintf("codex-account-%d.json", index+1)
+}
+
+// poolAuthSlug lowercases a string and collapses non-alphanumeric runs into single
+// dashes (capped at 48 chars), matching the frontend deriveAuthFileName so the
+// same account resolves to the same file whether added singly or via a bundle.
+func poolAuthSlug(s string) string {
+	var b strings.Builder
+	lastDash := false
+	for _, r := range strings.ToLower(strings.TrimSpace(s)) {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+			lastDash = false
+		case b.Len() > 0 && !lastDash:
+			b.WriteByte('-')
+			lastDash = true
 		}
 	}
-
-	// Single codex object — derive a readable name from its email if none given.
-	n := rawName
-	if n == "" {
-		n = stringField(obj, "email")
+	slug := strings.Trim(b.String(), "-")
+	if len(slug) > 48 {
+		slug = strings.Trim(slug[:48], "-")
 	}
-	return content, sanitizePoolAuthName(n)
+	return slug
 }
 
 func stringField(m map[string]any, key string) string {
@@ -593,6 +682,69 @@ type importFail struct {
 	Error string `json:"error"`
 }
 
+// forwardPoolAuthItems uploads one or more single-account items to the pool's
+// bulk auth-files endpoint in a single multipart request and returns the merged
+// {imported, failed} plus any items skipped locally (foreign-pool markers). It is
+// shared by AddPoolAuthFile (paste / single upload) and ImportPoolAuthFiles (zip),
+// so all three entry points import multi-account blobs identically.
+func forwardPoolAuthItems(ctx context.Context, baseURL, secret, poolID string, items []poolAuthItem) (imported int, failed []importFail, skipped []importSkip, err error) {
+	failed = make([]importFail, 0)
+	skipped = make([]importSkip, 0)
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	forwarded := 0
+	for _, it := range items {
+		if fp, misrouted := foreignPoolMarker(it.name, poolID); misrouted {
+			skipped = append(skipped, importSkip{Name: it.name, Reason: "belongs to pool " + fp + " (name contains -" + fp + "-)"})
+			continue
+		}
+		part, cErr := mw.CreateFormFile("files", it.name)
+		if cErr != nil {
+			skipped = append(skipped, importSkip{Name: it.name, Reason: "internal error"})
+			continue
+		}
+		if _, wErr := part.Write([]byte(it.content)); wErr != nil {
+			skipped = append(skipped, importSkip{Name: it.name, Reason: "internal error"})
+			continue
+		}
+		forwarded++
+	}
+	if cErr := mw.Close(); cErr != nil {
+		return 0, failed, skipped, cErr
+	}
+	if forwarded == 0 {
+		return 0, failed, skipped, nil
+	}
+	status, payload, rErr := service.PoolMgmtRoundTrip(
+		ctx, baseURL, secret,
+		http.MethodPost, "/v0/management/auth-files", &body, mw.FormDataContentType(),
+	)
+	if rErr != nil {
+		return 0, failed, skipped, fmt.Errorf("pool management unreachable: %v", rErr)
+	}
+	if status < 200 || status >= 300 {
+		return 0, failed, skipped, fmt.Errorf("%s", poolErrorMessage(payload, status))
+	}
+	var parsed struct {
+		Uploaded int          `json:"uploaded"`
+		Files    []string     `json:"files"`
+		Failed   []importFail `json:"failed"`
+	}
+	if uErr := common.Unmarshal(payload, &parsed); uErr == nil {
+		failed = append(failed, parsed.Failed...)
+		imported = parsed.Uploaded
+		if imported == 0 && len(parsed.Files) > 0 {
+			imported = len(parsed.Files)
+		}
+		if imported == 0 && len(parsed.Failed) == 0 {
+			imported = forwarded
+		}
+	} else {
+		imported = forwarded
+	}
+	return imported, failed, skipped, nil
+}
+
 // ImportPoolAuthFiles POST /api/pool/auth-files/import?pool=xxx — accept a .zip
 // of codex auth JSON files, expand it server-side, and forward every valid entry
 // as one multipart batch to the target pool's management API. Locally-skipped
@@ -638,10 +790,8 @@ func ImportPoolAuthFiles(c *gin.Context) {
 		return
 	}
 
-	var body bytes.Buffer
-	mw := multipart.NewWriter(&body)
+	items := make([]poolAuthItem, 0)
 	skipped := make([]importSkip, 0)
-	forwarded := 0
 	seen := 0
 
 	for _, entry := range zr.File {
@@ -683,64 +833,17 @@ func ImportPoolAuthFiles(c *gin.Context) {
 			skipped = append(skipped, importSkip{Name: base, Reason: "not valid JSON"})
 			continue
 		}
-		// Reuse the single-add normalization: unwrap export bundles, derive a safe name.
-		normalized, name := unwrapPoolAuthContent(content, base)
-		// xju-api:new — skip files that belong to another pool (name carries its
-		// marker), so a mis-targeted zip can't silently pollute this pool.
-		if fp, misrouted := foreignPoolMarker(name, poolID); misrouted {
-			skipped = append(skipped, importSkip{Name: base, Reason: "belongs to pool " + fp + " (name contains -" + fp + "-)"})
-			continue
-		}
-		part, err := mw.CreateFormFile("files", name)
-		if err != nil {
-			skipped = append(skipped, importSkip{Name: base, Reason: "internal error"})
-			continue
-		}
-		if _, err := part.Write([]byte(normalized)); err != nil {
-			skipped = append(skipped, importSkip{Name: base, Reason: "internal error"})
-			continue
-		}
-		forwarded++
-	}
-	if err := mw.Close(); err != nil {
-		common.ApiError(c, err)
-		return
+		// A single zip entry can itself be a multi-account bundle/array; expand it
+		// so every account inside is imported, not just the first.
+		items = append(items, parsePoolAuthAccounts(content, base)...)
 	}
 
-	failed := make([]importFail, 0)
-	imported := 0
-	if forwarded > 0 {
-		status, payload, err := service.PoolMgmtRoundTrip(
-			c.Request.Context(), baseURL, secret,
-			http.MethodPost, "/v0/management/auth-files", &body, mw.FormDataContentType(),
-		)
-		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": fmt.Sprintf("pool management unreachable: %v", err)})
-			return
-		}
-		if status < 200 || status >= 300 {
-			c.JSON(status, gin.H{"success": false, "message": poolErrorMessage(payload, status)})
-			return
-		}
-		// Pool response: {status, uploaded, files:[...], failed:[{name,error}]}
-		var parsed struct {
-			Uploaded int          `json:"uploaded"`
-			Files    []string     `json:"files"`
-			Failed   []importFail `json:"failed"`
-		}
-		if err := common.Unmarshal(payload, &parsed); err == nil {
-			failed = append(failed, parsed.Failed...)
-			imported = parsed.Uploaded
-			if imported == 0 && len(parsed.Files) > 0 {
-				imported = len(parsed.Files)
-			}
-			if imported == 0 && len(parsed.Failed) == 0 {
-				imported = forwarded // all-ok response without an explicit count
-			}
-		} else {
-			imported = forwarded
-		}
+	imported, failed, forwardSkipped, err := forwardPoolAuthItems(c.Request.Context(), baseURL, secret, poolID, items)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
+		return
 	}
+	skipped = append(skipped, forwardSkipped...)
 
 	recordManageAudit(c, "pool_auth.import", map[string]interface{}{
 		"pool":     auditPoolID(poolID),

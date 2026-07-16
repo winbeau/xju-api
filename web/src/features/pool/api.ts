@@ -117,17 +117,21 @@ export async function listPoolAuthFiles(pool: string): Promise<PoolAuthFile[]> {
   return normalizeList(res.data.data)
 }
 
+// A pasted/typed blob can carry one account or many (an exporter bundle or a JSON
+// array), so the backend returns the same {imported, skipped, failed} report as
+// the zip import.
 export async function addPoolAuthFile(
   pool: string,
   args: { name: string; content: string }
-): Promise<void> {
-  const res = await api.post<ApiEnvelope<unknown>>(
+): Promise<ImportResult> {
+  const res = await api.post<ApiEnvelope<ImportResult>>(
     `/api/pool/auth-files${poolQuery(pool)}`,
     args
   )
-  if (!res.data.success) {
+  if (!res.data.success || !res.data.data) {
     throw new Error(res.data.message || 'Failed to add pool auth file')
   }
+  return res.data.data
 }
 
 export async function importPoolAuthFiles(

@@ -295,13 +295,31 @@ export function Pool() {
       } catch {
         throw new Error(t('That is not valid JSON'))
       }
-      await addPoolAuthFile(pool, {
+      return addPoolAuthFile(pool, {
         name: deriveAuthFileName(trimmed),
         content: trimmed,
       })
     },
-    onSuccess: async () => {
-      toast.success(t('Account added to the pool'))
+    onSuccess: async (result) => {
+      // The blob may have held many accounts (a bundle / array). Show the same
+      // imported/skipped/failed breakdown the zip import uses when it wasn't a
+      // plain single add.
+      const multi =
+        result.imported > 1 ||
+        result.skipped.length > 0 ||
+        result.failed.length > 0
+      if (multi) {
+        setImportResult(result)
+        toast.success(
+          t('Imported {{imported}} · skipped {{skipped}} · failed {{failed}}', {
+            imported: result.imported,
+            skipped: result.skipped.length,
+            failed: result.failed.length,
+          })
+        )
+      } else {
+        toast.success(t('Account added to the pool'))
+      }
       setContent('')
       await invalidate()
     },
