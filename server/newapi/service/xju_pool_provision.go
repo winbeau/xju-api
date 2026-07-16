@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/QuantumNous/new-api/common"
 )
@@ -26,6 +27,25 @@ func provisionDir() string { return strings.TrimSpace(os.Getenv("POOL_PROVISION_
 
 // ProvisionEnabled reports whether one-click pool creation is wired up.
 func ProvisionEnabled() bool { return provisionDir() != "" }
+
+// pendingMode remembers the build mode chosen at RequestPoolProvision time so
+// PollPoolProvision can stamp it onto the registry entry. The host watcher
+// provisions an identical container regardless of mode, so mode never round-trips
+// through the result file. Kept in-memory: a new-api restart mid-provision loses
+// it and the pool registers as "cliproxy" (benign — BuildMode is a UI label only).
+var (
+	pendingModeMu sync.Mutex
+	pendingMode   = map[string]string{}
+)
+
+// normalizeBuildMode maps any input to the two supported modes, defaulting
+// unknown/empty values to "cliproxy".
+func normalizeBuildMode(mode string) string {
+	if strings.EqualFold(strings.TrimSpace(mode), "gopool") {
+		return "gopool"
+	}
+	return "cliproxy"
+}
 
 type provisionResult struct {
 	PoolID      string `json:"pool_id"`
@@ -64,7 +84,7 @@ func slugifyPoolID(label string) string {
 
 // RequestPoolProvision validates the label, allocates a port, and drops a create
 // request for the host watcher. Returns the derived pool id.
-func RequestPoolProvision(label string) (string, error) {
+func RequestPoolProvision(label, mode string) (string, error) {
 	dir := provisionDir()
 	if dir == "" {
 		return "", fmt.Errorf("pool provisioning is not enabled")
@@ -79,11 +99,16 @@ func RequestPoolProvision(label string) (string, error) {
 	if _, _, ok := common.ResolvePoolMgmt(id); ok {
 		return "", fmt.Errorf("pool already exists: %s", id)
 	}
+	m := normalizeBuildMode(mode)
+	pendingModeMu.Lock()
+	pendingMode[id] = m
+	pendingModeMu.Unlock()
 	req := map[string]any{
 		"action":  "create",
 		"pool_id": id,
 		"label":   strings.TrimSpace(label),
 		"port":    common.AllocateNextPoolPort(),
+		"mode":    m,
 	}
 	if err := writeProvisionRequest(dir, id, req); err != nil {
 		return "", err
@@ -122,12 +147,19 @@ func PollPoolProvision(poolID string) (string, error) {
 	if label == "" {
 		label = poolID
 	}
+	pendingModeMu.Lock()
+	mode := pendingMode[poolID]
+	pendingModeMu.Unlock()
+	if mode == "" {
+		mode = "cliproxy"
+	}
 	if err := common.AddPoolToRegistry(common.PoolEntry{
 		ID:         r.PoolID,
 		Label:      label,
 		MgmtURL:    r.MgmtURL,
 		MgmtSecret: r.MgmtSecret,
 		Port:       r.Port,
+		BuildMode:  mode,
 	}); err != nil {
 		// A concurrent poll may have registered it first — treat as ready.
 		if _, _, ok := common.ResolvePoolMgmt(poolID); ok {
@@ -135,6 +167,9 @@ func PollPoolProvision(poolID string) (string, error) {
 		}
 		return "", err
 	}
+	pendingModeMu.Lock()
+	delete(pendingMode, poolID)
+	pendingModeMu.Unlock()
 	// Phase C: route the pool's group to its cliproxy instance. The mgmt URL and
 	// the relay base URL are the same host:port. A channel failure leaves the
 	// pool registered (importable/verifiable) but unrouted — log, don't unwind.

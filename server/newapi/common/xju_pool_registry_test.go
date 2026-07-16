@@ -144,3 +144,29 @@ func TestSavePoolRegistryRequiresPath(t *testing.T) {
 	assert.Error(t, SavePoolRegistry([]PoolEntry{{ID: "x"}}))
 	assert.Error(t, AddPoolToRegistry(PoolEntry{ID: "x", MgmtURL: "u", MgmtSecret: "s"}))
 }
+
+func TestPoolEntryBuildModePersists(t *testing.T) { // T3.1
+	dir := t.TempDir()
+	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(dir, "reg.json"))
+	require.NoError(t, AddPoolToRegistry(PoolEntry{
+		ID: "edu", Label: "Edu", MgmtURL: "http://x:9", MgmtSecret: "s", BuildMode: "gopool",
+	}))
+	got, ok := GetPoolEntry("edu")
+	require.True(t, ok)
+	assert.Equal(t, "gopool", got.BuildMode)
+}
+
+func TestListConfiguredPoolsBuildModeDefault(t *testing.T) { // T3.2
+	dir := t.TempDir()
+	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(dir, "reg.json"))
+	t.Setenv("POOL_MGMT_SECRET", "def")
+	require.NoError(t, AddPoolToRegistry(PoolEntry{ID: "legacy", Label: "Legacy", MgmtURL: "http://x:9", MgmtSecret: "s"})) // 无 BuildMode
+	require.NoError(t, AddPoolToRegistry(PoolEntry{ID: "go1", Label: "Go1", MgmtURL: "http://x:9", MgmtSecret: "s", BuildMode: "gopool"}))
+	byID := map[string]string{}
+	for _, p := range ListConfiguredPools() {
+		byID[p.ID] = p.BuildMode
+	}
+	assert.Equal(t, "cliproxy", byID["default"]) // env 池默认 cliproxy
+	assert.Equal(t, "cliproxy", byID["legacy"])  // 老条目无字段 → 回填 cliproxy
+	assert.Equal(t, "gopool", byID["go1"])       // 透传
+}

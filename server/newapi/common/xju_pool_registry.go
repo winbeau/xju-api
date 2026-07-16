@@ -22,8 +22,9 @@ import (
 
 // PoolInfo is the id/label pair the frontend uses to render a pool selector.
 type PoolInfo struct {
-	ID    string `json:"id"`
-	Label string `json:"label"`
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	BuildMode string `json:"build_mode,omitempty"`
 }
 
 // PoolEntry is a dynamically-provisioned pool's full record in the registry
@@ -35,6 +36,7 @@ type PoolEntry struct {
 	MgmtSecret string `json:"mgmt_secret"`
 	Port       int    `json:"port,omitempty"`
 	ChannelID  int    `json:"channel_id,omitempty"`
+	BuildMode  string `json:"build_mode,omitempty"` // "cliproxy"(默认) | "gopool";仅 UI 引导,无服务端强制
 }
 
 // reservedPoolIDs are env-seeded and can never be created/removed dynamically.
@@ -146,10 +148,10 @@ func ResolvePoolMgmt(poolID string) (baseURL string, secret string, ok bool) {
 func ListConfiguredPools() []PoolInfo {
 	pools := make([]PoolInfo, 0, 4)
 	if _, _, ok := ResolvePoolMgmt("default"); ok {
-		pools = append(pools, PoolInfo{ID: "default", Label: "Default"})
+		pools = append(pools, PoolInfo{ID: "default", Label: "Default", BuildMode: "cliproxy"})
 	}
 	if _, _, ok := ResolvePoolMgmt("k12"); ok {
-		pools = append(pools, PoolInfo{ID: "k12", Label: "K12"})
+		pools = append(pools, PoolInfo{ID: "k12", Label: "K12", BuildMode: "cliproxy"})
 	}
 	for _, e := range loadPoolRegistry() {
 		if strings.TrimSpace(e.MgmtSecret) == "" {
@@ -159,7 +161,11 @@ func ListConfiguredPools() []PoolInfo {
 		if label == "" {
 			label = e.ID
 		}
-		pools = append(pools, PoolInfo{ID: e.ID, Label: label})
+		bm := strings.TrimSpace(e.BuildMode)
+		if bm == "" {
+			bm = "cliproxy"
+		}
+		pools = append(pools, PoolInfo{ID: e.ID, Label: label, BuildMode: bm})
 	}
 	return pools
 }

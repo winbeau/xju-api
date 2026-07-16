@@ -32,7 +32,7 @@ func TestSlugifyPoolID(t *testing.T) {
 func TestProvisionDisabled(t *testing.T) {
 	t.Setenv("POOL_PROVISION_DIR", "")
 	assert.False(t, ProvisionEnabled())
-	_, err := RequestPoolProvision("x")
+	_, err := RequestPoolProvision("x", "cliproxy")
 	assert.Error(t, err)
 	_, err = PollPoolProvision("x")
 	assert.Error(t, err)
@@ -47,7 +47,7 @@ func TestPoolProvisionFlow(t *testing.T) {
 	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(t.TempDir(), "pools.json"))
 
 	// Request → writes a create request the watcher will pick up.
-	id, err := RequestPoolProvision("Edu Pool")
+	id, err := RequestPoolProvision("Edu Pool", "cliproxy")
 	require.NoError(t, err)
 	assert.Equal(t, "edu-pool", id)
 	reqData, err := os.ReadFile(filepath.Join(provDir, "requests", "edu-pool.json"))
@@ -57,7 +57,7 @@ func TestPoolProvisionFlow(t *testing.T) {
 	assert.Contains(t, string(reqData), `"port":8319`) // first free port above k12 8318
 
 	// Reserved label is refused.
-	_, err = RequestPoolProvision("default")
+	_, err = RequestPoolProvision("default", "cliproxy")
 	assert.Error(t, err)
 
 	// Poll before any result → still provisioning.
@@ -94,4 +94,48 @@ func TestPoolProvisionFlow(t *testing.T) {
 	status, err = PollPoolProvision("edu-pool")
 	require.NoError(t, err)
 	assert.Equal(t, "ready", status)
+}
+
+func TestNormalizeBuildMode(t *testing.T) { // T3.3
+	for _, in := range []string{"gopool", " GoPool ", "GOPOOL"} {
+		assert.Equal(t, "gopool", normalizeBuildMode(in), "in=%q", in)
+	}
+	for _, in := range []string{"", "cliproxy", "garbage", "xyz"} {
+		assert.Equal(t, "cliproxy", normalizeBuildMode(in), "in=%q", in)
+	}
+}
+
+func TestRequestPoolProvisionMode(t *testing.T) { // T3.4
+	dir := t.TempDir()
+	t.Setenv("POOL_PROVISION_DIR", dir)
+	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(dir, "reg.json"))
+	id, err := RequestPoolProvision("Edu Pool", "gopool")
+	require.NoError(t, err)
+	assert.Equal(t, "edu-pool", id)
+	data, err := os.ReadFile(filepath.Join(dir, "requests", "edu-pool.json"))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"mode":"gopool"`)
+
+	id2, err := RequestPoolProvision("Plain", "")
+	require.NoError(t, err)
+	data2, err := os.ReadFile(filepath.Join(dir, "requests", id2+".json"))
+	require.NoError(t, err)
+	assert.Contains(t, string(data2), `"mode":"cliproxy"`)
+}
+
+func TestPollPoolProvisionRegistersMode(t *testing.T) { // T3.5
+	dir := t.TempDir()
+	t.Setenv("POOL_PROVISION_DIR", dir)
+	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(dir, "reg.json"))
+	_, err := RequestPoolProvision("Edu Pool", "gopool")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "results"), 0o755))
+	res := `{"pool_id":"edu-pool","label":"Edu Pool","action":"create","status":"ok","mgmt_url":"http://cli-proxy-api-edu-pool:8319","mgmt_secret":"sec","port":8319,"internal_key":"k","error":""}`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "results", "edu-pool.json"), []byte(res), 0o600))
+	status, err := PollPoolProvision("edu-pool")
+	require.NoError(t, err)
+	assert.Equal(t, "ready", status)
+	entry, ok := common.GetPoolEntry("edu-pool")
+	require.True(t, ok)
+	assert.Equal(t, "gopool", entry.BuildMode)
 }

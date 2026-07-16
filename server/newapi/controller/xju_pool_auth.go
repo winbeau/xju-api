@@ -458,6 +458,7 @@ func ResetPoolAccountQuota(c *gin.Context) {
 
 type createPoolRequest struct {
 	Label string `json:"label"`
+	Mode  string `json:"mode"`
 }
 
 // CreatePoolInstance POST /api/pool/create — start provisioning a new isolated
@@ -473,7 +474,7 @@ func CreatePoolInstance(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request body"})
 		return
 	}
-	poolID, err := service.RequestPoolProvision(reqBody.Label)
+	poolID, err := service.RequestPoolProvision(reqBody.Label, reqBody.Mode)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
