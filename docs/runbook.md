@@ -101,6 +101,9 @@ IMAGE=winbeau/xju-newapi:<tag> bash deploy/run-newapi.sh
 
 **排障**:`journalctl -u xju-provision -f` 看 watcher 日志;`docker ps | grep cli-proxy-api-` 看新实例;`docker logs cli-proxy-api-<id>` 看 cliproxy 起没起。开通卡在 provisioning:多半 watcher 没跑或 xju-net/端口冲突。**删池**:前端删或写 `{"action":"delete","pool_id":"<id>"}` 到 requests/(停容器+删 config/env,保留 auths-<id>/ 号不丢)。
 
+- **区域代理(可选)**:若池要做 enriched 登录/在非受支持区域跑,给该池 live `config.<id>.yaml` 填
+  `proxy-url: "socks5://…"`(模板 `config.example.yaml`/`config.k12.example.yaml` 已留注释占位),重建容器生效。
+
 ## 备份 / 恢复
 
 - 备份：[deploy/backup.sh](../deploy/backup.sh)，cron 每日 04:30，滚动保 7 份于 `/opt/backups/xju-api/`。

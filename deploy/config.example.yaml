@@ -19,6 +19,11 @@ auth-dir: "~/.cli-proxy-api" # 容器内路径,对应宿主 ./auths(号池 *.jso
 api-keys:
   - "__INTERNAL_API_KEY__" # $(openssl rand -hex 32)
 
+# 区域代理(可选):enriched 登录 / OAuth token 交换在非受支持区域会被上游挡;
+# 需要时填受支持区域的 socks5/http(s) 代理;留空/注释=直连。
+# 动态一键池克隆本模板,填这里可让每个新池默认带区域代理(pool-enrichment-design.md §Region)。
+# proxy-url: ""
+
 debug: false
 
 # 磁盘仅剩 ~11G,必须限日志总量(PLAN.md §9-4)
