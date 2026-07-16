@@ -49,7 +49,7 @@ export type PoolAuthFile = {
   recent_requests?: RecentRequestBucket[]
   // Codex accounts carry their ChatGPT subscription window + plan in the id_token.
   id_token?: {
-    chatgpt_subscription_active_until?: string
+    chatgpt_subscription_active_until?: string | number
     plan_type?: string
     chatgpt_account_id?: string
   }

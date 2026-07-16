@@ -89,26 +89,19 @@ import {
   type ProbeResult,
   type ProbeVerdict,
 } from '@/features/pool/api'
+import {
+  isSubscriptionExpired,
+  subscriptionUntil,
+} from '@/features/pool/subscription'
 import { useStatus } from '@/hooks/use-status'
 import { api } from '@/lib/api'
 
 type AccountState = 'ok' | 'disabled' | 'expired' | 'unavailable'
 
-// xju-api:new — parse the codex subscription window carried in id_token. An
-// expired subscription is a certain death (no cooldown will bring it back),
-// so it ranks above the transient `unavailable` cooldown state.
-function subscriptionUntil(file: PoolAuthFile): Date | null {
-  const raw = file.id_token?.chatgpt_subscription_active_until
-  if (!raw) return null
-  const parsed = new Date(raw)
-  return Number.isNaN(parsed.getTime()) ? null : parsed
-}
-
-function isSubscriptionExpired(file: PoolAuthFile): boolean {
-  const until = subscriptionUntil(file)
-  return until !== null && until.getTime() < Date.now()
-}
-
+// xju-api:new — the codex subscription window carried in id_token parses in
+// ./subscription (epoch-guarded). An expired subscription is a certain death
+// (no cooldown will bring it back), so it ranks above the transient
+// `unavailable` cooldown state.
 function accountState(file: PoolAuthFile): AccountState {
   if (file.disabled) return 'disabled'
   if (isSubscriptionExpired(file)) return 'expired'
