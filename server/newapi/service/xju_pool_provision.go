@@ -113,10 +113,11 @@ func RequestPoolProvision(label, mode string) (string, error) {
 	return id, nil
 }
 
-// RenamePool changes a dynamic pool's display label and its routing channel's
-// display name — the two things operators see. Neither touches the numeric id,
-// container, group, or card routing, so renaming is safe and reversible. Built-in
-// pools cannot be renamed.
+// RenamePool changes a dynamic pool's display label, its routing channel's
+// display name, AND its group (the card-routing key) — migrating every card
+// already issued in that group to the new name so routing stays intact. The
+// numeric id / container are untouched. It refuses if the new name collides with
+// another group, and built-in pools cannot be renamed.
 func RenamePool(poolID, newLabel string) error {
 	poolID = strings.TrimSpace(poolID)
 	newLabel = strings.TrimSpace(newLabel)
@@ -130,14 +131,12 @@ func RenamePool(poolID, newLabel string) error {
 	if !ok {
 		return fmt.Errorf("pool not found: %s", poolID)
 	}
-	if err := common.SetPoolLabel(poolID, newLabel); err != nil {
+	// Rename the channel + migrate its group/cards first; only persist the registry
+	// label once that succeeds, so a conflict leaves everything consistent.
+	if err := renamePoolGroup(poolID, entry.ChannelID, newLabel); err != nil {
 		return err
 	}
-	// The channel display name + the group's usable-group label are non-critical
-	// (relay routes off the group id, not these), so the pool is already renamed in
-	// the registry even if the channel-side update logs an error.
-	renamePoolChannel(poolID, entry.ChannelID, newLabel)
-	return nil
+	return common.SetPoolLabel(poolID, newLabel)
 }
 
 // PollPoolProvision reports a create's status: "ready" once the pool is

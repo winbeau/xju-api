@@ -159,31 +159,120 @@ func removePoolGroupOptions(poolID string) {
 	}
 }
 
-// renamePoolChannel updates a pool's routing-channel display name and its group's
-// usable-group label to the new pool label — the operator-facing names. It is
-// best-effort: relay routes off the group id, not these names, so failures are
-// logged rather than propagated (the pool is already renamed in the registry).
-func renamePoolChannel(poolID string, channelID int, newLabel string) {
-	if channelID == 0 {
-		channelID = findChannelByName(poolChannelName(poolID))
+// renamePoolGroup renames a pool's routing channel — both its display name AND
+// its group (the card-routing key) — to newLabel. Because the group is a routing
+// key, every already-issued card in the old group, plus the GroupRatio /
+// UserUsableGroups entries, is migrated to the new group so routing and billing
+// stay intact. It refuses if the new name is already used by another group so a
+// rename can't silently merge two pools' cards.
+func renamePoolGroup(poolID string, channelID int, newLabel string) error {
+	ch := poolChannel(poolID, channelID)
+	if ch == nil {
+		return fmt.Errorf("routing channel not found for pool %s", poolID)
 	}
+	oldGroup := ch.Group
+	newGroup := newLabel
+
+	if oldGroup != newGroup && groupInUse(newGroup, oldGroup) {
+		return fmt.Errorf("the name %q is already used by another group; pick a different name or remove that group first", newGroup)
+	}
+
+	// Channel.Update() rebuilds this channel's abilities for the (possibly new)
+	// group, so relay routing follows the rename.
+	ch.Name = newLabel
+	ch.Group = newGroup
+	if err := ch.Update(); err != nil {
+		return err
+	}
+
+	if oldGroup == newGroup {
+		setPoolGroupLabel(newGroup, newLabel) // only the display label changed
+		return nil
+	}
+
+	// Migrate already-issued cards so their routing survives the group rename.
+	if err := model.DB.Model(&model.Token{}).
+		Where(&model.Token{Group: oldGroup}).
+		Update("group", newGroup).Error; err != nil {
+		common.SysError("pool rename: token group migration " + oldGroup + "->" + newGroup + " failed: " + err.Error())
+	}
+	migratePoolGroupOptions(oldGroup, newGroup, newLabel)
+	return nil
+}
+
+// poolChannel resolves a pool's routing channel by id, falling back to its
+// cliproxy-pool-<id> name.
+func poolChannel(poolID string, channelID int) *model.Channel {
 	if channelID != 0 {
-		if err := model.DB.Model(&model.Channel{}).Where("id = ?", channelID).Update("name", newLabel).Error; err != nil {
-			common.SysError("pool rename: channel name update failed for " + poolID + ": " + err.Error())
+		if ch, err := model.GetChannelById(channelID, false); err == nil && ch != nil {
+			return ch
 		}
 	}
-	// Refresh the group's display label (shown when issuing cards); its ratio
-	// entry in GroupRatio is left untouched.
+	if id := findChannelByName(poolChannelName(poolID)); id != 0 {
+		if ch, err := model.GetChannelById(id, false); err == nil {
+			return ch
+		}
+	}
+	return nil
+}
+
+// groupInUse reports whether `group` is already registered — as a channel group,
+// a GroupRatio key, or a UserUsableGroups key — ignoring the pool's own current
+// group. Used to refuse a rename that would collide two groups.
+func groupInUse(group, exceptGroup string) bool {
+	if strings.TrimSpace(group) == "" || group == exceptGroup {
+		return false
+	}
+	if _, ok := setting.GetUserUsableGroupsCopy()[group]; ok {
+		return true
+	}
+	if _, ok := ratio_setting.GetGroupRatioCopy()[group]; ok {
+		return true
+	}
+	var ch model.Channel
+	if err := model.DB.Where(&model.Channel{Group: group}).Select("id").First(&ch).Error; err == nil && ch.Id != 0 {
+		return true
+	}
+	return false
+}
+
+// migratePoolGroupOptions moves the GroupRatio value and UserUsableGroups entry
+// from oldGroup to newGroup (labelled newLabel), preserving the ratio.
+func migratePoolGroupOptions(oldGroup, newGroup, newLabel string) {
+	gr := ratio_setting.GetGroupRatioCopy()
+	if gr == nil {
+		gr = map[string]float64{}
+	}
+	if v, ok := gr[oldGroup]; ok {
+		gr[newGroup] = v
+		delete(gr, oldGroup)
+	} else if _, ok := gr[newGroup]; !ok {
+		gr[newGroup] = ratio_setting.GetGroupRatio("default")
+	}
+	if b, err := common.Marshal(gr); err == nil {
+		_ = model.UpdateOption("GroupRatio", string(b))
+	}
 	uug := setting.GetUserUsableGroupsCopy()
 	if uug == nil {
 		uug = map[string]string{}
 	}
-	if uug[poolID] != newLabel {
-		uug[poolID] = newLabel
+	delete(uug, oldGroup)
+	uug[newGroup] = newLabel
+	if b, err := common.Marshal(uug); err == nil {
+		_ = model.UpdateOption("UserUsableGroups", string(b))
+	}
+}
+
+// setPoolGroupLabel refreshes only a group's display label (its key is unchanged).
+func setPoolGroupLabel(group, label string) {
+	uug := setting.GetUserUsableGroupsCopy()
+	if uug == nil {
+		uug = map[string]string{}
+	}
+	if uug[group] != label {
+		uug[group] = label
 		if b, err := common.Marshal(uug); err == nil {
-			if err := model.UpdateOption("UserUsableGroups", string(b)); err != nil {
-				common.SysError("pool rename: usable-group label update failed for " + poolID + ": " + err.Error())
-			}
+			_ = model.UpdateOption("UserUsableGroups", string(b))
 		}
 	}
 }

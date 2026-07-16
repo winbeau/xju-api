@@ -136,25 +136,38 @@ func TestRenamePool(t *testing.T) {
 	t.Setenv("POOL_K12_MGMT_SECRET", "")
 	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(t.TempDir(), "pools.json"))
 
-	// A registered pool "1" routed by a channel.
+	// A registered pool "1" routed by a channel in group "1".
 	require.NoError(t, model.DB.Where("1 = 1").Delete(&model.Channel{}).Error)
+	require.NoError(t, model.DB.Where("1 = 1").Delete(&model.Token{}).Error)
 	ch := &model.Channel{Type: 1, Name: "cliproxy-pool-1", Key: "k", Group: "1", Models: "gpt-5", Status: 1}
 	require.NoError(t, ch.Insert())
+	// A card already issued into that group.
+	card := &model.Token{UserId: 1, Key: "card000000000000000000000000000001", Name: "c1", Group: "1"}
+	require.NoError(t, model.DB.Create(card).Error)
 	require.NoError(t, common.AddPoolToRegistry(common.PoolEntry{
 		ID: "1", Label: "Old Name", MgmtURL: "http://cli-proxy-api-1:8319", MgmtSecret: "s", ChannelID: ch.Id,
 	}))
 
 	require.NoError(t, RenamePool("1", "  Campus  "))
 
-	// Registry label updated (trimmed).
+	// Registry label, channel name, and channel GROUP all become "Campus".
 	entry, ok := common.GetPoolEntry("1")
 	require.True(t, ok)
 	assert.Equal(t, "Campus", entry.Label)
-
-	// Channel display name updated to the new label.
 	got, err := model.GetChannelById(ch.Id, false)
 	require.NoError(t, err)
 	assert.Equal(t, "Campus", got.Name)
+	assert.Equal(t, "Campus", got.Group, "routing group renamed too")
+
+	// The already-issued card was migrated to the new group so it still routes.
+	var migrated model.Token
+	require.NoError(t, model.DB.First(&migrated, card.Id).Error)
+	assert.Equal(t, "Campus", migrated.Group, "issued card migrated to the new group")
+
+	// A name already used by another group is refused (no silent merge of cards).
+	other := &model.Channel{Type: 1, Name: "other", Key: "k2", Group: "Taken", Models: "gpt-5", Status: 1}
+	require.NoError(t, other.Insert())
+	assert.Error(t, RenamePool("1", "Taken"))
 
 	// Guards: empty name, unknown pool, and built-in pools are all refused.
 	assert.Error(t, RenamePool("1", "   "))

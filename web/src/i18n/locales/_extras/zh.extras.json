@@ -1,0 +1,3 @@
+{
+  "translation.Rename this pool, its channel, and its routing group. Cards already issued in the old group are migrated to the new name so they keep working.": "重命名该号池、渠道及其分组。该分组下已发的卡会自动迁移到新分组名，继续可用。"
+}

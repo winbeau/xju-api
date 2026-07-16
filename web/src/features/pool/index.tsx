@@ -1408,7 +1408,7 @@ export function Pool() {
           }}
           title={t('Rename pool')}
           description={t(
-            'Change this pool’s display name and its channel’s name. The internal id and card routing are unchanged.'
+            'Rename this pool, its channel, and its routing group. Cards already issued in the old group are migrated to the new name so they keep working.'
           )}
           contentClassName='max-w-md'
           bodyClassName='space-y-3'
