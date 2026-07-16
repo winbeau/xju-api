@@ -84,3 +84,49 @@ func TestExtractCodexIDTokenClaims_NoTokensReturnsNil(t *testing.T) {
 		t.Fatalf("expected nil claims when no token present, got %#v", claims)
 	}
 }
+
+func TestExtractCodexIDTokenClaims_TopLevelPlanFallback(t *testing.T) {
+	// A genuinely-lean go-pool account has no id_token/access_token JWT. The plan
+	// survives only as a top-level metadata field; the subscription date exists
+	// nowhere. The plan badge must still light up.
+	auth := &coreauth.Auth{
+		Provider: "codex",
+		Metadata: map[string]any{
+			"type":               "codex",
+			"chatgpt_plan_type":  "plus",
+			"chatgpt_account_id": "acc-lean",
+		},
+	}
+	claims := extractCodexIDTokenClaims(auth)
+	if claims == nil {
+		t.Fatalf("expected claims from top-level plan fallback, got nil")
+	}
+	if got := claims["plan_type"]; got != "plus" {
+		t.Fatalf("expected top-level plan_type plus, got %#v", got)
+	}
+	if got := claims["chatgpt_account_id"]; got != "acc-lean" {
+		t.Fatalf("expected top-level account id, got %#v", got)
+	}
+	if _, ok := claims["chatgpt_subscription_active_until"]; ok {
+		t.Fatalf("lean account must not report a subscription window, got %#v", claims["chatgpt_subscription_active_until"])
+	}
+}
+
+func TestExtractCodexIDTokenClaims_JWTPlanBeatsTopLevel(t *testing.T) {
+	// When both a JWT plan and a divergent top-level plan exist, the JWT wins.
+	auth := &coreauth.Auth{
+		Provider: "codex",
+		Metadata: map[string]any{
+			"type":              "codex",
+			"id_token":          codexJWT(t, "plus", "acc-id", ""),
+			"chatgpt_plan_type": "pro",
+		},
+	}
+	claims := extractCodexIDTokenClaims(auth)
+	if claims == nil {
+		t.Fatalf("expected claims, got nil")
+	}
+	if got := claims["plan_type"]; got != "plus" {
+		t.Fatalf("expected JWT plan_type plus to beat top-level pro, got %#v", got)
+	}
+}

@@ -627,37 +627,61 @@ func extractCodexIDTokenClaims(auth *coreauth.Auth) gin.H {
 	if !strings.EqualFold(strings.TrimSpace(auth.Provider), "codex") {
 		return nil
 	}
-	// Prefer the id_token, but fall back to the access_token. OpenAI's
-	// refresh-token grant returns a new access_token without an id_token, so a
-	// long-lived account loses its id_token after its first refresh. The
-	// access_token is itself a JWT carrying the same "https://api.openai.com/auth"
-	// claim (plan + subscription window), so it recovers what the id_token would show.
+	// Prefer the id_token, fall back to the access_token (both are JWTs carrying
+	// the same "https://api.openai.com/auth" claim). A genuinely-lean go-pool
+	// account has neither claim; for those we fall back to the top-level metadata
+	// file fields, which can still light the plan badge. The subscription window
+	// lives in the JWT only — it has no top-level source, so a lean account never
+	// reports a date.
 	claims := parseCodexMetadataJWT(auth.Metadata, "id_token")
 	if claims == nil {
 		claims = parseCodexMetadataJWT(auth.Metadata, "access_token")
 	}
-	if claims == nil {
-		return nil
-	}
 
 	result := gin.H{}
-	if v := strings.TrimSpace(claims.CodexAuthInfo.ChatgptAccountID); v != "" {
-		result["chatgpt_account_id"] = v
+	if claims != nil {
+		if v := strings.TrimSpace(claims.CodexAuthInfo.ChatgptAccountID); v != "" {
+			result["chatgpt_account_id"] = v
+		}
+		if v := strings.TrimSpace(claims.CodexAuthInfo.ChatgptPlanType); v != "" {
+			result["plan_type"] = v
+		}
+		if v := claims.CodexAuthInfo.ChatgptSubscriptionActiveStart; v != nil {
+			result["chatgpt_subscription_active_start"] = v
+		}
+		if v := claims.CodexAuthInfo.ChatgptSubscriptionActiveUntil; v != nil {
+			result["chatgpt_subscription_active_until"] = v
+		}
 	}
-	if v := strings.TrimSpace(claims.CodexAuthInfo.ChatgptPlanType); v != "" {
-		result["plan_type"] = v
+
+	// Top-level file fallbacks — fill only what the JWT did not already provide,
+	// so an enriched JWT always wins over a divergent top-level value.
+	if _, ok := result["chatgpt_account_id"]; !ok {
+		if v := codexMetadataString(auth.Metadata, "chatgpt_account_id"); v != "" {
+			result["chatgpt_account_id"] = v
+		}
 	}
-	if v := claims.CodexAuthInfo.ChatgptSubscriptionActiveStart; v != nil {
-		result["chatgpt_subscription_active_start"] = v
-	}
-	if v := claims.CodexAuthInfo.ChatgptSubscriptionActiveUntil; v != nil {
-		result["chatgpt_subscription_active_until"] = v
+	if _, ok := result["plan_type"]; !ok {
+		if v := codexMetadataString(auth.Metadata, "chatgpt_plan_type"); v != "" {
+			result["plan_type"] = v
+		} else if v := codexMetadataString(auth.Metadata, "plan_type"); v != "" {
+			result["plan_type"] = v
+		}
 	}
 
 	if len(result) == 0 {
 		return nil
 	}
 	return result
+}
+
+// codexMetadataString reads a trimmed string field from the auth metadata map,
+// returning "" when the key is absent or not a string.
+func codexMetadataString(metadata map[string]any, key string) string {
+	if v, ok := metadata[key].(string); ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
 }
 
 // parseCodexMetadataJWT parses the JWT stored under metadata[key] (an id_token or
