@@ -5,7 +5,7 @@
 新疆大学 · 软件开发实验室<br />
 <sub>Software Engineering Lab · Xinjiang University</sub>
 
-兼容 OpenAI 的三层 AI API 代理平台
+> 兼容 OpenAI 的三层 AI API 代理平台
 
 [![api.selab.top](https://img.shields.io/badge/api.selab.top-live-0f7b6c?style=flat-square)](https://api.selab.top)
 [![API](https://img.shields.io/badge/API-OpenAI%20compatible-2383e2?style=flat-square)](#支持的客户端)
