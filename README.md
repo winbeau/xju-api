@@ -1,8 +1,9 @@
 <div align="center">
 
-<img src="web/public/logo.png" width="76" alt="XJU API" />
+# <img src="web/public/logo.png" width="40" alt="" /> XJU API
 
-# XJU API
+新疆大学 · 软件开发实验室<br />
+<sub>Software Engineering Lab · Xinjiang University</sub>
 
 兼容 OpenAI 的三层 AI API 代理平台
 
