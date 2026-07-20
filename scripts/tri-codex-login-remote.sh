@@ -118,12 +118,13 @@ describe_pool() {
 
 start_login() {
 	load_secret
-	local before response state url file
+	local before response state url expires_in file
 	before="$(mgmt GET '/v0/management/auth-files' | jq -c \
 		'if (.files|type)=="array" then .files else [] end | map({auth_index,modtime})')"
 	response="$(mgmt GET '/v0/management/codex-auth-url?is_webui=1')"
 	state="$(jq -r '.state // empty' <<<"$response")"
 	url="$(jq -r '.url // empty' <<<"$response")"
+	expires_in="$(jq -r '.expires_in // 1800' <<<"$response")"
 	valid_state "$state" || {
 		echo "CLIProxyAPI returned an invalid OAuth state" >&2
 		exit 3
@@ -132,6 +133,7 @@ start_login() {
 		echo "CLIProxyAPI returned an unexpected authorization URL" >&2
 		exit 3
 	}
+	[[ "$expires_in" =~ ^[0-9]+$ && "$expires_in" -ge 60 && "$expires_in" -le 3600 ]] || expires_in=1800
 
 	install -d -m 700 "$LOGIN_STATE_DIR"
 	file="$(state_file "$state")"
@@ -147,7 +149,7 @@ start_login() {
 		--arg pool "$POOL_ID" \
 		--arg state "$state" \
 		--arg url "$url" \
-		--argjson expires_in 300 \
+		--argjson expires_in "$expires_in" \
 		'{status:$status,pool:$pool,state:$state,url:$url,expires_in:$expires_in}'
 	unset SECRET response url before
 }

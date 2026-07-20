@@ -86,13 +86,17 @@ func requestCodexTokenState(t *testing.T, router http.Handler) string {
 	}
 
 	var payload struct {
-		State string `json:"state"`
+		State     string `json:"state"`
+		ExpiresIn int    `json:"expires_in"`
 	}
 	if errDecode := json.Unmarshal(w.Body.Bytes(), &payload); errDecode != nil {
 		t.Fatalf("decode codex auth URL response: %v", errDecode)
 	}
 	if payload.State == "" {
 		t.Fatalf("expected codex auth URL response to include state")
+	}
+	if got, want := time.Duration(payload.ExpiresIn)*time.Second, codex.DefaultCallbackTimeout; got != want {
+		t.Fatalf("codex auth URL expires_in = %v, want %v", got, want)
 	}
 	return payload.State
 }

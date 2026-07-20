@@ -13,6 +13,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// DefaultCallbackTimeout leaves enough time for interactive account login and MFA.
+const DefaultCallbackTimeout = 30 * time.Minute
+
 // OAuthServer handles the local HTTP server for OAuth callbacks.
 // It listens for the authorization code response from the OAuth provider
 // and captures the necessary parameters to complete the authentication flow.

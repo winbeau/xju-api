@@ -110,7 +110,7 @@ func (a *CodexAuthenticator) Login(ctx context.Context, cfg *config.Config, opts
 	manualDescription := ""
 
 	go func() {
-		result, errWait := oauthServer.WaitForCallback(5 * time.Minute)
+		result, errWait := oauthServer.WaitForCallback(codex.DefaultCallbackTimeout)
 		if errWait != nil {
 			callbackErrCh <- errWait
 			return

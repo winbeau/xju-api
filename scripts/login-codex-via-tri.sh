@@ -209,17 +209,20 @@ kill -0 "$TUNNEL_PID" >/dev/null 2>&1 || {
 start="$(remote start "$POOL_ID")"
 LOGIN_STATE="$(jq -r '.state // empty' <<<"$start")"
 auth_url="$(jq -r '.url // empty' <<<"$start")"
+oauth_expires_in="$(jq -r '.expires_in // 1800' <<<"$start")"
 [[ -n "$LOGIN_STATE" && "$auth_url" == https://auth.openai.com/* ]] || {
 	echo "failed to start OAuth" >&2
 	exit 3
 }
+[[ "$oauth_expires_in" =~ ^[0-9]+$ && "$oauth_expires_in" -ge 60 && "$oauth_expires_in" -le 3600 ]] || oauth_expires_in=1800
 
 echo "OAuth started on claude-tri for pool '$POOL_ID'."
+echo "OAuth callback window: $((oauth_expires_in / 60)) minutes."
 echo "Enter account credentials and MFA only on the OpenAI page."
 echo "Do not paste the final callback URL into chat or a shell."
 open_browser "$auth_url"
 
-deadline=$((SECONDS + 300))
+deadline=$((SECONDS + oauth_expires_in + 10))
 while ((SECONDS < deadline)); do
 	result="$(remote status "$POOL_ID" "$LOGIN_STATE")"
 	case "$(jq -r '.status // "error"' <<<"$result")" in
@@ -238,5 +241,5 @@ while ((SECONDS < deadline)); do
 	esac
 done
 
-echo "OAuth timed out after 5 minutes" >&2
+echo "OAuth timed out after $((oauth_expires_in / 60)) minutes" >&2
 exit 4

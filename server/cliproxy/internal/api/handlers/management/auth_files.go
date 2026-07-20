@@ -2158,7 +2158,7 @@ func (h *Handler) RequestCodexToken(c *gin.Context) {
 
 		// Wait for callback file
 		waitFile := filepath.Join(h.cfg.AuthDir, fmt.Sprintf(".oauth-codex-%s.oauth", state))
-		deadline := time.Now().Add(5 * time.Minute)
+		deadline := time.Now().Add(codex.DefaultCallbackTimeout)
 		var code string
 		for {
 			if !IsOAuthSessionPending(state, "codex") {
@@ -2244,7 +2244,12 @@ func (h *Handler) RequestCodexToken(c *gin.Context) {
 		CompleteOAuthSession(state)
 	}()
 
-	c.JSON(200, gin.H{"status": "ok", "url": authURL, "state": state})
+	c.JSON(200, gin.H{
+		"status":     "ok",
+		"url":        authURL,
+		"state":      state,
+		"expires_in": int(codex.DefaultCallbackTimeout / time.Second),
+	})
 }
 
 func (h *Handler) RequestAntigravityToken(c *gin.Context) {

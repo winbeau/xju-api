@@ -65,6 +65,9 @@ SSH_TARGET=winbeau@70.39.193.15 SSH_PORT=48687 \
 6. 成功后确认账号落盘，并运行零消耗轻量验活；
 7. 输出掩码邮箱、套餐、订阅期限和验活结论，随后关闭 SSH 隧道。
 
+Codex 浏览器 OAuth 回调窗口为 30 分钟；CLIProxyAPI 会在发起登录时返回 `expires_in`，
+WSL 脚本按该值等待，不再使用原来的 5 分钟硬编码。
+
 WSL mirrored networking 下不要再从 Windows CMD 同时建立同端口隧道。脚本启动时会
 识别并终止占用目标端口的旧 WSL SSH 转发，包括之前手工运行的 `ssh -N -L ...`。它只会
 终止端口与转发方向相符的 `ssh` 进程；如果端口属于其他程序，或只在 Windows 侧可见，
