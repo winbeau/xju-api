@@ -65,8 +65,10 @@ SSH_TARGET=winbeau@70.39.193.15 SSH_PORT=48687 \
 6. 成功后确认账号落盘，并运行零消耗轻量验活；
 7. 输出掩码邮箱、套餐、订阅期限和验活结论，随后关闭 SSH 隧道。
 
-WSL mirrored networking 下不要再从 Windows CMD 同时建立同端口隧道。若之前有手工
-`ssh -N -L ...`，先按 `Ctrl+C` 关闭，否则脚本会因本地 1455/池端口已占用而拒绝启动。
+WSL mirrored networking 下不要再从 Windows CMD 同时建立同端口隧道。脚本启动时会
+识别并终止占用目标端口的旧 WSL SSH 转发，包括之前手工运行的 `ssh -N -L ...`。它只会
+终止端口与转发方向相符的 `ssh` 进程；如果端口属于其他程序，或只在 Windows 侧可见，
+脚本会保留该进程并提示人工处理。可设置 `AUTO_CLEANUP=0` 关闭自动清理。
 
 ## 自动化边界
 

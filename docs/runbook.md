@@ -81,7 +81,8 @@ bash deploy/prune-docker.sh && docker system df
 
 脚本在 claude-tri 发起 OAuth、保存 Token、确认落盘并做 405 轻量验活；WSL 只负责
 `1455 + 池端口` 两条 SSH 转发并打开 OpenAI 官方页面。密码/MFA 只在 OpenAI 页面输入，
-不进入脚本。完整实测链路、WSL mirrored networking 注意事项与安全边界见
+不进入脚本。启动时会自动清理端口与转发方向相符的旧 WSL SSH 隧道，不会终止其他监听
+进程。完整实测链路、WSL mirrored networking 注意事项与安全边界见
 [docs/codex-pool-login.md](./codex-pool-login.md)。
 
 ## 双池密钥（default + K12）

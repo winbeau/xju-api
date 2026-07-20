@@ -19,6 +19,7 @@ SSH_PORT="${SSH_PORT:-}"
 REMOTE_REPO="${REMOTE_REPO:-/home/winbeau/opt/xju-api}"
 REMOTE_HELPER="$REMOTE_REPO/scripts/tri-codex-login-remote.sh"
 POLL_SECONDS="${POLL_SECONDS:-2}"
+AUTO_CLEANUP="${AUTO_CLEANUP:-1}"
 
 usage() {
 	cat <<'EOF'
@@ -28,6 +29,7 @@ Usage:
 Defaults:
   pool-id=main
   SSH_TARGET=claude-tri
+  AUTO_CLEANUP=1
 
 Direct-address example:
   SSH_TARGET=winbeau@70.39.193.15 SSH_PORT=48687 \
@@ -45,6 +47,10 @@ esac
 	echo "invalid pool id" >&2
 	exit 2
 }
+[[ "$AUTO_CLEANUP" =~ ^[01]$ ]] || {
+	echo "AUTO_CLEANUP must be 0 or 1" >&2
+	exit 2
+}
 
 for dep in jq ssh ss; do
 	command -v "$dep" >/dev/null 2>&1 || {
@@ -53,7 +59,15 @@ for dep in jq ssh ss; do
 	}
 done
 
-SSH_BASE=(ssh -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+SSH_BASE=(
+	ssh
+	-o BatchMode=yes
+	-o ConnectTimeout=10
+	-o ServerAliveInterval=15
+	-o ServerAliveCountMax=3
+	-o ControlMaster=no
+	-o ControlPath=none
+)
 [[ -n "$SSH_PORT" ]] && SSH_BASE+=(-p "$SSH_PORT")
 
 remote() {
@@ -62,6 +76,58 @@ remote() {
 
 port_busy() {
 	ss -ltnH "sport = :$1" | grep -q .
+}
+
+listener_pids() {
+	ss -ltnpH "sport = :$1" 2>/dev/null \
+		| grep -oE 'pid=[0-9]+' \
+		| cut -d= -f2 \
+		| sort -u || true
+}
+
+is_matching_ssh_forward() {
+	local pid="$1" local_port="$2" remote_port="$3" exe cmdline pattern
+	exe="$(readlink -f "/proc/$pid/exe" 2>/dev/null || true)"
+	[[ "${exe##*/}" == ssh ]] || return 1
+	cmdline="$(tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null || true)"
+	pattern="(^|[[:space:]])-L[[:space:]]*(127\\.0\\.0\\.1:|localhost:)?${local_port}:[^[:space:]]+:${remote_port}([[:space:]]|$)"
+	[[ "$cmdline" =~ $pattern ]]
+}
+
+stop_stale_forwarders() {
+	local local_port="$1" remote_port="$2" pid
+	local -a pids=() matching=()
+	mapfile -t pids < <(listener_pids "$local_port")
+	((${#pids[@]} > 0)) || return 1
+
+	for pid in "${pids[@]}"; do
+		if is_matching_ssh_forward "$pid" "$local_port" "$remote_port"; then
+			matching+=("$pid")
+		else
+			echo "local port $local_port is owned by a non-matching process (pid $pid); refusing to stop it." >&2
+			return 1
+		fi
+	done
+
+	for pid in "${matching[@]}"; do
+		echo "Stopping stale SSH forward on local port $local_port (pid $pid)." >&2
+		kill -TERM "$pid" 2>/dev/null || true
+	done
+	for _ in {1..20}; do
+		port_busy "$local_port" || return 0
+		sleep 0.1
+	done
+	for pid in "${matching[@]}"; do
+		if kill -0 "$pid" 2>/dev/null && is_matching_ssh_forward "$pid" "$local_port" "$remote_port"; then
+			echo "Stale SSH forward did not stop after SIGTERM; forcing pid $pid to exit." >&2
+			kill -KILL "$pid" 2>/dev/null || true
+		fi
+	done
+	for _ in {1..10}; do
+		port_busy "$local_port" || return 0
+		sleep 0.1
+	done
+	return 1
 }
 
 open_browser() {
@@ -92,10 +158,21 @@ pool_port="$(jq -r '.port // 0' <<<"$description")"
 	exit 2
 }
 
-for local_port in 1455 "$pool_port"; do
+for port_pair in "1455:1455" "$pool_port:$pool_port"; do
+	local_port="${port_pair%%:*}"
+	remote_port="${port_pair##*:}"
+	if port_busy "$local_port"; then
+		if [[ "$AUTO_CLEANUP" == 1 ]]; then
+			stop_stale_forwarders "$local_port" "$remote_port" || true
+		fi
+	fi
 	if port_busy "$local_port"; then
 		echo "local port $local_port is already in use." >&2
-		echo "Stop the old WSL/Windows tunnel or listener, then retry." >&2
+		if [[ -z "$(listener_pids "$local_port")" ]]; then
+			echo "No WSL owner is visible; close the Windows-side listener or mirrored-network tunnel, then retry." >&2
+		else
+			echo "The listener is not a matching stale SSH forward, so it was left untouched." >&2
+		fi
 		exit 2
 	fi
 done
@@ -112,7 +189,9 @@ cleanup() {
 		wait "$TUNNEL_PID" 2>/dev/null || true
 	fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 "${SSH_BASE[@]}" \
 	-o ExitOnForwardFailure=yes \
