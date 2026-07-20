@@ -70,6 +70,20 @@ bash deploy/prune-docker.sh && docker system df
 - **回滚(破玻璃)**:旧号在 `auths/` + `auths-k12/` 原样保留;旧 config(`config.yaml`/`config.k12.yaml`)、旧密钥(`.pool-mgmt.env.retired` / `.pool-mgmt-k12.env.retired`)、旧镜像 `winbeau/cli-proxy-api:v0.8.6` 均在位。回滚 = 停 `main`/`k12-pool` → 把 `.retired` 改回 → compose(或 docker run)起旧静态容器 → 前端 channel 3/4 停、1/2 启 → 重跑 `run-newapi.sh`(注入回旧密钥)。
 - **k12 池 501 号全 disabled** 是迁移前就有的存量状态(旧 k12 channel 同样不出模型),不是本次迁移引入;要激活需对号做验活/enriched 重登。
 
+## Codex 账号登录（claude-tri）
+
+从 WSL 一键发起目标池的 enriched OAuth 登录：
+
+```bash
+./scripts/login-codex-via-tri.sh main
+# 其他动态池：./scripts/login-codex-via-tri.sh <pool-id>
+```
+
+脚本在 claude-tri 发起 OAuth、保存 Token、确认落盘并做 405 轻量验活；WSL 只负责
+`1455 + 池端口` 两条 SSH 转发并打开 OpenAI 官方页面。密码/MFA 只在 OpenAI 页面输入，
+不进入脚本。完整实测链路、WSL mirrored networking 注意事项与安全边界见
+[docs/codex-pool-login.md](./codex-pool-login.md)。
+
 ## 双池密钥（default + K12）
 
 两把**独立**的明文管理密钥,同机同目录、互不通用,均被 `.gitignore` 挡、600 权限:
