@@ -10,7 +10,7 @@
 #
 # 用法(仓库根目录):
 #   ./deploy/build-cliproxy.sh            # tag 默认 winbeau/cli-proxy-api:latest
-#   ./deploy/build-cliproxy.sh v0.9.0     # 指定 tag(compose/provision 默认已指 v0.9.0)
+#   ./deploy/build-cliproxy.sh v0.9.1     # 指定 tag(provision 默认已指向当前版本)
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
