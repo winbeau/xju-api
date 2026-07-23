@@ -8,6 +8,8 @@ License, or (at your option) any later version.
 */
 import { Boxes } from 'lucide-react'
 
+import { ROLE } from '@/lib/roles'
+
 // xju-api:new — 自有模块注册中心(REFACTOR-PLAN §5.1 注册反转)。
 //
 // 自有侧栏项 / 模块开关键 / URL→配置映射 / 模块元数据全部收敛在此;
@@ -15,12 +17,22 @@ import { Boxes } from 'lucide-react'
 // maintenance/sidebar-modules-section.tsx)只 import + 泛型 merge,
 // 不再写死任何 xju 专有字面量。新增自有页面时只改本文件与路由。
 
+/** 侧栏 general 组注入项。 */
+export const XJU_GENERAL_NAV_ITEMS = [
+  {
+    titleKey: 'My Pool',
+    url: '/my-pool' as const,
+    icon: Boxes,
+  },
+]
+
 /** 侧栏 admin 组注入项(use-sidebar-data.ts 消费;title 在消费点过 t())。 */
 export const XJU_ADMIN_NAV_ITEMS = [
   {
     titleKey: 'Account Pool',
     url: '/pool' as const,
     icon: Boxes,
+    requiredRole: ROLE.SUPER_ADMIN,
   },
 ]
 
@@ -29,6 +41,7 @@ export const XJU_SIDEBAR_MODULE_DEFAULTS: Record<
   string,
   Record<string, boolean>
 > = {
+  console: { private_pool: true },
   admin: { pool: true },
 }
 
@@ -37,6 +50,7 @@ export const XJU_URL_TO_CONFIG: Record<
   string,
   { section: string; module: string }
 > = {
+  '/my-pool': { section: 'console', module: 'private_pool' },
   '/pool': { section: 'admin', module: 'pool' },
 }
 
@@ -45,6 +59,12 @@ export const XJU_SIDEBAR_MODULE_META: Record<
   string,
   Record<string, { titleKey: string; descriptionKey: string }>
 > = {
+  console: {
+    private_pool: {
+      titleKey: 'My Pool',
+      descriptionKey: 'Manage the upstream accounts in your private pool.',
+    },
+  },
   admin: {
     pool: {
       titleKey: 'Account Pool',

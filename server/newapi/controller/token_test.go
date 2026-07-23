@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -502,6 +503,108 @@ func TestUpdateTokenMasksKeyInResponse(t *testing.T) {
 	}
 	if strings.Contains(recorder.Body.String(), token.Key) {
 		t.Fatalf("update response leaked raw token key: %s", recorder.Body.String())
+	}
+}
+
+func TestAddTokenForcesPrivatePoolRouting(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(t.TempDir(), "pools.json"))
+	requireNoError := func(err error) {
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	requireNoError(common.AddPoolToRegistry(common.PoolEntry{
+		ID: "1", Label: "Alice Pool", MgmtURL: "http://pool-1:8319", MgmtSecret: "secret", ChannelID: 123,
+		OwnerUserID: 42, Kind: common.PoolKindPrivate,
+	}))
+
+	body := map[string]any{
+		"name":              "private-key",
+		"expired_time":      -1,
+		"remain_quota":      100,
+		"unlimited_quota":   true,
+		"group":             "forged-group",
+		"cross_group_retry": true,
+	}
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", body, 42)
+	ctx.Set("role", common.RoleCommonUser)
+	AddToken(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected token creation to succeed, got %s", response.Message)
+	}
+	var token model.Token
+	if err := db.First(&token, "user_id = ?", 42).Error; err != nil {
+		t.Fatalf("failed to load created token: %v", err)
+	}
+	if token.Group != "private-42" {
+		t.Fatalf("expected forced private group, got %q", token.Group)
+	}
+	if token.CrossGroupRetry {
+		t.Fatal("private token must not enable cross-group retry")
+	}
+}
+
+func TestAddTokenRequiresReadyPrivatePool(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(t.TempDir(), "pools.json"))
+	body := map[string]any{
+		"name":            "no-pool-key",
+		"expired_time":    -1,
+		"remain_quota":    100,
+		"unlimited_quota": true,
+		"group":           "default",
+	}
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", body, 7)
+	ctx.Set("role", common.RoleCommonUser)
+	AddToken(ctx)
+
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("expected conflict, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "private_pool_required") {
+		t.Fatalf("expected private_pool_required code, got %s", recorder.Body.String())
+	}
+	var count int64
+	if err := db.Model(&model.Token{}).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count tokens: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("no token should be created without a private pool, got %d", count)
+	}
+}
+
+func TestUpdateTokenPreservesNonRootRouting(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	token := seedToken(t, db, 9, "legacy-key", "legacy1234token5678")
+
+	body := map[string]any{
+		"id":                   token.Id,
+		"name":                 "legacy-key-updated",
+		"expired_time":         -1,
+		"remain_quota":         100,
+		"unlimited_quota":      true,
+		"model_limits_enabled": false,
+		"model_limits":         "",
+		"group":                "forged-group",
+		"cross_group_retry":    true,
+	}
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/token/", body, 9)
+	ctx.Set("role", common.RoleCommonUser)
+	UpdateToken(ctx)
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected update to succeed, got %s", response.Message)
+	}
+
+	var updated model.Token
+	if err := db.First(&updated, token.Id).Error; err != nil {
+		t.Fatalf("failed to load updated token: %v", err)
+	}
+	if updated.Group != "default" || updated.CrossGroupRetry {
+		t.Fatalf("non-root update changed routing: group=%q retry=%v", updated.Group, updated.CrossGroupRetry)
 	}
 }
 

@@ -1,8 +1,10 @@
 package common
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -199,4 +201,112 @@ func TestSetPoolLabel(t *testing.T) {
 	assert.Equal(t, "New Name", got.Label, "label updated and trimmed")
 
 	assert.Error(t, SetPoolLabel("nope", "X"), "unknown pool id errors")
+}
+
+func TestLegacyPoolEntryDefaultsToAdmin(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "pools.json")
+	require.NoError(t, os.WriteFile(file, []byte(
+		`[{"id":"legacy","label":"Legacy","mgmt_url":"http://x:9","mgmt_secret":"s"}]`), 0o600))
+	t.Setenv("POOL_REGISTRY_FILE", file)
+	resetPoolRegCache()
+	t.Cleanup(resetPoolRegCache)
+
+	entry, ok := GetPoolEntry("legacy")
+	require.True(t, ok)
+	assert.Equal(t, PoolKindAdmin, entry.Kind)
+	assert.Zero(t, entry.OwnerUserID)
+	assert.Empty(t, entry.GroupKey)
+
+	pools := ListConfiguredPools()
+	require.Len(t, pools, 1)
+	assert.Equal(t, PoolKindAdmin, pools[0].Kind)
+}
+
+func TestPrivatePoolOwnershipMetadataAndQueries(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "pools.json")
+	t.Setenv("POOL_REGISTRY_FILE", file)
+	t.Setenv("POOL_MGMT_SECRET", "def")
+	resetPoolRegCache()
+	t.Cleanup(resetPoolRegCache)
+
+	require.NoError(t, AddPoolToRegistry(PoolEntry{
+		ID: "1", Label: "Alice Pool", MgmtURL: "http://pool-1:8319", MgmtSecret: "secret",
+		OwnerUserID: 42, Kind: PoolKindPrivate,
+	}))
+
+	entry, ok := FindPrivatePoolByOwner(42)
+	require.True(t, ok)
+	assert.Equal(t, "private-42", entry.GroupKey)
+	assert.Positive(t, entry.CreatedAt)
+	assert.Equal(t, 1, CountPrivatePools())
+
+	byGroup, ok := FindPrivatePoolByGroupKey("private-42")
+	require.True(t, ok)
+	assert.Equal(t, "1", byGroup.ID)
+
+	assert.True(t, CanManagePool(42, RoleCommonUser, entry))
+	assert.True(t, CanManagePool(42, RoleAdminUser, entry))
+	assert.False(t, CanManagePool(7, RoleAdminUser, entry), "admin cannot manage another user's pool")
+	assert.True(t, CanManagePool(7, RoleRootUser, entry))
+
+	userPools := ListPoolsForActor(42, RoleCommonUser)
+	require.Len(t, userPools, 1)
+	assert.Equal(t, 42, userPools[0].OwnerUserID)
+	assert.Equal(t, "private-42", userPools[0].GroupKey)
+	assert.Len(t, ListPoolsForActor(7, RoleCommonUser), 0)
+	assert.Len(t, ListPoolsForActor(7, RoleRootUser), 2, "root sees system and private pools")
+}
+
+func TestPrivatePoolRegistryRejectsInvalidOwnership(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "pools.json")
+	t.Setenv("POOL_REGISTRY_FILE", file)
+	resetPoolRegCache()
+	t.Cleanup(resetPoolRegCache)
+
+	assert.Error(t, AddPoolToRegistry(PoolEntry{
+		ID: "1", MgmtURL: "u", MgmtSecret: "s", Kind: PoolKindPrivate,
+	}), "private pool requires an owner")
+	assert.Error(t, AddPoolToRegistry(PoolEntry{
+		ID: "1", MgmtURL: "u", MgmtSecret: "s", Kind: PoolKindPrivate, OwnerUserID: 42, GroupKey: "forged",
+	}), "private pool group key is derived from owner")
+
+	require.NoError(t, AddPoolToRegistry(PoolEntry{
+		ID: "1", MgmtURL: "u", MgmtSecret: "s", Kind: PoolKindPrivate, OwnerUserID: 42,
+	}))
+	assert.Error(t, AddPoolToRegistry(PoolEntry{
+		ID: "2", MgmtURL: "u2", MgmtSecret: "s2", Kind: PoolKindPrivate, OwnerUserID: 42,
+	}), "one private pool per user")
+	assert.Error(t, AddPoolToRegistry(PoolEntry{
+		ID: "3", MgmtURL: "u3", MgmtSecret: "s3", Kind: PoolKindSystem,
+	}), "system pools are environment-seeded only")
+}
+
+func TestConcurrentPoolRegistryAddsDoNotLoseEntries(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "pools.json")
+	t.Setenv("POOL_REGISTRY_FILE", file)
+	resetPoolRegCache()
+	t.Cleanup(resetPoolRegCache)
+
+	const count = 10
+	errs := make(chan error, count)
+	var wg sync.WaitGroup
+	for i := 1; i <= count; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			errs <- AddPoolToRegistry(PoolEntry{
+				ID: fmt.Sprint(id), MgmtURL: fmt.Sprintf("http://pool-%d", id), MgmtSecret: "s",
+			})
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	for i := 1; i <= count; i++ {
+		_, ok := GetPoolEntry(fmt.Sprint(i))
+		assert.True(t, ok, "pool %d was lost during concurrent registry writes", i)
+	}
 }

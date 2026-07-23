@@ -53,7 +53,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Card,
   CardContent,
@@ -61,6 +60,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -148,9 +148,7 @@ function poolStats(
   for (const f of files) {
     if (!f.disabled) enabled++
     const verdict = verdicts[f.name]?.verdict
-    const isOnline = verdict
-      ? verdict === 'online'
-      : accountState(f) === 'ok'
+    const isOnline = verdict ? verdict === 'online' : accountState(f) === 'ok'
     if (isOnline) online++
   }
   return { total: files.length, enabled, online }
@@ -169,7 +167,9 @@ const VERDICT_ORDER: ProbeVerdict[] = [
 
 function verdictBreakdown(results: ProbeResult[]): [ProbeVerdict, number][] {
   const counts = new Map<ProbeVerdict, number>()
-  for (const r of results) counts.set(r.verdict, (counts.get(r.verdict) ?? 0) + 1)
+  for (const r of results) {
+    counts.set(r.verdict, (counts.get(r.verdict) ?? 0) + 1)
+  }
   return VERDICT_ORDER.filter((v) => counts.has(v)).map((v) => [
     v,
     counts.get(v) ?? 0,
@@ -262,6 +262,7 @@ export function Pool() {
   // steers UI guidance (import copy); the backend treats both modes alike.
   const activeBuildMode =
     pools.find((p) => p.id === pool)?.build_mode ?? 'cliproxy'
+  const activePool = pools.find((p) => p.id === pool)
 
   // xju-api:new — the initial selection ('default') is only a pre-load
   // placeholder; the env-seeded default/k12 pools can be retired in favour of
@@ -451,8 +452,7 @@ export function Pool() {
     queryFn: () => getVerifyProgress(pool),
     enabled: poolConfigured,
     // Poll while a run is in flight; otherwise leave the last snapshot in place.
-    refetchInterval: (query) =>
-      query.state.data?.running ? 2000 : false,
+    refetchInterval: (query) => (query.state.data?.running ? 2000 : false),
   })
   const progress = progressQuery.data ?? null
 
@@ -605,7 +605,16 @@ export function Pool() {
                   value={p.id}
                   className='px-3 py-1 text-sm font-medium'
                 >
-                  {p.label}
+                  <span className='flex min-w-0 flex-col items-start leading-tight'>
+                    <span className='max-w-36 truncate'>{p.label}</span>
+                    {p.kind === 'private' && (
+                      <span className='text-muted-foreground max-w-36 truncate text-[10px] font-normal'>
+                        {p.owner_username
+                          ? `@${p.owner_username}`
+                          : `#${p.owner_user_id}`}
+                      </span>
+                    )}
+                  </span>
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -631,7 +640,13 @@ export function Pool() {
                   {t('Accounts in pool')}
                 </CardTitle>
                 <CardDescription>
-                  {t('Upstream codex accounts behind the shared pool.')}
+                  {activePool?.kind === 'private'
+                    ? t('Private pool owned by {{owner}}.', {
+                        owner: activePool.owner_username
+                          ? `@${activePool.owner_username}`
+                          : `#${activePool.owner_user_id}`,
+                      })
+                    : t('Upstream codex accounts behind the shared pool.')}
                 </CardDescription>
               </div>
               {/* xju-api:edit — stats + actions live on the card's right,
@@ -784,7 +799,9 @@ export function Pool() {
                               {subUntil && (
                                 <span
                                   className={
-                                    state === 'expired' ? 'text-destructive' : ''
+                                    state === 'expired'
+                                      ? 'text-destructive'
+                                      : ''
                                   }
                                 >
                                   {state === 'expired'
@@ -1538,7 +1555,7 @@ export function Pool() {
                 {t('Cancel')}
               </AlertDialogCancel>
               <AlertDialogAction
-                className='bg-destructive text-white hover:bg-destructive/90'
+                className='bg-destructive hover:bg-destructive/90 text-white'
                 disabled={deletePoolMutation.isPending}
                 onClick={(e) => {
                   e.preventDefault()

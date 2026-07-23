@@ -30,7 +30,10 @@ import { useTranslation } from 'react-i18next'
 
 import type { SidebarData } from '@/components/layout/types'
 import { ROLE } from '@/lib/roles'
-import { XJU_ADMIN_NAV_ITEMS } from '@/registry/xju-modules'
+import {
+  XJU_ADMIN_NAV_ITEMS,
+  XJU_GENERAL_NAV_ITEMS,
+} from '@/registry/xju-modules'
 
 /**
  * Root navigation groups for the application sidebar.
@@ -65,6 +68,10 @@ export function useSidebarData(): SidebarData {
             url: '/keys',
             icon: Key,
           },
+          ...XJU_GENERAL_NAV_ITEMS.map((item) => ({
+            ...item,
+            title: t(item.titleKey),
+          })),
           {
             title: t('Usage Logs'),
             url: '/usage-logs/common',
@@ -94,9 +101,8 @@ export function useSidebarData(): SidebarData {
           },
           // xju-api:inject — 自有 admin 侧栏项由注册中心收敛(registry/xju-modules.ts)
           ...XJU_ADMIN_NAV_ITEMS.map((item) => ({
+            ...item,
             title: t(item.titleKey),
-            url: item.url,
-            icon: item.icon,
           })),
           {
             title: t('Users'),

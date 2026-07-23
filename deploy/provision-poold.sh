@@ -6,7 +6,8 @@
 #   接单——起/删独立 cliproxy 实例、回写 $PROVISION_DIR/results/<id>.json。
 # 由 deploy/xju-provision.service 常驻(Restart=always)。
 #
-# 请求(new-api 写):{"action":"create","pool_id":"edu","label":"Edu","port":8319}
+# 请求(new-api 写):{"action":"create","pool_id":"edu","label":"Edu","port":8319,
+#                    "mode":"cliproxy","owner_user_id":42,"kind":"private","group_key":"private-42"}
 #                    {"action":"delete","pool_id":"edu"}
 # 结果(本脚本写):create → {pool_id,status:ok,mgmt_url,mgmt_secret,port,internal_key,error}
 #                  delete → {pool_id,status:ok,error}
@@ -19,6 +20,7 @@ CLIPROXY_DIR="${CLIPROXY_DIR:-/opt/cli-proxy-api}"
 IMAGE="${CLIPROXY_IMAGE:-winbeau/cli-proxy-api:v0.9.1}"
 NETWORK="${XJU_NET:-xju-net}"
 TEMPLATE="${CONFIG_TEMPLATE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config.k12.example.yaml}"
+PRIVATE_TEMPLATE="${PRIVATE_CONFIG_TEMPLATE:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config.private.example.yaml}"
 POLL_INTERVAL="${POLL_INTERVAL:-3}"
 
 REQ="$PROVISION_DIR/requests"
@@ -41,23 +43,60 @@ err_result() { # id message
 	write_result "$1" "$(jq -nc --arg id "$1" --arg e "$2" '{pool_id:$id,status:"error",error:$e}')"
 }
 
-provision_create() { # id label port
-	local id="$1" label="$2" port="$3"
+provision_create() { # id label port mode owner_user_id kind group_key
+	local id="$1" label="$2" port="$3" mode="$4" owner_user_id="$5" kind="$6" group_key="$7"
 	if ! [[ "$port" =~ ^[0-9]+$ ]] || ((port < 1024 || port > 65535)); then
 		err_result "$id" "invalid port: $port"
 		return
 	fi
-	local mgmt key cfg envf url
+	if ! [[ "$owner_user_id" =~ ^[0-9]+$ ]]; then
+		err_result "$id" "invalid owner_user_id"
+		return
+	fi
+	case "$kind" in
+	admin)
+		if ((owner_user_id != 0)) || [[ -n "$group_key" && "$group_key" != "$id" ]]; then
+			err_result "$id" "invalid admin pool ownership metadata"
+			return
+		fi
+		;;
+	private)
+		if ((owner_user_id <= 0)) || [[ "$group_key" != "private-$owner_user_id" ]]; then
+			err_result "$id" "invalid private pool ownership metadata"
+			return
+		fi
+		;;
+	*)
+		err_result "$id" "invalid pool kind: $kind"
+		return
+		;;
+	esac
+	local mgmt key cfg envf url template_source
+	local -a resource_args=()
 	mgmt="$(openssl rand -hex 32)"
 	key="$(openssl rand -hex 32)"
 	cfg="$CLIPROXY_DIR/config.$id.yaml"
 	envf="$CLIPROXY_DIR/.pool-mgmt-$id.env"
+	template_source="$TEMPLATE"
+	if [[ "$kind" == private ]]; then
+		template_source="$PRIVATE_TEMPLATE"
+		# Private pools are small, low-traffic instances. Bound a single user so
+		# ten pools cannot consume the whole host during a failure loop.
+		resource_args=(
+			--memory=256m --memory-reservation=64m --cpus=0.75 --pids-limit=128
+			--log-opt max-size=10m --log-opt max-file=2
+		)
+	fi
+	if [[ ! -f "$template_source" ]]; then
+		err_result "$id" "config template not found"
+		return
+	fi
 
 	# Clone the isolated-pool template, substituting port + secrets.
 	if ! sed -e "s/^port: .*/port: $port/" \
 		-e "s|__MANAGEMENT_SECRET_K12__|$mgmt|" \
 		-e "s|__INTERNAL_API_KEY_K12__|$key|" \
-		"$TEMPLATE" >"$cfg"; then
+		"$template_source" >"$cfg"; then
 		err_result "$id" "failed to write config"
 		return
 	fi
@@ -71,7 +110,7 @@ provision_create() { # id label port
 		-v "$cfg":/CLIProxyAPI/config.yaml \
 		-v "$CLIPROXY_DIR/auths-$id":/root/.cli-proxy-api \
 		-v "$CLIPROXY_DIR/logs-$id":/CLIProxyAPI/logs \
-		--env-file "$envf" "$IMAGE" >/dev/null; then
+		--env-file "$envf" "${resource_args[@]}" "$IMAGE" >/dev/null; then
 		err_result "$id" "docker run failed"
 		return
 	fi
@@ -94,8 +133,9 @@ provision_create() { # id label port
 	url="http://cli-proxy-api-$id:$port"
 	write_result "$id" "$(jq -nc \
 		--arg id "$id" --arg label "$label" --arg url "$url" --arg mgmt "$mgmt" \
-		--arg key "$key" --argjson port "$port" \
-		'{pool_id:$id,label:$label,action:"create",status:"ok",mgmt_url:$url,mgmt_secret:$mgmt,port:$port,internal_key:$key,error:""}')"
+		--arg key "$key" --arg mode "$mode" --arg kind "$kind" --arg group "$group_key" \
+		--argjson port "$port" --argjson owner "$owner_user_id" \
+		'{pool_id:$id,label:$label,action:"create",status:"ok",mgmt_url:$url,mgmt_secret:$mgmt,port:$port,internal_key:$key,error:"",mode:$mode,owner_user_id:$owner,kind:$kind,group_key:$group}')"
 	log "created pool $id on port $port"
 }
 
@@ -109,7 +149,7 @@ provision_delete() { # id
 }
 
 process_one() { # request-file
-	local f="$1" id action label port pid
+	local f="$1" id action label port pid mode owner_user_id kind group_key
 	id="$(basename "$f" .json)"
 	if ! action="$(jq -r '.action // "create"' "$f" 2>/dev/null)"; then
 		err_result "$id" "unreadable request"
@@ -118,13 +158,17 @@ process_one() { # request-file
 	pid="$(jq -r '.pool_id // ""' "$f")"
 	label="$(jq -r '.label // .pool_id' "$f")"
 	port="$(jq -r '.port // 0' "$f")"
+	mode="$(jq -r '.mode // "cliproxy"' "$f")"
+	owner_user_id="$(jq -r '.owner_user_id // 0' "$f")"
+	kind="$(jq -r '.kind // "admin"' "$f")"
+	group_key="$(jq -r '.group_key // ""' "$f")"
 	if [[ "$pid" != "$id" ]] || ! valid_pool_id "$pid"; then
 		err_result "$id" "invalid or mismatched pool id"
 		return
 	fi
 	case "$action" in
 	delete) provision_delete "$pid" ;;
-	create) provision_create "$pid" "$label" "$port" ;;
+	create) provision_create "$pid" "$label" "$port" "$mode" "$owner_user_id" "$kind" "$group_key" ;;
 	*) err_result "$id" "unknown action: $action" ;;
 	esac
 }
@@ -139,7 +183,7 @@ main() {
 		exit 1
 	}
 	mkdir -p "$REQ" "$RES" "$DONE"
-	log "watching $REQ (interval ${POLL_INTERVAL}s, template $TEMPLATE)"
+	log "watching $REQ (interval ${POLL_INTERVAL}s, admin template $TEMPLATE, private template $PRIVATE_TEMPLATE)"
 	while true; do
 		for f in "$REQ"/*.json; do
 			[[ -e "$f" ]] || continue

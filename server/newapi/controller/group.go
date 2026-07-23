@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
@@ -34,6 +35,20 @@ func GetUserGroups(c *gin.Context) {
 		if desc, ok := userUsableGroups[groupName]; ok {
 			usableGroups[groupName] = map[string]interface{}{
 				"ratio": service.GetUserGroupRatio(userGroup, groupName),
+				"desc":  desc,
+			}
+		}
+	}
+	// Private groups never live in global UserUsableGroups. Add exactly the
+	// authenticated user's ready pool here so group discovery remains owner-bound.
+	if entry, ok := common.FindPrivatePoolByOwner(userId); ok && entry.ChannelID > 0 {
+		if _, _, ready := common.ResolvePoolMgmt(entry.ID); ready && ratio_setting.ContainsGroupRatio(entry.GroupKey) {
+			desc := entry.Label
+			if desc == "" {
+				desc = "我的私人号池"
+			}
+			usableGroups[entry.GroupKey] = map[string]interface{}{
+				"ratio": service.GetUserGroupRatio(userGroup, entry.GroupKey),
 				"desc":  desc,
 			}
 		}

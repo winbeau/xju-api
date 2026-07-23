@@ -225,6 +225,30 @@ func SetApiRouter(router *gin.Engine) {
 			poolRoute.DELETE("/auth-files", controller.DeletePoolAuthFile)
 		}
 
+		// User-owned private pool. Every account-management route is bound by
+		// middleware to the authenticated user's registry entry; no endpoint in
+		// this group accepts a target pool id from the browser.
+		privatePoolRoute := apiRouter.Group("/private-pool")
+		privatePoolRoute.Use(middleware.UserAuth())
+		{
+			privatePoolRoute.GET("", controller.GetPrivatePool)
+			privatePoolRoute.POST("", controller.CreatePrivatePool)
+
+			privatePoolAuthRoute := privatePoolRoute.Group("/auth-files")
+			privatePoolAuthRoute.Use(middleware.PrivatePoolScope())
+			{
+				privatePoolAuthRoute.GET("", controller.ListPoolAuthFiles)
+				privatePoolAuthRoute.POST("", controller.AddPoolAuthFile)
+				privatePoolAuthRoute.POST("/import", controller.ImportPoolAuthFiles)
+				privatePoolAuthRoute.POST("/verify", controller.VerifyPoolAuthFile)
+				privatePoolAuthRoute.GET("/usage", controller.GetPoolAccountUsage)
+				privatePoolAuthRoute.POST("/usage/refresh", controller.RefreshPoolAccountUsage)
+				privatePoolAuthRoute.POST("/usage/reset", controller.ResetPoolAccountQuota)
+				privatePoolAuthRoute.PATCH("/status", controller.SetPoolAuthFileStatus)
+				privatePoolAuthRoute.DELETE("", controller.DeletePoolAuthFile)
+			}
+		}
+
 		// Custom OAuth provider management (root only)
 		customOAuthRoute := apiRouter.Group("/custom-oauth-provider")
 		customOAuthRoute.Use(middleware.RootAuth())

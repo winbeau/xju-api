@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
@@ -59,6 +60,16 @@ func poolMgmtProxy(c *gin.Context, poolID, method, path string, body io.Reader, 
 		return false
 	}
 	if status >= 200 && status < 300 {
+		if isPrivatePoolRequest(c) && method == http.MethodGet && path == "/v0/management/auth-files" {
+			payload, err = sanitizePrivatePoolAuthList(payload)
+			if err != nil {
+				c.JSON(http.StatusBadGateway, gin.H{
+					"success": false,
+					"message": "pool management returned an unreadable account list",
+				})
+				return false
+			}
+		}
 		c.Data(http.StatusOK, "application/json; charset=utf-8", wrapPoolSuccess(payload))
 		return true
 	}
@@ -69,10 +80,172 @@ func poolMgmtProxy(c *gin.Context, poolID, method, path string, body io.Reader, 
 	return false
 }
 
+func poolIDFromRequest(c *gin.Context) string {
+	if poolID, ok := c.Get(common.ContextKeyPrivatePoolID); ok {
+		if value, valid := poolID.(string); valid {
+			return value
+		}
+	}
+	return c.Query("pool")
+}
+
+func isPrivatePoolRequest(c *gin.Context) bool {
+	return c.GetBool(common.ContextKeyPrivatePoolScope)
+}
+
+func recordPoolAudit(c *gin.Context, action string, params map[string]interface{}) {
+	if isPrivatePoolRequest(c) {
+		recordUserSecurityAudit(c, c.GetInt("id"), action, params)
+		return
+	}
+	recordManageAudit(c, action, params)
+}
+
+func sanitizePrivatePoolAuthList(raw []byte) ([]byte, error) {
+	var payload any
+	if err := common.Unmarshal(raw, &payload); err != nil {
+		return nil, err
+	}
+	return common.Marshal(sanitizePrivatePoolValue(payload))
+}
+
+func sanitizePrivatePoolValue(value any) any {
+	switch typed := value.(type) {
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, sanitizePrivatePoolValue(item))
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			switch strings.ToLower(key) {
+			case "path", "auth_index", "access_token", "refresh_token", "api_key", "key", "token", "credential", "credentials", "proxy_url":
+				continue
+			case "id_token":
+				if _, ok := item.(map[string]any); !ok {
+					continue // keep decoded claims, never return the raw JWT string
+				}
+			}
+			out[key] = sanitizePrivatePoolValue(item)
+		}
+		return out
+	default:
+		return value
+	}
+}
+
+func writePoolSuccessData(c *gin.Context, data any) {
+	if !isPrivatePoolRequest(c) {
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+		return
+	}
+	raw, err := common.Marshal(data)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	safe, err := sanitizePrivatePoolAuthList(raw)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.Data(http.StatusOK, "application/json; charset=utf-8", wrapPoolSuccess(safe))
+}
+
 // ListPools GET /api/pool/pools — the configured pools (default + k12) so the
 // frontend can render a pool selector and hide unconfigured pools.
 func ListPools(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": common.ListConfiguredPools()})
+	pools := common.ListConfiguredPools()
+	for i := range pools {
+		if pools[i].OwnerUserID <= 0 {
+			continue
+		}
+		if username, err := model.GetUsernameById(pools[i].OwnerUserID, false); err == nil {
+			pools[i].OwnerUsername = username
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": pools})
+}
+
+// GetPrivatePool GET /api/private-pool — current user's pool lifecycle state.
+// A successful watcher result is finalized here, so the frontend only needs to
+// poll this implicit-owner endpoint and never stores or submits a pool id.
+func GetPrivatePool(c *gin.Context) {
+	userID := c.GetInt("id")
+	state, err := service.GetPrivatePoolProvisionState(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	data := gin.H{
+		"status":            state.Status,
+		"provision_enabled": service.ProvisionEnabled(),
+	}
+	if state.PoolID != "" {
+		data["pool_id"] = state.PoolID
+	}
+	if state.Label != "" {
+		data["label"] = state.Label
+	}
+	if state.Error != "" {
+		data["error"] = state.Error
+	}
+	if state.Status == "ready" {
+		pools := common.ListPoolsForActor(userID, c.GetInt("role"))
+		if len(pools) == 1 {
+			data["pool"] = pools[0]
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+}
+
+type createPrivatePoolRequest struct {
+	Label string `json:"label"`
+}
+
+// CreatePrivatePool POST /api/private-pool — create exactly one isolated pool
+// for the authenticated user. Label is optional; mode/owner/group are never
+// accepted from the client.
+func CreatePrivatePool(c *gin.Context) {
+	if !service.ProvisionEnabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "pool provisioning is not enabled on this deployment"})
+		return
+	}
+	userID := c.GetInt("id")
+	state, err := service.GetPrivatePoolProvisionState(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	if state.Status == "ready" || state.Status == "provisioning" {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": "private pool already exists", "data": state})
+		return
+	}
+
+	var reqBody createPrivatePoolRequest
+	if c.Request.Body != nil && c.Request.ContentLength != 0 {
+		if err := common.DecodeJson(c.Request.Body, &reqBody); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request body"})
+			return
+		}
+	}
+	label := strings.TrimSpace(reqBody.Label)
+	if label == "" {
+		label = strings.TrimSpace(c.GetString("username")) + " 的私人号池"
+	}
+	if len([]rune(label)) > 80 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "pool name is too long"})
+		return
+	}
+	poolID, err := service.RequestPrivatePoolProvision(label, userID)
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	recordUserSecurityAudit(c, userID, "private_pool.create", map[string]interface{}{"pool": poolID})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"pool_id": poolID, "status": "provisioning", "label": label}})
 }
 
 func wrapPoolSuccess(raw []byte) []byte {
@@ -107,7 +280,7 @@ func poolErrorMessage(raw []byte, status int) string {
 
 // ListPoolAuthFiles GET /api/pool/auth-files — the accounts currently in the pool.
 func ListPoolAuthFiles(c *gin.Context) {
-	poolMgmtProxy(c, c.Query("pool"), http.MethodGet, "/v0/management/auth-files", nil, "")
+	poolMgmtProxy(c, poolIDFromRequest(c), http.MethodGet, "/v0/management/auth-files", nil, "")
 }
 
 type addPoolAuthFileRequest struct {
@@ -118,6 +291,11 @@ type addPoolAuthFileRequest struct {
 // AddPoolAuthFile POST /api/pool/auth-files — paste one auth JSON into the pool.
 // CLIProxyAPI hot-reloads the pool on write, so no container restart is needed.
 func AddPoolAuthFile(c *gin.Context) {
+	if isPrivatePoolRequest(c) {
+		// Bound the whole JSON request before decoding it; checking Content after
+		// DecodeJson would still let an oversized body occupy memory first.
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, privateMaxImportEntryBytes+(64<<10))
+	}
 	var reqBody addPoolAuthFileRequest
 	if err := common.DecodeJson(c.Request.Body, &reqBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request body"})
@@ -129,6 +307,10 @@ func AddPoolAuthFile(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "content is empty"})
 		return
 	}
+	if isPrivatePoolRequest(c) && len(content) > privateMaxImportEntryBytes {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "credential JSON is too large"})
+		return
+	}
 	// Validate it is real JSON before it ever reaches the pool — a malformed
 	// paste should fail here with a clear message, not on the pool side.
 	var probe any
@@ -137,7 +319,7 @@ func AddPoolAuthFile(c *gin.Context) {
 		return
 	}
 
-	poolID := c.Query("pool")
+	poolID := poolIDFromRequest(c)
 	baseURL, secret, ok := common.ResolvePoolMgmt(poolID)
 	if !ok {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -155,15 +337,28 @@ func AddPoolAuthFile(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "no account found in the JSON"})
 		return
 	}
+	privateSkipped := make([]importSkip, 0)
+	if isPrivatePoolRequest(c) {
+		items, privateSkipped = filterPrivatePoolCodexItems(items)
+		if len(items) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "private pools accept Codex credentials only", "data": gin.H{"skipped": privateSkipped}})
+			return
+		}
+		if err := enforcePrivatePoolAccountLimit(c.Request.Context(), baseURL, secret, items); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+	}
 
 	imported, failed, skipped, err := forwardPoolAuthItems(c.Request.Context(), baseURL, secret, poolID, items)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
 		return
 	}
+	skipped = append(privateSkipped, skipped...)
 
 	// xju-api:edit — 审计只记池与计数,凭证内容/文件名永不入审计。
-	recordManageAudit(c, "pool_auth.add", map[string]interface{}{
+	recordPoolAudit(c, "pool_auth.add", map[string]interface{}{
 		"pool":     auditPoolID(poolID),
 		"imported": imported,
 		"skipped":  len(skipped),
@@ -322,12 +517,12 @@ func SetPoolAuthFileStatus(c *gin.Context) {
 		return
 	}
 	ok := poolMgmtProxy(
-		c, c.Query("pool"), http.MethodPatch, "/v0/management/auth-files/status",
+		c, poolIDFromRequest(c), http.MethodPatch, "/v0/management/auth-files/status",
 		strings.NewReader(string(body)), "application/json",
 	)
 	if ok {
-		recordManageAudit(c, "pool_auth.status", map[string]interface{}{
-			"pool":     auditPoolID(c.Query("pool")),
+		recordPoolAudit(c, "pool_auth.status", map[string]interface{}{
+			"pool":     auditPoolID(poolIDFromRequest(c)),
 			"name":     name,
 			"disabled": *reqBody.Disabled,
 		})
@@ -338,7 +533,7 @@ func SetPoolAuthFileStatus(c *gin.Context) {
 // sweep on demand (same logic as the hourly auto-clean), using the current
 // PoolAutoCleanHours threshold. Returns how many accounts were disabled.
 func CleanPoolAuthFilesNow(c *gin.Context) {
-	poolID := c.Query("pool")
+	poolID := poolIDFromRequest(c)
 	if _, _, ok := common.ResolvePoolMgmt(poolID); !ok {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"success": false,
@@ -351,7 +546,7 @@ func CleanPoolAuthFilesNow(c *gin.Context) {
 		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	recordManageAudit(c, "pool_auth.clean", map[string]interface{}{
+	recordPoolAudit(c, "pool_auth.clean", map[string]interface{}{
 		"pool":     auditPoolID(poolID),
 		"disabled": disabled,
 	})
@@ -366,13 +561,13 @@ func DeletePoolAuthFile(c *gin.Context) {
 		return
 	}
 	ok := poolMgmtProxy(
-		c, c.Query("pool"), http.MethodDelete,
+		c, poolIDFromRequest(c), http.MethodDelete,
 		"/v0/management/auth-files?name="+url.QueryEscape(name),
 		nil, "",
 	)
 	if ok {
-		recordManageAudit(c, "pool_auth.delete", map[string]interface{}{
-			"pool": auditPoolID(c.Query("pool")),
+		recordPoolAudit(c, "pool_auth.delete", map[string]interface{}{
+			"pool": auditPoolID(poolIDFromRequest(c)),
 			"name": name,
 		})
 	}
@@ -402,17 +597,17 @@ func VerifyPoolAuthFile(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "name is required"})
 		return
 	}
-	result, err := service.ProbeAuthByName(c.Query("pool"), name, reqBody.Heavy)
+	result, err := service.ProbeAuthByName(poolIDFromRequest(c), name, reqBody.Heavy)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	recordManageAudit(c, "pool_auth.verify", map[string]interface{}{
-		"pool":    auditPoolID(c.Query("pool")),
+	recordPoolAudit(c, "pool_auth.verify", map[string]interface{}{
+		"pool":    auditPoolID(poolIDFromRequest(c)),
 		"name":    name,
 		"verdict": string(result.Verdict),
 	})
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+	writePoolSuccessData(c, result)
 }
 
 type verifyPoolAllRequest struct {
@@ -429,13 +624,13 @@ func VerifyPoolAuthFilesNow(c *gin.Context) {
 	// Body is optional (both flags default false); ignore decode errors on empty.
 	_ = common.DecodeJson(c.Request.Body, &reqBody)
 
-	snap, err := service.StartProbePoolJob(c.Query("pool"), reqBody.Heavy, reqBody.AutoDisable)
+	snap, err := service.StartProbePoolJob(poolIDFromRequest(c), reqBody.Heavy, reqBody.AutoDisable)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "data": snap})
 		return
 	}
-	recordManageAudit(c, "pool_auth.verify_all", map[string]interface{}{
-		"pool":         auditPoolID(c.Query("pool")),
+	recordPoolAudit(c, "pool_auth.verify_all", map[string]interface{}{
+		"pool":         auditPoolID(poolIDFromRequest(c)),
 		"heavy":        reqBody.Heavy,
 		"auto_disable": reqBody.AutoDisable,
 	})
@@ -445,7 +640,7 @@ func VerifyPoolAuthFilesNow(c *gin.Context) {
 // GetVerifyPoolProgress GET /api/pool/auth-files/verify-all/progress — the
 // latest verify-all job snapshot for the pool (running or finished).
 func GetVerifyPoolProgress(c *gin.Context) {
-	snap, ok := service.GetProbePoolJob(c.Query("pool"))
+	snap, ok := service.GetProbePoolJob(poolIDFromRequest(c))
 	if !ok {
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
 		return
@@ -460,7 +655,7 @@ func GetVerifyPoolProgress(c *gin.Context) {
 // GetPoolAccountUsage GET /api/pool/auth-files/usage — cached quota snapshots
 // (keyed by account file name) plus the latest refresh-job progress.
 func GetPoolAccountUsage(c *gin.Context) {
-	poolID := c.Query("pool")
+	poolID := poolIDFromRequest(c)
 	if _, _, ok := common.ResolvePoolMgmt(poolID); !ok {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"success": false,
@@ -472,7 +667,7 @@ func GetPoolAccountUsage(c *gin.Context) {
 	if snap, ok := service.GetPoolUsageJob(poolID); ok {
 		data["job"] = snap
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+	writePoolSuccessData(c, data)
 }
 
 type refreshPoolUsageRequest struct {
@@ -487,7 +682,7 @@ func RefreshPoolAccountUsage(c *gin.Context) {
 	// Body is optional (empty means whole-pool); ignore decode errors on empty.
 	_ = common.DecodeJson(c.Request.Body, &reqBody)
 
-	poolID := c.Query("pool")
+	poolID := poolIDFromRequest(c)
 	name := strings.TrimSpace(reqBody.Name)
 	if name != "" {
 		usage, err := service.RefreshPoolAccountUsageByName(poolID, sanitizePoolAuthName(name))
@@ -495,18 +690,22 @@ func RefreshPoolAccountUsage(c *gin.Context) {
 			c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"success": true, "data": usage})
+		writePoolSuccessData(c, usage)
 		return
 	}
 
 	// The manual whole-pool button is targeted: only exhausted/unknown accounts
 	// are re-fetched; accounts with quota left are skipped.
-	snap, err := service.StartPoolUsageRefreshJob(poolID, common.PoolUsageAutoResetEnabled, true)
+	autoReset := common.PoolUsageAutoResetEnabled
+	if isPrivatePoolRequest(c) {
+		autoReset = false
+	}
+	snap, err := service.StartPoolUsageRefreshJob(poolID, autoReset, true)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error(), "data": snap})
 		return
 	}
-	recordManageAudit(c, "pool_auth.usage_refresh", map[string]interface{}{
+	recordPoolAudit(c, "pool_auth.usage_refresh", map[string]interface{}{
 		"pool": auditPoolID(poolID),
 	})
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": snap})
@@ -529,16 +728,16 @@ func ResetPoolAccountQuota(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "name is required"})
 		return
 	}
-	usage, err := service.ResetPoolAccountQuota(c.Query("pool"), name)
+	usage, err := service.ResetPoolAccountQuota(poolIDFromRequest(c), name)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	recordManageAudit(c, "pool_auth.quota_reset", map[string]interface{}{
-		"pool": auditPoolID(c.Query("pool")),
+	recordPoolAudit(c, "pool_auth.quota_reset", map[string]interface{}{
+		"pool": auditPoolID(poolIDFromRequest(c)),
 		"name": name,
 	})
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": usage})
+	writePoolSuccessData(c, usage)
 }
 
 // xju-api:new — one-click pool creation (#4 Phase B). CreatePoolInstance drops a
@@ -697,7 +896,90 @@ const (
 	maxImportZipBytes   = 64 << 20 // 64 MiB uploaded zip
 	maxImportEntries    = 2000     // process at most this many entries
 	maxImportEntryBytes = 1 << 20  // 1 MiB per JSON entry
+
+	privateMaxAccounts         = 20
+	privateMaxImportZipBytes   = 8 << 20   // 8 MiB uploaded zip
+	privateMaxImportEntries    = 50        // private pools are intentionally small
+	privateMaxImportEntryBytes = 512 << 10 // 512 KiB per JSON entry
 )
+
+type poolImportLimits struct {
+	zipBytes   int64
+	entries    int
+	entryBytes uint64
+}
+
+func importLimitsForRequest(c *gin.Context) poolImportLimits {
+	if isPrivatePoolRequest(c) {
+		return poolImportLimits{zipBytes: privateMaxImportZipBytes, entries: privateMaxImportEntries, entryBytes: privateMaxImportEntryBytes}
+	}
+	return poolImportLimits{zipBytes: maxImportZipBytes, entries: maxImportEntries, entryBytes: maxImportEntryBytes}
+}
+
+// filterPrivatePoolCodexItems rejects credentials that explicitly identify a
+// different provider. Older valid Codex exports sometimes omit `type`, so an
+// absent discriminator remains accepted for backward compatibility.
+func filterPrivatePoolCodexItems(items []poolAuthItem) ([]poolAuthItem, []importSkip) {
+	accepted := make([]poolAuthItem, 0, len(items))
+	skipped := make([]importSkip, 0)
+	for _, item := range items {
+		var obj map[string]any
+		if err := common.UnmarshalJsonStr(item.content, &obj); err != nil {
+			skipped = append(skipped, importSkip{Name: item.name, Reason: "not valid JSON"})
+			continue
+		}
+		kind := strings.ToLower(strings.TrimSpace(stringField(obj, "type")))
+		if kind != "" && kind != "codex" {
+			skipped = append(skipped, importSkip{Name: item.name, Reason: "private pools accept Codex credentials only"})
+			continue
+		}
+		accepted = append(accepted, item)
+	}
+	return accepted, skipped
+}
+
+func privatePoolExistingAccountNames(ctx context.Context, baseURL, secret string) (map[string]struct{}, error) {
+	status, payload, err := service.PoolMgmtRoundTrip(ctx, baseURL, secret, http.MethodGet, "/v0/management/auth-files", nil, "")
+	if err != nil {
+		return nil, fmt.Errorf("cannot check private pool capacity: %v", err)
+	}
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("cannot check private pool capacity: %s", poolErrorMessage(payload, status))
+	}
+	var parsed struct {
+		Files []struct {
+			Name string `json:"name"`
+		} `json:"files"`
+	}
+	if err := common.Unmarshal(payload, &parsed); err != nil {
+		return nil, fmt.Errorf("cannot check private pool capacity: invalid pool response")
+	}
+	names := make(map[string]struct{}, len(parsed.Files))
+	for _, file := range parsed.Files {
+		if name := strings.TrimSpace(file.Name); name != "" {
+			names[name] = struct{}{}
+		}
+	}
+	return names, nil
+}
+
+func enforcePrivatePoolAccountLimit(ctx context.Context, baseURL, secret string, items []poolAuthItem) error {
+	existing, err := privatePoolExistingAccountNames(ctx, baseURL, secret)
+	if err != nil {
+		return err
+	}
+	newNames := make(map[string]struct{})
+	for _, item := range items {
+		if _, ok := existing[item.name]; ok {
+			continue // replacing an existing auth file does not consume capacity
+		}
+		newNames[item.name] = struct{}{}
+	}
+	if len(existing)+len(newNames) > privateMaxAccounts {
+		return fmt.Errorf("private pool account limit is %d (currently %d)", privateMaxAccounts, len(existing))
+	}
+	return nil
+}
 
 type importSkip struct {
 	Name   string `json:"name"`
@@ -780,7 +1062,7 @@ func forwardPoolAuthItems(ctx context.Context, baseURL, secret, poolID string, i
 // to disk here and only the entry's base name is used, so there is no zip-slip
 // surface; token contents are never logged.
 func ImportPoolAuthFiles(c *gin.Context) {
-	poolID := c.Query("pool")
+	poolID := poolIDFromRequest(c)
 	baseURL, secret, ok := common.ResolvePoolMgmt(poolID)
 	if !ok {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -790,12 +1072,14 @@ func ImportPoolAuthFiles(c *gin.Context) {
 		return
 	}
 
+	limits := importLimitsForRequest(c)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, limits.zipBytes+(1<<20))
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "no zip uploaded (field 'file')"})
 		return
 	}
-	if fileHeader.Size > maxImportZipBytes {
+	if fileHeader.Size > limits.zipBytes {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "zip too large"})
 		return
 	}
@@ -805,9 +1089,13 @@ func ImportPoolAuthFiles(c *gin.Context) {
 		return
 	}
 	defer f.Close()
-	zipBytes, err := io.ReadAll(io.LimitReader(f, maxImportZipBytes))
+	zipBytes, err := io.ReadAll(io.LimitReader(f, limits.zipBytes+1))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "cannot read upload"})
+		return
+	}
+	if int64(len(zipBytes)) > limits.zipBytes {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "zip too large"})
 		return
 	}
 
@@ -834,12 +1122,12 @@ func ImportPoolAuthFiles(c *gin.Context) {
 			continue
 		}
 		seen++
-		if seen > maxImportEntries {
+		if seen > limits.entries {
 			skipped = append(skipped, importSkip{Name: base, Reason: "entry limit reached, skipped"})
-			common.SysLog("pool import: entry limit " + strconv.Itoa(maxImportEntries) + " reached, extra entries skipped")
+			common.SysLog("pool import: entry limit " + strconv.Itoa(limits.entries) + " reached, extra entries skipped")
 			continue
 		}
-		if entry.UncompressedSize64 > maxImportEntryBytes {
+		if entry.UncompressedSize64 > limits.entryBytes {
 			skipped = append(skipped, importSkip{Name: base, Reason: "file too large"})
 			continue
 		}
@@ -848,10 +1136,14 @@ func ImportPoolAuthFiles(c *gin.Context) {
 			skipped = append(skipped, importSkip{Name: base, Reason: "cannot read entry"})
 			continue
 		}
-		raw, err := io.ReadAll(io.LimitReader(rc, maxImportEntryBytes))
+		raw, err := io.ReadAll(io.LimitReader(rc, int64(limits.entryBytes)+1))
 		rc.Close()
 		if err != nil {
 			skipped = append(skipped, importSkip{Name: base, Reason: "cannot read entry"})
+			continue
+		}
+		if uint64(len(raw)) > limits.entryBytes {
+			skipped = append(skipped, importSkip{Name: base, Reason: "file too large"})
 			continue
 		}
 		content := strings.TrimSpace(string(raw))
@@ -864,6 +1156,17 @@ func ImportPoolAuthFiles(c *gin.Context) {
 		// so every account inside is imported, not just the first.
 		items = append(items, parsePoolAuthAccounts(content, base)...)
 	}
+	if isPrivatePoolRequest(c) {
+		var privateSkipped []importSkip
+		items, privateSkipped = filterPrivatePoolCodexItems(items)
+		skipped = append(skipped, privateSkipped...)
+		if len(items) > 0 {
+			if err := enforcePrivatePoolAccountLimit(c.Request.Context(), baseURL, secret, items); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": gin.H{"skipped": skipped}})
+				return
+			}
+		}
+	}
 
 	imported, failed, forwardSkipped, err := forwardPoolAuthItems(c.Request.Context(), baseURL, secret, poolID, items)
 	if err != nil {
@@ -872,7 +1175,7 @@ func ImportPoolAuthFiles(c *gin.Context) {
 	}
 	skipped = append(skipped, forwardSkipped...)
 
-	recordManageAudit(c, "pool_auth.import", map[string]interface{}{
+	recordPoolAudit(c, "pool_auth.import", map[string]interface{}{
 		"pool":     auditPoolID(poolID),
 		"imported": imported,
 		"skipped":  len(skipped),

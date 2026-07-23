@@ -21,23 +21,42 @@ import (
 // default pool keeps working unchanged, and one with no registry file behaves
 // exactly as before.
 
-// PoolInfo is the id/label pair the frontend uses to render a pool selector.
+const (
+	PoolKindSystem  = "system"
+	PoolKindAdmin   = "admin"
+	PoolKindPrivate = "private"
+
+	ContextKeyPrivatePoolID    = "xju_private_pool_id"
+	ContextKeyPrivatePoolScope = "xju_private_pool_scope"
+)
+
+// PoolInfo is the safe metadata the frontend uses to render a pool selector.
+// Management URLs and secrets intentionally remain exclusive to PoolEntry.
 type PoolInfo struct {
-	ID        string `json:"id"`
-	Label     string `json:"label"`
-	BuildMode string `json:"build_mode,omitempty"`
+	ID            string `json:"id"`
+	Label         string `json:"label"`
+	BuildMode     string `json:"build_mode,omitempty"`
+	OwnerUserID   int    `json:"owner_user_id,omitempty"`
+	OwnerUsername string `json:"owner_username,omitempty"`
+	Kind          string `json:"kind"`
+	GroupKey      string `json:"group_key,omitempty"`
+	CreatedAt     int64  `json:"created_at,omitempty"`
 }
 
 // PoolEntry is a dynamically-provisioned pool's full record in the registry
 // file. The env-seeded default/k12 pools are never stored here.
 type PoolEntry struct {
-	ID         string `json:"id"`
-	Label      string `json:"label"`
-	MgmtURL    string `json:"mgmt_url"`
-	MgmtSecret string `json:"mgmt_secret"`
-	Port       int    `json:"port,omitempty"`
-	ChannelID  int    `json:"channel_id,omitempty"`
-	BuildMode  string `json:"build_mode,omitempty"` // "cliproxy"(默认) | "gopool";仅 UI 引导,无服务端强制
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	MgmtURL     string `json:"mgmt_url"`
+	MgmtSecret  string `json:"mgmt_secret"`
+	Port        int    `json:"port,omitempty"`
+	ChannelID   int    `json:"channel_id,omitempty"`
+	BuildMode   string `json:"build_mode,omitempty"` // "cliproxy"(默认) | "gopool";仅 UI 引导,无服务端强制
+	OwnerUserID int    `json:"owner_user_id,omitempty"`
+	Kind        string `json:"kind,omitempty"`      // "admin"(legacy dynamic pool) | "private"
+	GroupKey    string `json:"group_key,omitempty"` // immutable routing key; private pools use private-<user id>
+	CreatedAt   int64  `json:"created_at,omitempty"`
 }
 
 // reservedPoolIDs are env-seeded and can never be created/removed dynamically.
@@ -49,14 +68,74 @@ func IsReservedPoolID(id string) bool {
 }
 
 var (
-	poolRegMu      sync.RWMutex
-	poolRegEntries []PoolEntry
-	poolRegMtime   time.Time
-	poolRegLoaded  bool
+	poolRegMu         sync.RWMutex
+	poolRegMutationMu sync.Mutex
+	poolRegEntries    []PoolEntry
+	poolRegMtime      time.Time
+	poolRegLoaded     bool
 )
 
 func poolRegistryFile() string {
 	return strings.TrimSpace(os.Getenv("POOL_REGISTRY_FILE"))
+}
+
+func normalizePoolKind(kind string, ownerUserID int) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case PoolKindSystem:
+		return PoolKindSystem
+	case PoolKindPrivate:
+		return PoolKindPrivate
+	case PoolKindAdmin:
+		return PoolKindAdmin
+	}
+	// Backwards compatibility: old registry entries have neither field and are
+	// administrator-created shared pools. Owner-aware entries written during a
+	// rolling upgrade are private even if the kind field is absent.
+	if ownerUserID > 0 {
+		return PoolKindPrivate
+	}
+	return PoolKindAdmin
+}
+
+// PrivatePoolGroupKey returns the immutable routing group assigned to a user's
+// private pool. It is derived server-side and must never come from a client.
+func PrivatePoolGroupKey(ownerUserID int) string {
+	return fmt.Sprintf("private-%d", ownerUserID)
+}
+
+func normalizePoolEntry(entry PoolEntry) PoolEntry {
+	entry.ID = strings.TrimSpace(entry.ID)
+	entry.Label = strings.TrimSpace(entry.Label)
+	entry.MgmtURL = strings.TrimSpace(entry.MgmtURL)
+	entry.MgmtSecret = strings.TrimSpace(entry.MgmtSecret)
+	entry.BuildMode = strings.TrimSpace(entry.BuildMode)
+	entry.Kind = normalizePoolKind(entry.Kind, entry.OwnerUserID)
+	entry.GroupKey = strings.TrimSpace(entry.GroupKey)
+	if entry.Kind == PoolKindPrivate && entry.GroupKey == "" && entry.OwnerUserID > 0 {
+		entry.GroupKey = PrivatePoolGroupKey(entry.OwnerUserID)
+	}
+	return entry
+}
+
+func poolInfoFromEntry(entry PoolEntry) PoolInfo {
+	entry = normalizePoolEntry(entry)
+	label := entry.Label
+	if label == "" {
+		label = entry.ID
+	}
+	buildMode := entry.BuildMode
+	if buildMode == "" {
+		buildMode = "cliproxy"
+	}
+	return PoolInfo{
+		ID:          entry.ID,
+		Label:       label,
+		BuildMode:   buildMode,
+		OwnerUserID: entry.OwnerUserID,
+		Kind:        entry.Kind,
+		GroupKey:    entry.GroupKey,
+		CreatedAt:   entry.CreatedAt,
+	}
 }
 
 // loadPoolRegistry returns the dynamic pool entries, caching by file mtime so a
@@ -100,7 +179,8 @@ func loadPoolRegistry() []PoolEntry {
 	// Reserved ids can never come from the file — the env owns them.
 	kept := make([]PoolEntry, 0, len(parsed))
 	for _, e := range parsed {
-		if !reservedPoolIDs[strings.TrimSpace(e.ID)] {
+		e = normalizePoolEntry(e)
+		if !reservedPoolIDs[e.ID] {
 			kept = append(kept, e)
 		}
 	}
@@ -149,26 +229,31 @@ func ResolvePoolMgmt(poolID string) (baseURL string, secret string, ok bool) {
 func ListConfiguredPools() []PoolInfo {
 	pools := make([]PoolInfo, 0, 4)
 	if _, _, ok := ResolvePoolMgmt("default"); ok {
-		pools = append(pools, PoolInfo{ID: "default", Label: "Default", BuildMode: "cliproxy"})
+		pools = append(pools, PoolInfo{ID: "default", Label: "Default", BuildMode: "cliproxy", Kind: PoolKindSystem})
 	}
 	if _, _, ok := ResolvePoolMgmt("k12"); ok {
-		pools = append(pools, PoolInfo{ID: "k12", Label: "K12", BuildMode: "cliproxy"})
+		pools = append(pools, PoolInfo{ID: "k12", Label: "K12", BuildMode: "cliproxy", Kind: PoolKindSystem})
 	}
 	for _, e := range loadPoolRegistry() {
 		if strings.TrimSpace(e.MgmtSecret) == "" {
 			continue
 		}
-		label := strings.TrimSpace(e.Label)
-		if label == "" {
-			label = e.ID
-		}
-		bm := strings.TrimSpace(e.BuildMode)
-		if bm == "" {
-			bm = "cliproxy"
-		}
-		pools = append(pools, PoolInfo{ID: e.ID, Label: label, BuildMode: bm})
+		pools = append(pools, poolInfoFromEntry(e))
 	}
 	return pools
+}
+
+// ListPoolsForActor returns only pools the caller may manage. Root can manage
+// every configured pool; all other roles are limited to their own private pool.
+func ListPoolsForActor(actorUserID, actorRole int) []PoolInfo {
+	if actorRole >= RoleRootUser {
+		return ListConfiguredPools()
+	}
+	entry, ok := FindPrivatePoolByOwner(actorUserID)
+	if !ok || strings.TrimSpace(entry.MgmtSecret) == "" {
+		return nil
+	}
+	return []PoolInfo{poolInfoFromEntry(entry)}
 }
 
 // ---------------------------------------------------------------------------
@@ -202,17 +287,38 @@ func SavePoolRegistry(entries []PoolEntry) error {
 // AddPoolToRegistry appends a new dynamic pool. It rejects reserved ids and
 // duplicates.
 func AddPoolToRegistry(entry PoolEntry) error {
-	id := strings.TrimSpace(entry.ID)
+	poolRegMutationMu.Lock()
+	defer poolRegMutationMu.Unlock()
+
+	entry = normalizePoolEntry(entry)
+	id := entry.ID
 	if id == "" || reservedPoolIDs[id] {
 		return fmt.Errorf("invalid or reserved pool id: %q", id)
+	}
+	if entry.Kind == PoolKindSystem {
+		return fmt.Errorf("dynamic pool cannot use kind %q", PoolKindSystem)
+	}
+	if entry.Kind == PoolKindPrivate && entry.OwnerUserID <= 0 {
+		return fmt.Errorf("private pool owner_user_id must be positive")
+	}
+	if entry.Kind == PoolKindPrivate && entry.GroupKey != PrivatePoolGroupKey(entry.OwnerUserID) {
+		return fmt.Errorf("private pool group_key must be %q", PrivatePoolGroupKey(entry.OwnerUserID))
+	}
+	if entry.CreatedAt == 0 {
+		entry.CreatedAt = time.Now().Unix()
 	}
 	entries := append([]PoolEntry(nil), loadPoolRegistry()...)
 	for _, e := range entries {
 		if e.ID == id {
 			return fmt.Errorf("pool already exists: %s", id)
 		}
+		if entry.Kind == PoolKindPrivate && e.Kind == PoolKindPrivate && e.OwnerUserID == entry.OwnerUserID {
+			return fmt.Errorf("user %d already owns private pool %s", entry.OwnerUserID, e.ID)
+		}
+		if entry.GroupKey != "" && e.GroupKey == entry.GroupKey {
+			return fmt.Errorf("pool group_key already exists: %s", entry.GroupKey)
+		}
 	}
-	entry.ID = id
 	entries = append(entries, entry)
 	return SavePoolRegistry(entries)
 }
@@ -228,9 +334,64 @@ func GetPoolEntry(id string) (PoolEntry, bool) {
 	return PoolEntry{}, false
 }
 
+// FindPrivatePoolByOwner returns the private pool owned by a user. The registry
+// enforces one private pool per owner, so the first match is definitive.
+func FindPrivatePoolByOwner(ownerUserID int) (PoolEntry, bool) {
+	if ownerUserID <= 0 {
+		return PoolEntry{}, false
+	}
+	for _, entry := range loadPoolRegistry() {
+		if entry.Kind == PoolKindPrivate && entry.OwnerUserID == ownerUserID {
+			return entry, true
+		}
+	}
+	return PoolEntry{}, false
+}
+
+// FindPrivatePoolByGroupKey resolves the immutable routing key used by API
+// tokens back to its owner-aware registry entry.
+func FindPrivatePoolByGroupKey(groupKey string) (PoolEntry, bool) {
+	groupKey = strings.TrimSpace(groupKey)
+	if groupKey == "" {
+		return PoolEntry{}, false
+	}
+	for _, entry := range loadPoolRegistry() {
+		if entry.Kind == PoolKindPrivate && entry.GroupKey == groupKey {
+			return entry, true
+		}
+	}
+	return PoolEntry{}, false
+}
+
+// CanManagePool is the shared authorization rule for pool APIs. Admin is not a
+// global-pool role: only root can manage every pool; other users can manage
+// exactly the private pool they own.
+func CanManagePool(actorUserID, actorRole int, entry PoolEntry) bool {
+	if actorRole >= RoleRootUser {
+		return true
+	}
+	entry = normalizePoolEntry(entry)
+	return actorUserID > 0 && entry.Kind == PoolKindPrivate && entry.OwnerUserID == actorUserID
+}
+
+// CountPrivatePools reports how many user-owned pools exist, including entries
+// whose management service is temporarily unavailable.
+func CountPrivatePools() int {
+	count := 0
+	for _, entry := range loadPoolRegistry() {
+		if entry.Kind == PoolKindPrivate {
+			count++
+		}
+	}
+	return count
+}
+
 // SetPoolChannelID records the new-api channel that routes a dynamic pool, so a
 // later delete can remove it. No-op-safe: errors if the pool is unknown.
 func SetPoolChannelID(id string, channelID int) error {
+	poolRegMutationMu.Lock()
+	defer poolRegMutationMu.Unlock()
+
 	id = strings.TrimSpace(id)
 	entries := append([]PoolEntry(nil), loadPoolRegistry()...)
 	for i := range entries {
@@ -244,6 +405,9 @@ func SetPoolChannelID(id string, channelID int) error {
 
 // RemovePoolFromRegistry drops a dynamic pool by id.
 func RemovePoolFromRegistry(id string) error {
+	poolRegMutationMu.Lock()
+	defer poolRegMutationMu.Unlock()
+
 	id = strings.TrimSpace(id)
 	entries := loadPoolRegistry()
 	out := make([]PoolEntry, 0, len(entries))
@@ -291,6 +455,9 @@ func AllocateNextPoolID() string {
 // SetPoolLabel updates a dynamic pool's display label in the registry. It errors
 // if the pool id is not a registered dynamic pool.
 func SetPoolLabel(id, label string) error {
+	poolRegMutationMu.Lock()
+	defer poolRegMutationMu.Unlock()
+
 	id = strings.TrimSpace(id)
 	entries := append([]PoolEntry(nil), loadPoolRegistry()...)
 	for i := range entries {

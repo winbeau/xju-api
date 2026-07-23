@@ -60,8 +60,9 @@ func poolTemplateModels() (string, error) {
 }
 
 // createPoolChannel creates the routing channel for a pool (idempotent by name)
-// and registers its group. Returns the channel id.
-func createPoolChannel(poolID, internalKey, baseURL, label string) (int, error) {
+// and registers its immutable group key. Private group keys are intentionally
+// omitted from global UserUsableGroups and are exposed only to their owner.
+func createPoolChannel(poolID, internalKey, baseURL, label, groupKey string, globallyVisible bool) (int, error) {
 	models, err := poolTemplateModels()
 	if err != nil {
 		return 0, err
@@ -70,6 +71,10 @@ func createPoolChannel(poolID, internalKey, baseURL, label string) (int, error) 
 	if existing := findChannelByName(name); existing != 0 {
 		return existing, nil
 	}
+	groupKey = strings.TrimSpace(groupKey)
+	if groupKey == "" {
+		groupKey = poolID
+	}
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	ch := &model.Channel{
 		Type:    poolChannelType,
@@ -77,22 +82,23 @@ func createPoolChannel(poolID, internalKey, baseURL, label string) (int, error) 
 		Key:     internalKey,
 		BaseURL: &base,
 		Models:  models,
-		Group:   poolID,
+		Group:   groupKey,
 		Status:  1, // enabled
 	}
 	if err := ch.Insert(); err != nil {
 		return 0, err
 	}
 	// Group options are non-critical: log but don't fail the channel on error.
-	if err := addPoolGroupOptions(poolID, label); err != nil {
-		common.SysError("pool channel: group options update failed for " + poolID + ": " + err.Error())
+	if err := addPoolGroupOptions(groupKey, label, globallyVisible); err != nil {
+		common.SysError("pool channel: group options update failed for " + groupKey + ": " + err.Error())
 	}
 	return ch.Id, nil
 }
 
 // deletePoolChannel removes a pool's routing channel + its group registration.
 // Best-effort: it logs failures rather than blocking pool deletion.
-func deletePoolChannel(poolID string, channelID int) {
+func deletePoolChannel(poolID, groupKey string, channelID int) {
+	groupKey = strings.TrimSpace(groupKey)
 	if channelID == 0 {
 		channelID = findChannelByName(poolChannelName(poolID))
 	}
@@ -102,18 +108,21 @@ func deletePoolChannel(poolID string, channelID int) {
 			common.SysError("pool channel delete failed for " + poolID + ": " + err.Error())
 		}
 	}
-	removePoolGroupOptions(poolID)
+	if groupKey == "" {
+		groupKey = poolID
+	}
+	removePoolGroupOptions(groupKey)
 }
 
-// addPoolGroupOptions registers the pool's group in GroupRatio (at the default
-// ratio) and UserUsableGroups (labelled), matching the k12 setup.
-func addPoolGroupOptions(poolID, label string) error {
+// addPoolGroupOptions always registers billing ratio. Only shared/admin pools
+// are added to global UserUsableGroups; private groups remain owner-scoped.
+func addPoolGroupOptions(groupKey, label string, globallyVisible bool) error {
 	gr := ratio_setting.GetGroupRatioCopy()
 	if gr == nil {
 		gr = map[string]float64{}
 	}
-	if _, ok := gr[poolID]; !ok {
-		gr[poolID] = ratio_setting.GetGroupRatio("default")
+	if _, ok := gr[groupKey]; !ok {
+		gr[groupKey] = ratio_setting.GetGroupRatio("default")
 		b, err := common.Marshal(gr)
 		if err != nil {
 			return err
@@ -122,15 +131,18 @@ func addPoolGroupOptions(poolID, label string) error {
 			return err
 		}
 	}
+	if !globallyVisible {
+		return nil
+	}
 	uug := setting.GetUserUsableGroupsCopy()
 	if uug == nil {
 		uug = map[string]string{}
 	}
-	if _, ok := uug[poolID]; !ok {
+	if _, ok := uug[groupKey]; !ok {
 		if strings.TrimSpace(label) == "" {
-			label = poolID
+			label = groupKey
 		}
-		uug[poolID] = label
+		uug[groupKey] = label
 		b, err := common.Marshal(uug)
 		if err != nil {
 			return err
@@ -142,35 +154,59 @@ func addPoolGroupOptions(poolID, label string) error {
 	return nil
 }
 
-func removePoolGroupOptions(poolID string) {
+func removePoolGroupOptions(groupKey string) {
 	gr := ratio_setting.GetGroupRatioCopy()
-	if _, ok := gr[poolID]; ok {
-		delete(gr, poolID)
+	if _, ok := gr[groupKey]; ok {
+		delete(gr, groupKey)
 		if b, err := common.Marshal(gr); err == nil {
 			_ = model.UpdateOption("GroupRatio", string(b))
 		}
 	}
 	uug := setting.GetUserUsableGroupsCopy()
-	if _, ok := uug[poolID]; ok {
-		delete(uug, poolID)
+	if _, ok := uug[groupKey]; ok {
+		delete(uug, groupKey)
 		if b, err := common.Marshal(uug); err == nil {
 			_ = model.UpdateOption("UserUsableGroups", string(b))
 		}
 	}
 }
 
-// renamePoolGroup renames a pool's routing channel — both its display name AND
-// its group (the card-routing key) — to newLabel. Because the group is a routing
-// key, every already-issued card in the old group, plus the GroupRatio /
-// UserUsableGroups entries, is migrated to the new group so routing and billing
-// stay intact. It refuses if the new name is already used by another group so a
-// rename can't silently merge two pools' cards.
-func renamePoolGroup(poolID string, channelID int, newLabel string) error {
+// renamePoolGroup updates a pool channel's display name. New pools carry an
+// immutableGroupKey and never change routing when renamed. Legacy entries have
+// no key, so they retain the historical label-as-group migration behavior.
+func renamePoolGroup(poolID string, channelID int, newLabel, immutableGroupKey string, globallyVisible bool) error {
 	ch := poolChannel(poolID, channelID)
 	if ch == nil {
 		return fmt.Errorf("routing channel not found for pool %s", poolID)
 	}
 	oldGroup := ch.Group
+	immutableGroupKey = strings.TrimSpace(immutableGroupKey)
+	if immutableGroupKey != "" {
+		if oldGroup != immutableGroupKey && groupInUse(immutableGroupKey, oldGroup) {
+			return fmt.Errorf("routing group %q is already used by another channel", immutableGroupKey)
+		}
+		ch.Name = newLabel
+		ch.Group = immutableGroupKey
+		if err := ch.Update(); err != nil {
+			return err
+		}
+		if oldGroup != immutableGroupKey {
+			if err := model.DB.Model(&model.Token{}).
+				Where(&model.Token{Group: oldGroup}).
+				Update("group", immutableGroupKey).Error; err != nil {
+				common.SysError("pool routing-key migration " + oldGroup + "->" + immutableGroupKey + " failed: " + err.Error())
+			}
+			removePoolGroupOptions(oldGroup)
+		}
+		if err := addPoolGroupOptions(immutableGroupKey, newLabel, globallyVisible); err != nil {
+			return err
+		}
+		if !globallyVisible {
+			removePoolUserUsableGroup(immutableGroupKey)
+		}
+		return nil
+	}
+
 	newGroup := newLabel
 
 	if oldGroup != newGroup && groupInUse(newGroup, oldGroup) {
@@ -198,6 +234,17 @@ func renamePoolGroup(poolID string, channelID int, newLabel string) error {
 	}
 	migratePoolGroupOptions(oldGroup, newGroup, newLabel)
 	return nil
+}
+
+func removePoolUserUsableGroup(groupKey string) {
+	uug := setting.GetUserUsableGroupsCopy()
+	if _, ok := uug[groupKey]; !ok {
+		return
+	}
+	delete(uug, groupKey)
+	if b, err := common.Marshal(uug); err == nil {
+		_ = model.UpdateOption("UserUsableGroups", string(b))
+	}
 }
 
 // poolChannel resolves a pool's routing channel by id, falling back to its

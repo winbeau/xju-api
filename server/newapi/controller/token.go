@@ -164,6 +164,34 @@ func GetTokenUsage(c *gin.Context) {
 	})
 }
 
+func bindNewTokenToPrivatePool(c *gin.Context, token *model.Token) bool {
+	if c.GetInt("role") >= common.RoleRootUser {
+		return true
+	}
+	userID := c.GetInt("id")
+	entry, ok := common.FindPrivatePoolByOwner(userID)
+	if !ok {
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"code":    "private_pool_required",
+			"message": "请先创建自己的私人号池，再创建 API Key",
+		})
+		return false
+	}
+	if _, _, ready := common.ResolvePoolMgmt(entry.ID); !ready || entry.ChannelID <= 0 || strings.TrimSpace(entry.GroupKey) == "" {
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false,
+			"code":    "private_pool_not_ready",
+			"message": "私人号池尚未完成路由配置，请稍后重试",
+		})
+		return false
+	}
+	// Client-supplied routing fields are ignored for every non-root user.
+	token.Group = entry.GroupKey
+	token.CrossGroupRetry = false
+	return true
+}
+
 func AddToken(c *gin.Context) {
 	token := model.Token{}
 	err := c.ShouldBindJSON(&token)
@@ -173,6 +201,9 @@ func AddToken(c *gin.Context) {
 	}
 	if len(token.Name) > 50 {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
+		return
+	}
+	if !bindNewTokenToPrivatePool(c, &token) {
 		return
 	}
 	// 非无限额度时，检查额度值是否超出有效范围
@@ -297,8 +328,12 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled
 		cleanToken.ModelLimits = token.ModelLimits
 		cleanToken.AllowIps = token.AllowIps
-		cleanToken.Group = token.Group
-		cleanToken.CrossGroupRetry = token.CrossGroupRetry
+		// Existing non-root tokens keep their original routing. This avoids an
+		// implicit migration of legacy keys; root retains explicit group control.
+		if c.GetInt("role") >= common.RoleRootUser {
+			cleanToken.Group = token.Group
+			cleanToken.CrossGroupRetry = token.CrossGroupRetry
+		}
 	}
 	err = cleanToken.Update()
 	if err != nil {

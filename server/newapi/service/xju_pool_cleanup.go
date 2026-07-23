@@ -54,6 +54,9 @@ func runPoolAutoCleanOnce() {
 	// xju-api:edit — 多池决断(owner 拍板纳入):遍历全部已配置池逐池 sweep,
 	// 消灭「default 自动清、K12 只能手动清」的隐性行为差异。
 	for _, pool := range common.ListConfiguredPools() {
+		if pool.Kind == common.PoolKindPrivate {
+			continue // private-pool lifecycle stays under its owner's explicit control
+		}
 		disabled, err := SweepPoolOnceForPool(pool.ID, common.PoolAutoCleanHours)
 		if err != nil {
 			common.SysError("pool auto-clean sweep failed for pool " + pool.ID + ": " + err.Error())

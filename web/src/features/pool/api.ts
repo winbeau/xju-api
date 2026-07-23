@@ -82,6 +82,11 @@ export type PoolInfo = {
   id: string
   label: string
   build_mode?: 'cliproxy' | 'gopool'
+  owner_user_id?: number
+  owner_username?: string
+  kind?: 'system' | 'admin' | 'private'
+  group_key?: string
+  created_at?: number
 }
 
 export type ImportResult = {

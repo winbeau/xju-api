@@ -31,9 +31,15 @@ const apiKeySearchSchema = z.object({
     .catch([]),
   filter: z.string().optional().catch(''),
   token: z.string().optional().catch(''),
+  create: z.boolean().optional().catch(false),
 })
+
+function KeysRoute() {
+  const search = Route.useSearch()
+  return <ApiKeys initialCreate={search.create} />
+}
 
 export const Route = createFileRoute('/_authenticated/keys/')({
   validateSearch: apiKeySearchSchema,
-  component: ApiKeys,
+  component: KeysRoute,
 })

@@ -1,0 +1,35 @@
+# deploy/config.private.example.yaml — 用户私人号池的轻量 CLIProxyAPI 配置样板
+# provision-poold.sh 自动复制并替换端口与随机密钥；不要在本文件写真实凭证。
+
+host: ""
+port: 8319
+
+tls:
+  enable: false
+
+remote-management:
+  allow-remote: false
+  secret-key: "__MANAGEMENT_SECRET_K12__"
+
+auth-dir: "~/.cli-proxy-api"
+
+api-keys:
+  - "__INTERNAL_API_KEY_K12__"
+
+# 如部署区域需要代理，在宿主机的实际模板中配置；仓库样板保持无密钥。
+# proxy-url: ""
+
+debug: false
+logging-to-file: true
+logs-max-total-size-mb: 32
+error-logs-max-files: 3
+usage-statistics-enabled: false
+
+request-retry: 2
+
+quota-exceeded:
+  switch-project: true
+  switch-preview-model: true
+
+routing:
+  strategy: "round-robin"

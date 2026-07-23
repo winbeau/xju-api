@@ -4,11 +4,17 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
+
+	"github.com/QuantumNous/new-api/common"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -45,8 +51,17 @@ func zipUploadRequest(t *testing.T, target string, zipBytes []byte) *http.Reques
 	return req
 }
 
+func disablePoolTestRedis(t *testing.T) {
+	t.Helper()
+	old := common.RedisEnabled
+	common.RedisEnabled = false
+	t.Cleanup(func() { common.RedisEnabled = old })
+}
+
 func TestImportPoolAuthFiles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	disablePoolTestRedis(t)
+	setupModelListControllerTestDB(t)
 
 	// Fake pool: accepts multipart, reports every file part as uploaded.
 	var receivedParts int
@@ -150,4 +165,99 @@ func TestParsePoolAuthAccounts(t *testing.T) {
 		assert.Equal(t, "raw.json", items[0].name)
 		assert.Equal(t, "not json", items[0].content)
 	})
+}
+
+func TestPoolIDFromRequestPrefersPrivateScope(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/private-pool/auth-files?pool=forged", nil)
+	c.Set("xju_private_pool_id", "1")
+	assert.Equal(t, "1", poolIDFromRequest(c))
+}
+
+func TestSanitizePrivatePoolAuthList(t *testing.T) {
+	raw := []byte(`{"files":[{"name":"alice.json","email":"a@example.com","path":"/root/auths/alice.json","auth_index":"idx","access_token":"secret","refresh_token":"secret2","id_token":{"plan_type":"plus","chatgpt_subscription_active_until":1893456000}},{"name":"raw.json","id_token":"raw-jwt"}]}`)
+	safe, err := sanitizePrivatePoolAuthList(raw)
+	require.NoError(t, err)
+	text := string(safe)
+	assert.Contains(t, text, `"email":"a@example.com"`)
+	assert.Contains(t, text, `"plan_type":"plus"`)
+	assert.NotContains(t, text, "auth_index")
+	assert.NotContains(t, text, "access_token")
+	assert.NotContains(t, text, "refresh_token")
+	assert.NotContains(t, text, "/root/auths")
+	assert.NotContains(t, text, "raw-jwt")
+}
+
+func TestFilterPrivatePoolCodexItems(t *testing.T) {
+	accepted, skipped := filterPrivatePoolCodexItems([]poolAuthItem{
+		{name: "codex.json", content: `{"type":"codex","email":"a@example.com"}`},
+		{name: "legacy.json", content: `{"email":"legacy@example.com"}`},
+		{name: "other.json", content: `{"type":"gemini","email":"g@example.com"}`},
+	})
+	require.Len(t, accepted, 2)
+	require.Len(t, skipped, 1)
+	assert.Equal(t, "other.json", skipped[0].Name)
+	assert.Contains(t, skipped[0].Reason, "Codex")
+}
+
+func TestEnforcePrivatePoolAccountLimit(t *testing.T) {
+	files := make([]map[string]string, 0, privateMaxAccounts-1)
+	for i := 0; i < privateMaxAccounts-1; i++ {
+		files = append(files, map[string]string{"name": fmt.Sprintf("account-%d.json", i)})
+	}
+	payload, err := json.Marshal(map[string]any{"files": files})
+	require.NoError(t, err)
+	pool := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		_, _ = w.Write(payload)
+	}))
+	defer pool.Close()
+
+	err = enforcePrivatePoolAccountLimit(t.Context(), pool.URL, "secret", []poolAuthItem{
+		{name: "new-a.json", content: `{}`},
+		{name: "new-b.json", content: `{}`},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "limit is 20")
+
+	err = enforcePrivatePoolAccountLimit(t.Context(), pool.URL, "secret", []poolAuthItem{
+		{name: "account-0.json", content: `{}`},
+		{name: "new-a.json", content: `{}`},
+	})
+	require.NoError(t, err, "replacing one existing file plus one new file stays within capacity")
+}
+
+func TestCreatePrivatePoolIgnoresClientOwnershipFields(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	disablePoolTestRedis(t)
+	setupModelListControllerTestDB(t)
+	dir := t.TempDir()
+	t.Setenv("POOL_PROVISION_DIR", dir)
+	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(dir, "registry.json"))
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("id", 42)
+	c.Set("role", common.RoleCommonUser)
+	c.Set("username", "alice")
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/private-pool",
+		strings.NewReader(`{"label":"Alice Pool","owner_user_id":999,"kind":"admin","group_key":"forged","mode":"gopool"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	CreatePrivatePool(c)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	requestData, err := os.ReadFile(filepath.Join(dir, "requests", "1.json"))
+	require.NoError(t, err)
+	var request struct {
+		OwnerUserID int    `json:"owner_user_id"`
+		Kind        string `json:"kind"`
+		GroupKey    string `json:"group_key"`
+		Mode        string `json:"mode"`
+	}
+	require.NoError(t, json.Unmarshal(requestData, &request))
+	assert.Equal(t, 42, request.OwnerUserID)
+	assert.Equal(t, common.PoolKindPrivate, request.Kind)
+	assert.Equal(t, "private-42", request.GroupKey)
+	assert.Equal(t, "cliproxy", request.Mode)
 }
