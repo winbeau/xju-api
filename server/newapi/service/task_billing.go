@@ -86,8 +86,17 @@ func taskIsSubscription(task *model.Task) bool {
 	return task.PrivateData.BillingSource == BillingSourceSubscription && task.PrivateData.SubscriptionId > 0
 }
 
-// taskAdjustFunding 调整任务的资金来源（钱包或订阅），delta > 0 表示扣费，delta < 0 表示退还。
+func taskUsesPrivatePoolFunding(task *model.Task) bool {
+	return task.PrivateData.BillingSource == BillingSourcePrivatePool
+}
+
+// taskAdjustFunding 调整任务的资金来源（钱包/订阅；私人号池为 no-op），delta > 0 表示扣费，delta < 0 表示退还。
 func taskAdjustFunding(task *model.Task, delta int) error {
+	// xju-api:inject — async private-pool tasks keep token settlement and usage
+	// logs but never mutate the user's shared-pool balance.
+	if taskUsesPrivatePoolFunding(task) {
+		return nil
+	}
 	if taskIsSubscription(task) {
 		return model.PostConsumeUserSubscriptionDelta(task.PrivateData.SubscriptionId, int64(delta))
 	}
@@ -121,6 +130,9 @@ func taskAdjustTokenQuota(ctx context.Context, task *model.Task, delta int) {
 // taskBillingOther 从 task 的 BillingContext 构建日志 Other 字段。
 func taskBillingOther(task *model.Task) map[string]interface{} {
 	other := make(map[string]interface{})
+	if task.PrivateData.BillingSource != "" {
+		other["billing_source"] = task.PrivateData.BillingSource
+	}
 	if bc := task.PrivateData.BillingContext; bc != nil {
 		other["model_price"] = bc.ModelPrice
 		if bc.ModelRatio > 0 {

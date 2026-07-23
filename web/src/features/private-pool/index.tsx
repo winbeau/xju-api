@@ -22,14 +22,11 @@ import {
   Activity,
   ArrowRight,
   CheckCircle2,
-  CircleAlert,
   ClipboardPaste,
-  ExternalLink,
   FileArchive,
   Gauge,
   KeyRound,
   Loader2,
-  LogIn,
   Play,
   Plus,
   Power,
@@ -51,7 +48,6 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { Dialog } from '@/components/dialog'
 import { SectionPageLayout } from '@/components/layout'
 import { StatusBadge } from '@/components/status-badge'
 import {
@@ -80,6 +76,7 @@ import type {
   PoolAuthFile,
   ProbeResult,
 } from '@/features/pool/api'
+import { CodexLoginButton } from '@/features/pool/codex-login-button'
 import {
   accountState,
   cooldownLabel,
@@ -113,7 +110,6 @@ import {
   startPrivatePoolVerifyAll,
   submitPrivatePoolCodexCallback,
   verifyPrivatePoolAccount,
-  type PrivatePoolOAuthSession,
 } from '@/features/private-pool/api'
 
 export function PrivatePool() {
@@ -150,12 +146,6 @@ export function PrivatePool() {
   const [autoDisable, setAutoDisable] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<PoolAuthFile | null>(null)
   const [resetTarget, setResetTarget] = useState<PoolAuthFile | null>(null)
-  const [oauthOpen, setOAuthOpen] = useState(false)
-  const [oauthSession, setOAuthSession] =
-    useState<PrivatePoolOAuthSession | null>(null)
-  const [oauthCallbackURL, setOAuthCallbackURL] = useState('')
-  const [oauthCompleted, setOAuthCompleted] = useState(false)
-  const oauthOpenRef = useRef(false)
 
   const stateQuery = useQuery({
     queryKey: ['private-pool'],
@@ -189,20 +179,6 @@ export function PrivatePool() {
     enabled: ready,
     refetchInterval: (query) => (query.state.data?.running ? 2000 : false),
   })
-  const oauthStatusQuery = useQuery({
-    queryKey: ['private-pool', 'oauth', oauthSession?.session_id],
-    queryFn: () => {
-      if (!oauthSession) throw new Error(t('Login session expired'))
-      return getPrivatePoolCodexLoginStatus(oauthSession.session_id)
-    },
-    enabled: Boolean(oauthSession && !oauthCompleted),
-    refetchInterval: (query) => {
-      const status = query.state.data?.status
-      return status === 'ok' || status === 'error' ? false : 2000
-    },
-    retry: false,
-  })
-
   const accounts = accountsQuery.data ?? []
   const usage = usageQuery.data?.accounts ?? {}
   const usageJob = usageQuery.data?.job ?? null
@@ -334,32 +310,6 @@ export function PrivatePool() {
     },
     onError: (error: Error) => toast.error(error.message),
   })
-  const oauthStartMutation = useMutation({
-    mutationFn: startPrivatePoolCodexLogin,
-    onSuccess: (session) => {
-      if (!oauthOpenRef.current) {
-        void cancelPrivatePoolCodexLogin(session.session_id)
-        return
-      }
-      setOAuthSession(session)
-    },
-    onError: (error: Error) => toast.error(error.message),
-  })
-  const oauthCallbackMutation = useMutation({
-    mutationFn: () => {
-      if (!oauthSession) throw new Error(t('Login session expired'))
-      return submitPrivatePoolCodexCallback(
-        oauthSession.session_id,
-        oauthCallbackURL.trim()
-      )
-    },
-    onSuccess: () =>
-      queryClient.invalidateQueries({
-        queryKey: ['private-pool', 'oauth', oauthSession?.session_id],
-      }),
-    onError: (error: Error) => toast.error(error.message),
-  })
-
   const jobRunning = progress?.running ?? false
   const prevRunning = useRef(false)
   useEffect(() => {
@@ -374,19 +324,6 @@ export function PrivatePool() {
     if (prevRunning.current && !jobRunning) void invalidateAccounts()
     prevRunning.current = jobRunning
   }, [invalidateAccounts, jobRunning])
-  useEffect(() => {
-    const result = oauthStatusQuery.data
-    if (!result || oauthCompleted) return
-    if (result.status === 'ok') {
-      setOAuthCompleted(true)
-      toast.success(t('Codex account added to your private pool'))
-      void invalidateAccounts()
-    } else if (result.status === 'error') {
-      setOAuthCompleted(true)
-      toast.error(result.error || t('Authentication failed'))
-    }
-  }, [invalidateAccounts, oauthCompleted, oauthStatusQuery.data, t])
-
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -412,56 +349,12 @@ export function PrivatePool() {
       toast.error(t('Clipboard not available — paste manually'))
     }
   }
-  const openOAuthDialog = () => {
-    oauthOpenRef.current = true
-    setOAuthOpen(true)
-    setOAuthSession(null)
-    setOAuthCallbackURL('')
-    setOAuthCompleted(false)
-    oauthStartMutation.mutate()
-  }
-  const closeOAuthDialog = () => {
-    oauthOpenRef.current = false
-    if (oauthSession && !oauthCompleted) {
-      void cancelPrivatePoolCodexLogin(oauthSession.session_id)
-    }
-    setOAuthOpen(false)
-    setOAuthSession(null)
-    setOAuthCallbackURL('')
-    setOAuthCompleted(false)
-  }
-
   let completedSteps = 0
   if (ready) {
     completedSteps = accounts.length === 0 ? 1 : 2
     if (stats.online > 0 || Object.keys(verdicts).length > 0) completedSteps = 3
   }
 
-  let oauthStatusMessage = t('Waiting for the localhost callback URL...')
-  if (oauthCallbackMutation.isSuccess) {
-    oauthStatusMessage = t('Exchanging the authorization code...')
-  }
-  if (oauthCompleted) {
-    oauthStatusMessage =
-      oauthStatusQuery.data?.status === 'error'
-        ? oauthStatusQuery.data.error || t('Authentication failed')
-        : t('Account added. The account list has been refreshed.')
-  }
-  const oauthPollError = oauthStatusQuery.isError
-    ? oauthStatusQuery.error.message
-    : ''
-  if (oauthPollError) oauthStatusMessage = oauthPollError
-  const oauthFailed =
-    (oauthCompleted && oauthStatusQuery.data?.status === 'error') ||
-    Boolean(oauthPollError)
-  let oauthStatusIcon = <Loader2 className='size-4 animate-spin' />
-  if (oauthCompleted || oauthPollError) {
-    oauthStatusIcon = oauthFailed ? (
-      <CircleAlert className='text-destructive size-4' />
-    ) : (
-      <CheckCircle2 className='text-success size-4' />
-    )
-  }
   const pageTitle = state?.pool?.label || state?.label || t('My Pool')
 
   return (
@@ -915,16 +808,15 @@ export function PrivatePool() {
                         onChange={handleFileUpload}
                       />
                       <div className='flex flex-wrap justify-end gap-2'>
-                        <Button
-                          type='button'
-                          variant='outline'
-                          size='sm'
-                          onClick={openOAuthDialog}
+                        <CodexLoginButton
+                          scopeKey={['private']}
+                          startLogin={startPrivatePoolCodexLogin}
+                          submitCallback={submitPrivatePoolCodexCallback}
+                          getStatus={getPrivatePoolCodexLoginStatus}
+                          cancelLogin={cancelPrivatePoolCodexLogin}
+                          onComplete={invalidateAccounts}
                           disabled={accounts.length >= 20}
-                        >
-                          <LogIn />
-                          {t('Login')}
-                        </Button>
+                        />
                         <Button
                           type='button'
                           variant='outline'
@@ -1240,127 +1132,6 @@ export function PrivatePool() {
             </div>
           )}
         </div>
-
-        <Dialog
-          open={oauthOpen}
-          onOpenChange={(open) => {
-            if (!open) closeOAuthDialog()
-          }}
-          title={t('Login with OpenAI')}
-          description={t(
-            'Credentials and MFA stay on OpenAI. This page only receives the one-time localhost callback.'
-          )}
-          contentClassName='max-w-xl'
-          bodyClassName='space-y-4'
-        >
-          {oauthStartMutation.isPending && (
-            <div className='text-muted-foreground flex items-center gap-2 text-sm'>
-              <Loader2 className='size-4 animate-spin' />
-              {t('Preparing a secure login session...')}
-            </div>
-          )}
-          {oauthStartMutation.isError && !oauthSession && (
-            <div className='flex justify-end'>
-              <Button type='button' onClick={closeOAuthDialog}>
-                {t('Close')}
-              </Button>
-            </div>
-          )}
-          {oauthSession && (
-            <>
-              <div className='border-border rounded-md border p-3'>
-                <p className='text-sm font-medium'>
-                  1. {t('Open the OpenAI login page')}
-                </p>
-                <p className='text-muted-foreground mt-1 text-xs'>
-                  {t(
-                    'Complete login in the new tab. It will automatically redirect to localhost:1455.'
-                  )}
-                </p>
-                <Button
-                  className='mt-3'
-                  type='button'
-                  variant='outline'
-                  onClick={() =>
-                    window.open(
-                      oauthSession.url,
-                      '_blank',
-                      'noopener,noreferrer'
-                    )
-                  }
-                >
-                  <ExternalLink />
-                  {t('Open OpenAI login')}
-                </Button>
-              </div>
-              <div className='border-border rounded-md border p-3'>
-                <p className='text-sm font-medium'>
-                  2. {t('Copy the localhost callback URL')}
-                </p>
-                <p className='text-muted-foreground mt-1 text-xs'>
-                  {t(
-                    'A “site cannot be reached” page is expected. Press Ctrl+L, Ctrl+C and paste the complete address below.'
-                  )}
-                </p>
-                <Textarea
-                  className='mt-3 min-h-24 font-mono text-xs'
-                  value={oauthCallbackURL}
-                  onChange={(event) => setOAuthCallbackURL(event.target.value)}
-                  placeholder='http://localhost:1455/auth/callback?code=...&state=...'
-                  spellCheck={false}
-                />
-                <div className='mt-2 flex flex-wrap gap-2'>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    onClick={async () => {
-                      try {
-                        setOAuthCallbackURL(
-                          await navigator.clipboard.readText()
-                        )
-                      } catch {
-                        toast.error(
-                          t('Clipboard not available — paste manually')
-                        )
-                      }
-                    }}
-                  >
-                    <ClipboardPaste />
-                    {t('Paste')}
-                  </Button>
-                  <Button
-                    type='button'
-                    onClick={() => oauthCallbackMutation.mutate()}
-                    disabled={
-                      !oauthCallbackURL.trim() ||
-                      oauthCallbackMutation.isPending ||
-                      oauthCompleted
-                    }
-                  >
-                    {oauthCallbackMutation.isPending ? (
-                      <Loader2 className='animate-spin' />
-                    ) : (
-                      <LogIn />
-                    )}
-                    {t('Complete login')}
-                  </Button>
-                </div>
-              </div>
-              <div className='border-border rounded-md border p-3 text-sm'>
-                <p className='font-medium'>3. {t('Import status')}</p>
-                <div className='text-muted-foreground mt-2 flex items-center gap-2'>
-                  {oauthStatusIcon}
-                  {oauthStatusMessage}
-                </div>
-              </div>
-              <div className='flex justify-end'>
-                <Button type='button' onClick={closeOAuthDialog}>
-                  {oauthCompleted ? t('Done') : t('Cancel')}
-                </Button>
-              </div>
-            </>
-          )}
-        </Dialog>
 
         <AlertDialog
           open={Boolean(deleteTarget)}

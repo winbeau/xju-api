@@ -85,13 +85,35 @@ type privatePoolOAuthValidationError struct{ message string }
 
 func (e *privatePoolOAuthValidationError) Error() string { return e.message }
 
+func poolCodexOAuthAuditAction(c *gin.Context, event string) string {
+	prefix := "pool"
+	if isPrivatePoolRequest(c) {
+		prefix = "private_pool"
+	}
+	return prefix + ".oauth_" + event
+}
+
+func poolCodexOAuthNeedsAccountLimit(poolID string) bool {
+	entry, ok := common.GetPoolEntry(poolID)
+	return ok && entry.Kind == common.PoolKindPrivate
+}
+
+// StartPoolCodexOAuth creates a Codex OAuth flow in the root-selected pool.
+func StartPoolCodexOAuth(c *gin.Context) {
+	poolID := strings.TrimSpace(poolIDFromRequest(c))
+	startPoolCodexOAuth(c, poolID, poolCodexOAuthNeedsAccountLimit(poolID))
+}
+
 // StartPrivatePoolCodexOAuth creates a Codex OAuth flow inside the current
-// user's CLIProxyAPI instance. It intentionally omits is_webui=1: the browser
-// will return the localhost callback URL to this API instead of using SSH -L.
+// user's CLIProxyAPI instance. Both entry points intentionally omit
+// is_webui=1: the browser returns the localhost callback URL to this API.
 func StartPrivatePoolCodexOAuth(c *gin.Context) {
+	startPoolCodexOAuth(c, poolIDFromRequest(c), true)
+}
+
+func startPoolCodexOAuth(c *gin.Context, poolID string, enforceAccountLimit bool) {
 	setPrivatePoolOAuthNoStore(c)
 	ownerUserID := c.GetInt("id")
-	poolID := poolIDFromRequest(c)
 	session, err := service.ReservePrivatePoolOAuthSession(ownerUserID, poolID, "codex", privatePoolOAuthDefaultTTL)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
@@ -106,17 +128,19 @@ func StartPrivatePoolCodexOAuth(c *gin.Context) {
 
 	baseURL, secret, ok := common.ResolvePoolMgmt(poolID)
 	if !ok {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "private pool is not ready"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "pool is not ready"})
 		return
 	}
-	existing, err := privatePoolExistingAccountNames(c.Request.Context(), baseURL, secret)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
-		return
-	}
-	if len(existing)+service.CountPrivatePoolOAuthReservations(poolID) > privateMaxAccounts {
-		c.JSON(http.StatusConflict, gin.H{"success": false, "message": "private pool account limit is " + strconv.Itoa(privateMaxAccounts)})
-		return
+	if enforceAccountLimit {
+		existing, err := privatePoolExistingAccountNames(c.Request.Context(), baseURL, secret)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		if len(existing)+service.CountPrivatePoolOAuthReservations(poolID) > privateMaxAccounts {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": "private pool account limit is " + strconv.Itoa(privateMaxAccounts)})
+			return
+		}
 	}
 
 	status, payload, err := service.PoolMgmtRoundTrip(c.Request.Context(), baseURL, secret, http.MethodGet, "/v0/management/codex-auth-url", nil, "")
@@ -142,7 +166,7 @@ func StartPrivatePoolCodexOAuth(c *gin.Context) {
 		return
 	}
 	release = false
-	recordPoolAudit(c, "private_pool.oauth_start", map[string]interface{}{"pool": auditPoolID(poolID), "provider": "codex"})
+	recordPoolAudit(c, poolCodexOAuthAuditAction(c, "start"), map[string]interface{}{"pool": auditPoolID(poolID), "provider": "codex"})
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
 		"session_id": activated.ID,
 		"status":     activated.Phase,
@@ -181,7 +205,7 @@ func SubmitPrivatePoolCodexOAuthCallback(c *gin.Context) {
 	body, _ := json.Marshal(gin.H{"provider": "codex", "state": state, "code": code, "error": errorMessage})
 	baseURL, secret, ready := common.ResolvePoolMgmt(session.PoolID)
 	if !ready {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "private pool is not ready"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "pool is not ready"})
 		return
 	}
 	status, payload, err := service.PoolMgmtRoundTrip(c.Request.Context(), baseURL, secret, http.MethodPost, "/v0/management/oauth-callback", bytes.NewReader(body), "application/json")
@@ -198,7 +222,7 @@ func SubmitPrivatePoolCodexOAuthCallback(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	recordPoolAudit(c, "private_pool.oauth_callback", map[string]interface{}{"pool": auditPoolID(session.PoolID), "provider": "codex"})
+	recordPoolAudit(c, poolCodexOAuthAuditAction(c, "callback"), map[string]interface{}{"pool": auditPoolID(session.PoolID), "provider": "codex"})
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"session_id": updated.ID, "status": updated.Phase}})
 }
 
@@ -213,7 +237,7 @@ func GetPrivatePoolCodexOAuthStatus(c *gin.Context) {
 	}
 	baseURL, secret, ready := common.ResolvePoolMgmt(session.PoolID)
 	if !ready {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "private pool is not ready"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"success": false, "message": "pool is not ready"})
 		return
 	}
 	path := "/v0/management/get-auth-status?state=" + url.QueryEscape(session.UpstreamState)
@@ -234,7 +258,7 @@ func GetPrivatePoolCodexOAuthStatus(c *gin.Context) {
 	switch upstream.Status {
 	case "ok":
 		service.DeletePrivatePoolOAuthSession(session.ID, ownerUserID)
-		recordPoolAudit(c, "private_pool.oauth_complete", map[string]interface{}{"pool": auditPoolID(session.PoolID), "provider": "codex"})
+		recordPoolAudit(c, poolCodexOAuthAuditAction(c, "complete"), map[string]interface{}{"pool": auditPoolID(session.PoolID), "provider": "codex"})
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"status": "ok"}})
 	case "error":
 		service.DeletePrivatePoolOAuthSession(session.ID, ownerUserID)
@@ -262,6 +286,6 @@ func CancelPrivatePoolCodexOAuth(c *gin.Context) {
 		_, _, _ = service.PoolMgmtRoundTrip(c.Request.Context(), baseURL, secret, http.MethodDelete, path, nil, "")
 	}
 	service.DeletePrivatePoolOAuthSession(session.ID, ownerUserID)
-	recordPoolAudit(c, "private_pool.oauth_cancel", map[string]interface{}{"pool": auditPoolID(session.PoolID), "provider": "codex"})
+	recordPoolAudit(c, poolCodexOAuthAuditAction(c, "cancel"), map[string]interface{}{"pool": auditPoolID(session.PoolID), "provider": "codex"})
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"status": "cancelled"}})
 }

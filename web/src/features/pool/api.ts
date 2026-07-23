@@ -95,6 +95,19 @@ export type ImportResult = {
   failed: { name: string; error: string }[]
 }
 
+export type PoolCodexLoginSession = {
+  session_id: string
+  status: 'starting' | 'waiting_callback' | 'exchanging'
+  url: string
+  expires_in: number
+  expires_at: number
+}
+
+export type PoolCodexLoginStatus = {
+  status: 'waiting_callback' | 'exchanging' | 'ok' | 'error'
+  error?: string
+}
+
 /**
  * xju-api runs isolated pools (default + k12). Every management call carries the
  * target pool as `?pool=`; the backend routes it to that pool's CLIProxyAPI
@@ -153,6 +166,55 @@ export async function importPoolAuthFiles(
     throw new Error(res.data.message || 'Failed to import accounts')
   }
   return res.data.data
+}
+
+export async function startPoolCodexLogin(
+  pool: string
+): Promise<PoolCodexLoginSession> {
+  const res = await api.post<ApiEnvelope<PoolCodexLoginSession>>(
+    `/api/pool/oauth/codex/start${poolQuery(pool)}`
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to start Codex login')
+  }
+  return res.data.data
+}
+
+export async function submitPoolCodexCallback(
+  sessionId: string,
+  redirectUrl: string
+): Promise<PoolCodexLoginStatus> {
+  const res = await api.post<ApiEnvelope<PoolCodexLoginStatus>>(
+    '/api/pool/oauth/codex/callback',
+    { session_id: sessionId, redirect_url: redirectUrl }
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to submit OAuth callback')
+  }
+  return res.data.data
+}
+
+export async function getPoolCodexLoginStatus(
+  sessionId: string
+): Promise<PoolCodexLoginStatus> {
+  const res = await api.get<ApiEnvelope<PoolCodexLoginStatus>>(
+    '/api/pool/oauth/codex/status',
+    { params: { session_id: sessionId } }
+  )
+  if (!res.data.success || !res.data.data) {
+    throw new Error(res.data.message || 'Failed to check Codex login status')
+  }
+  return res.data.data
+}
+
+export async function cancelPoolCodexLogin(sessionId: string): Promise<void> {
+  const res = await api.delete<ApiEnvelope<unknown>>(
+    '/api/pool/oauth/codex/session',
+    { params: { session_id: sessionId } }
+  )
+  if (!res.data.success) {
+    throw new Error(res.data.message || 'Failed to cancel Codex login')
+  }
 }
 
 export async function deletePoolAuthFile(

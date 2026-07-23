@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -101,4 +102,40 @@ func TestParseCodexCallbackURLRejectsNonLocalTarget(t *testing.T) {
 		_, _, _, err := parseCodexCallbackURL(raw)
 		require.Error(t, err, raw)
 	}
+}
+
+func TestRootPoolCodexOAuthStartsSelectedPool(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	disablePoolTestRedis(t)
+	setupModelListControllerTestDB(t)
+	owner := 78102
+	state := "abcdef0123456789abcdef0123456789"
+	pool := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v0/management/codex-auth-url", r.URL.Path)
+		authURL := "https://auth.openai.com/oauth/authorize?state=" + state + "&redirect_uri=" + url.QueryEscape("http://localhost:1455/auth/callback")
+		_, _ = fmt.Fprintf(w, `{"status":"ok","url":%q,"state":%q,"expires_in":1800}`, authURL, state)
+	}))
+	defer pool.Close()
+
+	dir := t.TempDir()
+	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(dir, "registry.json"))
+	require.NoError(t, common.SavePoolRegistry([]common.PoolEntry{{
+		ID: "admin-oauth", Label: "Admin OAuth", MgmtURL: pool.URL, MgmtSecret: "secret", Kind: common.PoolKindAdmin,
+	}}))
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("id", owner)
+	c.Set("role", common.RoleRootUser)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/pool/oauth/codex/start?pool=admin-oauth", nil)
+	StartPoolCodexOAuth(c)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	var response struct {
+		Data struct {
+			SessionID string `json:"session_id"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.NotEmpty(t, response.Data.SessionID)
+	service.DeletePrivatePoolOAuthSession(response.Data.SessionID, owner)
 }

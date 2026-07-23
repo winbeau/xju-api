@@ -66,11 +66,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
   addPoolAuthFile,
+  cancelPoolCodexLogin,
   cleanPoolAuthFilesNow,
   createPool,
   deletePool,
   deletePoolAuthFile,
   deriveAuthFileName,
+  getPoolCodexLoginStatus,
   getPoolCreateStatus,
   getPoolUsage,
   getVerifyProgress,
@@ -82,14 +84,17 @@ import {
   renamePool,
   resetPoolAccountQuota,
   setPoolAuthFileDisabled,
+  startPoolCodexLogin,
   startPoolUsageRefreshAll,
   startVerifyAll,
+  submitPoolCodexCallback,
   verifyPoolAuthFile,
   type ImportResult,
   type PoolAuthFile,
   type PoolInfo,
   type ProbeResult,
 } from '@/features/pool/api'
+import { CodexLoginButton } from '@/features/pool/codex-login-button'
 import {
   accountState,
   cooldownLabel,
@@ -871,7 +876,7 @@ export function Pool() {
                 </CardDescription>
               </CardHeader>
               <CardContent className='grid gap-2'>
-                <div className='flex justify-end gap-2'>
+                <div className='flex flex-wrap justify-end gap-2'>
                   <input
                     ref={zipInputRef}
                     type='file'
@@ -885,6 +890,16 @@ export function Pool() {
                     accept='.json,application/json'
                     className='hidden'
                     onChange={handleFileUpload}
+                  />
+                  <CodexLoginButton
+                    key={pool}
+                    scopeKey={['root', pool]}
+                    startLogin={() => startPoolCodexLogin(pool)}
+                    submitCallback={submitPoolCodexCallback}
+                    getStatus={getPoolCodexLoginStatus}
+                    cancelLogin={cancelPoolCodexLogin}
+                    onComplete={invalidate}
+                    disabled={!poolConfigured}
                   />
                   <Button
                     type='button'

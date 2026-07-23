@@ -13,7 +13,14 @@ import (
 const (
 	BillingSourceWallet       = "wallet"
 	BillingSourceSubscription = "subscription"
+	// xju-api:inject — usage is priced and logged normally, but the user's
+	// shared-pool wallet/subscription quota is not a funding source.
+	BillingSourcePrivatePool = "private_pool"
 )
+
+func IsPrivatePoolBalanceExempt(relayInfo *relaycommon.RelayInfo) bool {
+	return relayInfo != nil && relayInfo.PrivatePoolBalanceExempt
+}
 
 // PreConsumeBilling 根据用户计费偏好创建 BillingSession 并执行预扣费。
 // 会话存储在 relayInfo.Billing 上，供后续 Settle / Refund 使用。
@@ -75,8 +82,9 @@ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuo
 			return err
 		}
 
-		// 发送额度通知（订阅计费使用订阅剩余额度）
-		if actualQuota != 0 {
+		// 发送额度通知（订阅计费使用订阅剩余额度）。私人号池只计量，
+		// 不消耗用户额度，因此没有余额提醒。
+		if actualQuota != 0 && relayInfo.BillingSource != BillingSourcePrivatePool {
 			if relayInfo.BillingSource == BillingSourceSubscription {
 				checkAndSendSubscriptionQuotaNotify(relayInfo)
 			} else {

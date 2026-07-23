@@ -109,6 +109,7 @@ func TestSetupContextDisablesPrivateCrossGroupRetryAndSpecificChannel(t *testing
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	require.NoError(t, SetupContextForToken(c, token))
 	assert.False(t, common.GetContextKeyBool(c, constant.ContextKeyTokenCrossGroupRetry))
+	assert.True(t, common.GetContextKeyBool(c, constant.ContextKeyPrivatePoolBalanceExempt))
 
 	w = httptest.NewRecorder()
 	c, _ = gin.CreateTestContext(w)

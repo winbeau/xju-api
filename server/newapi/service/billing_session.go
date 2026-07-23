@@ -231,6 +231,8 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 
 func (s *BillingSession) reserveFunding(delta int) error {
 	switch funding := s.funding.(type) {
+	case *PrivatePoolFunding:
+		return nil
 	case *WalletFunding:
 		if err := model.DecreaseUserQuota(funding.userId, delta, false); err != nil {
 			return types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
@@ -255,6 +257,8 @@ func (s *BillingSession) reserveFunding(delta int) error {
 
 func (s *BillingSession) rollbackFundingReserve(delta int) {
 	switch funding := s.funding.(type) {
+	case *PrivatePoolFunding:
+		return
 	case *WalletFunding:
 		if err := model.IncreaseUserQuota(funding.userId, delta, false); err != nil {
 			common.SysLog("error rolling back wallet funding reserve: " + err.Error())
@@ -301,6 +305,8 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 	}
 
 	switch s.funding.Source() {
+	case BillingSourcePrivatePool:
+		return false
 	case BillingSourceWallet:
 		return s.relayInfo.UserQuota > trustQuota
 	case BillingSourceSubscription:
@@ -342,6 +348,19 @@ func (s *BillingSession) syncRelayInfo() {
 func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preConsumedQuota int) (*BillingSession, *types.NewAPIError) {
 	if relayInfo == nil {
 		return nil, types.NewError(fmt.Errorf("relayInfo is nil"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	// xju-api:inject — a user-owned pool is not funded by the platform wallet or
+	// subscription. Keep the same priced quota and token lifecycle so usage,
+	// logs and optional per-key limits remain consistent with shared pools.
+	if IsPrivatePoolBalanceExempt(relayInfo) {
+		session := &BillingSession{
+			relayInfo: relayInfo,
+			funding:   &PrivatePoolFunding{},
+		}
+		if apiErr := session.preConsume(c, preConsumedQuota); apiErr != nil {
+			return nil, apiErr
+		}
+		return session, nil
 	}
 
 	pref := common.NormalizeBillingPreference(relayInfo.UserSetting.BillingPreference)

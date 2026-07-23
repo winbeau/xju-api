@@ -27,7 +27,7 @@
 **前端自有(整目录/整文件,`web/src/`)**:
 
 - `registry/xju-modules.ts` —— 自有模块注册中心(侧栏项/开关键/URL 映射/开关元数据)
-- `features/pool/` —— 号池管理页(`index.tsx` 双池 Tabs + zip 导入、`api.ts`)
+- `features/pool/` —— 管理员号池管理页(`index.tsx` 多池 Tabs + zip / Web 登录导入、`api.ts`)，`codex-login-button.tsx` 为管理员与私人号池共用的 OAuth 交互
 - `features/private-pool/` —— 用户「我的号池」引导 + 单池管理工作台 + owner-scoped Codex Web 登录导入
 - `features/invite-codes/` —— 邀请码(`api.ts`、`invite-code-dialog.tsx`、`auth-section.tsx`)
 - `features/keys/components/pool-integration/` —— `cc-switch-dialog.tsx`、`codex-config-dialog.tsx`
@@ -46,6 +46,7 @@
 
 - `controller/xju_pool_auth.go`(+test)、`controller/xju_private_pool_oauth.go`(+test)、`controller/xju_private_pool_settings.go`、`controller/xju_invite_code.go`
 - `service/xju_pool_client.go`、`service/xju_pool_cleanup.go`、`service/xju_private_pool_oauth.go`(+test)、`service/xju_invite_code.go`(+test)
+- `service/xju_private_pool_billing_test.go` —— 私人号池免用户余额、但保留统一 quota / Token / used-quota 计量的回归测试
 - `model/xju_invite_code.go`、`common/xju_pool_registry.go`(+test)
 
 **后端注入点**:
@@ -55,6 +56,7 @@
 - `common/constants.go` —— `InviteCodeRequired` / `PoolAutoCleanEnabled` / `PoolAutoCleanHours` 三变量
 - `model/option.go` —— 三键 OptionMap 登记 + 生效通道(契约注释在文件内)
 - `controller/user.go` —— Register 调用 `service.ConsumeInviteCodeForRegistration`(edit)
+- `middleware/auth.go`、`relay/common/relay_info.go`、`service/billing*.go` / `quota.go` / `task_billing.go` —— 冻结私人号池免用户余额标记，使用 `private_pool` 计费来源；公用号池仍走钱包/订阅
 
 ## 30 天月卡档(留位)
 

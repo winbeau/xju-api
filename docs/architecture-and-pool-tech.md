@@ -40,6 +40,20 @@ I have the definitive answer to the critical open question. Here is the document
 
 **New API 暴露的号池操作(全部 root-only,`middleware.RootAuth()`,`router/api-router.go:203-224` → `controller/xju_pool_auth.go`):** 列池 / 建池·删池(一键开池 #4,靠宿主 watcher 文件投递协议)/ 增删单账号 / zip 批量导入(K12 的 501 号就是这么进的)/ 启用停用 / 过期清理 / **验活**(号池验活,靠 `api-call` 钉住账号自身凭证发探针,因为 cliproxy 本身无主动健康检查)/ **额度**(5h·周窗口快照 + 重置券)。所有改动型操作都过 `recordManageAudit(...)`,**从不记凭证**,只记池 id / 文件名 / 判定结果。
 
+### 平台用户额度与私人号池的边界（2026-07-24）
+
+New API 的“用户额度”现在只给**公用号池**做余额门控。请求使用 owner-scoped
+`private-<user id>` 分组时，鉴权阶段会冻结 `PrivatePoolBalanceExempt` 标记，计费层记录
+`billing_source=private_pool`：仍使用同一套 `PriceData` 计算 quota，仍写消费日志、用户
+`used_quota`、请求数、Token `used_quota` 和渠道 `used_quota`，但不会查询、预扣、补扣或退还
+用户钱包/订阅余额，也不会发送余额不足提醒。因此私人号池即使用户平台余额为 0 也可继续
+使用；之后再访问公用号池时，只由公用号池实际消耗过的余额决定是否放行。
+
+这条规则不等于“取消计量”，也不要与下文 OpenAI 账号自身的 5h/周 `wham` 限额混淆。
+前者是 New API 的平台余额门控范围，后者是每个上游 ChatGPT 账号真实存在的服务端窗口。
+私人 API Key 若被用户主动设为有限 Token 额度，仍保留该单 Key 安全阀；默认无限 Token 额度
+时不构成限制。
+
 ---
 
 ## 二、号池技术:账号存在哪、怎么被调度

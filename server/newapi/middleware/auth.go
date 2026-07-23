@@ -501,12 +501,16 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 	}
 	common.SetContextKey(c, constant.ContextKeyTokenGroup, token.Group)
 	crossGroupRetry := token.CrossGroupRetry
-	if _, private := common.FindPrivatePoolByGroupKey(token.Group); private {
+	_, privatePoolToken := common.FindPrivatePoolByGroupKey(token.Group)
+	// xju-api:inject — billing consumes this frozen flag instead of looking the
+	// registry up again after the request has already passed owner validation.
+	common.SetContextKey(c, constant.ContextKeyPrivatePoolBalanceExempt, privatePoolToken)
+	if privatePoolToken {
 		crossGroupRetry = false
 	}
 	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, crossGroupRetry)
 	if len(parts) > 1 {
-		if _, private := common.FindPrivatePoolByGroupKey(token.Group); private {
+		if privatePoolToken {
 			abortWithOpenAiMessage(c, http.StatusForbidden, "私人号池令牌不支持指定渠道")
 			return fmt.Errorf("私人号池令牌不支持指定渠道")
 		}

@@ -87,12 +87,12 @@ func calculateAudioQuota(info QuotaInfo) (int, *common.QuotaClamp) {
 }
 
 func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.RealtimeUsage) error {
+	privatePoolBalanceExempt := IsPrivatePoolBalanceExempt(relayInfo)
+	if privatePoolBalanceExempt {
+		relayInfo.BillingSource = BillingSourcePrivatePool
+	}
 	if relayInfo.UsePrice {
 		return nil
-	}
-	userQuota, err := model.GetUserQuota(relayInfo.UserId, false)
-	if err != nil {
-		return err
 	}
 
 	token, err := model.GetTokenByKey(strings.TrimPrefix(relayInfo.TokenKey, "sk-"), false)
@@ -139,8 +139,17 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 	quota, clamp := calculateAudioQuota(quotaInfo)
 	noteQuotaClamp(relayInfo, clamp)
 
-	if userQuota < quota {
-		return fmt.Errorf("user quota is not enough, user quota: %s, need quota: %s", logger.FormatQuota(userQuota), logger.FormatQuota(quota))
+	// xju-api:inject — realtime requests against a private pool are still
+	// priced, token-metered and logged, but never rejected by shared-pool user
+	// balance. Public/shared pools keep the original check.
+	if !privatePoolBalanceExempt {
+		userQuota, err := model.GetUserQuota(relayInfo.UserId, false)
+		if err != nil {
+			return err
+		}
+		if userQuota < quota {
+			return fmt.Errorf("user quota is not enough, user quota: %s, need quota: %s", logger.FormatQuota(userQuota), logger.FormatQuota(quota))
+		}
 	}
 
 	if !token.UnlimitedQuota && token.RemainQuota < quota {
@@ -411,7 +420,11 @@ func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {
 func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool) (err error) {
 
 	// 1) Consume from wallet quota OR subscription item
-	if relayInfo != nil && relayInfo.BillingSource == BillingSourceSubscription {
+	privatePoolBalanceExempt := relayInfo != nil && relayInfo.BillingSource == BillingSourcePrivatePool
+	if privatePoolBalanceExempt {
+		// xju-api:inject — no wallet/subscription delta for owner-funded upstream
+		// pools. Token usage and all downstream accounting remain unchanged.
+	} else if relayInfo != nil && relayInfo.BillingSource == BillingSourceSubscription {
 		if relayInfo.SubscriptionId == 0 {
 			return errors.New("subscription id is missing")
 		}
@@ -445,7 +458,7 @@ func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQu
 		}
 	}
 
-	if sendEmail {
+	if sendEmail && !privatePoolBalanceExempt {
 		if (quota + preConsumedQuota) != 0 {
 			checkAndSendQuotaNotify(relayInfo, quota, preConsumedQuota)
 		}

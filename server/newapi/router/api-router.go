@@ -223,6 +223,10 @@ func SetApiRouter(router *gin.Engine) {
 			poolRoute.POST("/auth-files/usage/reset", controller.ResetPoolAccountQuota)
 			poolRoute.PATCH("/auth-files/status", controller.SetPoolAuthFileStatus)
 			poolRoute.DELETE("/auth-files", controller.DeletePoolAuthFile)
+			poolRoute.POST("/oauth/codex/start", controller.StartPoolCodexOAuth)
+			poolRoute.POST("/oauth/codex/callback", controller.SubmitPrivatePoolCodexOAuthCallback)
+			poolRoute.GET("/oauth/codex/status", controller.GetPrivatePoolCodexOAuthStatus)
+			poolRoute.DELETE("/oauth/codex/session", controller.CancelPrivatePoolCodexOAuth)
 		}
 
 		// User-owned private pool. Every account-management route is bound by

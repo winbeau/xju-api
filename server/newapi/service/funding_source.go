@@ -7,7 +7,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// FundingSource — 资金来源接口（钱包 or 订阅）
+// FundingSource — 资金来源接口（钱包 / 订阅 / 私人号池免用户余额）
 // ---------------------------------------------------------------------------
 
 // FundingSource 抽象了预扣费的资金来源。
@@ -21,6 +21,17 @@ type FundingSource interface {
 	// Refund 退还所有预扣费
 	Refund() error
 }
+
+// PrivatePoolFunding keeps the normal token pre-consume/settle lifecycle while
+// deliberately leaving the user's shared-pool wallet/subscription untouched.
+// xju-api:inject — accounting still happens through PriceData, consume logs and
+// UpdateUserUsedQuotaAndRequestCount; only the balance-limiting source is no-op.
+type PrivatePoolFunding struct{}
+
+func (p *PrivatePoolFunding) Source() string       { return BillingSourcePrivatePool }
+func (p *PrivatePoolFunding) PreConsume(int) error { return nil }
+func (p *PrivatePoolFunding) Settle(int) error     { return nil }
+func (p *PrivatePoolFunding) Refund() error        { return nil }
 
 // ---------------------------------------------------------------------------
 // WalletFunding — 钱包资金来源实现

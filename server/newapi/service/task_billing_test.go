@@ -357,6 +357,24 @@ func TestRefundTaskQuota_Subscription(t *testing.T) {
 	assert.Equal(t, model.LogTypeRefund, log.Type)
 }
 
+func TestRefundTaskQuota_PrivatePoolDoesNotChangeUserBalance(t *testing.T) {
+	truncate(t)
+	const (
+		userID  = 141
+		tokenID = 241
+	)
+	seedUser(t, userID, 500)
+	seedToken(t, tokenID, userID, "private-task", 900)
+	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", tokenID).Update("used_quota", 100).Error)
+	task := makeTask(userID, 1, 100, tokenID, BillingSourcePrivatePool, 0)
+	task.Group = "private-141"
+
+	RefundTaskQuota(context.Background(), task, "private task failed")
+
+	assert.Equal(t, 500, getUserQuota(t, userID))
+	assert.Equal(t, 1000, getTokenRemainQuota(t, tokenID))
+}
+
 func TestRefundTaskQuota_ZeroQuota(t *testing.T) {
 	truncate(t)
 	ctx := context.Background()
