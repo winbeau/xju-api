@@ -281,6 +281,27 @@ func TestPrivatePoolRegistryRejectsInvalidOwnership(t *testing.T) {
 	}), "system pools are environment-seeded only")
 }
 
+func TestSetPrivatePoolSettingsIsOwnerScoped(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(dir, "registry.json"))
+	require.NoError(t, SavePoolRegistry([]PoolEntry{{
+		ID: "private-settings", Label: "Settings", MgmtURL: "http://pool", MgmtSecret: "secret",
+		Kind: PoolKindPrivate, OwnerUserID: 42, GroupKey: PrivatePoolGroupKey(42),
+	}}))
+
+	err := SetPrivatePoolSettings("private-settings", 7, PrivatePoolSettings{AutoCleanEnabled: true, AutoCleanHours: 12})
+	require.Error(t, err)
+	require.NoError(t, SetPrivatePoolSettings("private-settings", 42, PrivatePoolSettings{
+		AutoCleanEnabled: true, AutoCleanHours: 12, UsageAutoRefreshEnabled: true, UsageAutoResetEnabled: true,
+	}))
+	entry, ok := GetPoolEntry("private-settings")
+	require.True(t, ok)
+	assert.True(t, entry.AutoCleanEnabled)
+	assert.Equal(t, 12, entry.AutoCleanHours)
+	assert.True(t, entry.UsageAutoRefreshEnabled)
+	assert.True(t, entry.UsageAutoResetEnabled)
+}
+
 func TestConcurrentPoolRegistryAddsDoNotLoseEntries(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "pools.json")
 	t.Setenv("POOL_REGISTRY_FILE", file)

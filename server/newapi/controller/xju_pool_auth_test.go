@@ -214,14 +214,14 @@ func TestEnforcePrivatePoolAccountLimit(t *testing.T) {
 	}))
 	defer pool.Close()
 
-	err = enforcePrivatePoolAccountLimit(t.Context(), pool.URL, "secret", []poolAuthItem{
+	err = enforcePrivatePoolAccountLimit(t.Context(), "test-pool", pool.URL, "secret", []poolAuthItem{
 		{name: "new-a.json", content: `{}`},
 		{name: "new-b.json", content: `{}`},
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "limit is 20")
 
-	err = enforcePrivatePoolAccountLimit(t.Context(), pool.URL, "secret", []poolAuthItem{
+	err = enforcePrivatePoolAccountLimit(t.Context(), "test-pool", pool.URL, "secret", []poolAuthItem{
 		{name: "account-0.json", content: `{}`},
 		{name: "new-a.json", content: `{}`},
 	})

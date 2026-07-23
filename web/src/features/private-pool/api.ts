@@ -24,6 +24,7 @@ import {
   type PoolUsageData,
   type PoolUsageJobSnapshot,
   type ProbeResult,
+  type ProbeJobSnapshot,
   deriveAuthFileName,
 } from '@/features/pool/api'
 import { api } from '@/lib/api'
@@ -45,7 +46,31 @@ export type PrivatePoolState = {
     kind?: 'private'
     group_key?: string
     created_at?: number
+    auto_clean_enabled?: boolean
+    auto_clean_hours?: number
+    usage_auto_refresh_enabled?: boolean
+    usage_auto_reset_enabled?: boolean
   }
+}
+
+export type PrivatePoolSettings = {
+  auto_clean_enabled: boolean
+  auto_clean_hours: number
+  usage_auto_refresh_enabled: boolean
+  usage_auto_reset_enabled: boolean
+}
+
+export type PrivatePoolOAuthSession = {
+  session_id: string
+  status: 'starting' | 'waiting_callback' | 'exchanging'
+  url: string
+  expires_in: number
+  expires_at: number
+}
+
+export type PrivatePoolOAuthStatus = {
+  status: 'waiting_callback' | 'exchanging' | 'ok' | 'error'
+  error?: string
 }
 
 function requireData<T>(response: ApiEnvelope<T>, fallback: string): T {
@@ -111,6 +136,14 @@ export async function importPrivatePoolAccounts(
   return requireData(response.data, 'Failed to import pool accounts')
 }
 
+export async function cleanPrivatePoolAccounts(): Promise<number> {
+  const response = await api.post<ApiEnvelope<{ disabled?: number }>>(
+    '/api/private-pool/auth-files/clean'
+  )
+  const data = requireData(response.data, 'Failed to clean the pool')
+  return data.disabled ?? 0
+}
+
 export async function deletePrivatePoolAccount(name: string): Promise<void> {
   const response = await api.delete<ApiEnvelope<unknown>>(
     '/api/private-pool/auth-files',
@@ -135,13 +168,37 @@ export async function setPrivatePoolAccountDisabled(
 }
 
 export async function verifyPrivatePoolAccount(
-  name: string
+  name: string,
+  heavy = false
 ): Promise<ProbeResult> {
   const response = await api.post<ApiEnvelope<ProbeResult>>(
     '/api/private-pool/auth-files/verify',
-    { name, heavy: false }
+    { name, heavy }
   )
   return requireData(response.data, 'Failed to verify pool account')
+}
+
+export async function startPrivatePoolVerifyAll(options: {
+  heavy: boolean
+  autoDisable: boolean
+}): Promise<ProbeJobSnapshot> {
+  const response = await api.post<ApiEnvelope<ProbeJobSnapshot>>(
+    '/api/private-pool/auth-files/verify-all',
+    { heavy: options.heavy, auto_disable: options.autoDisable }
+  )
+  return requireData(response.data, 'Failed to start verification')
+}
+
+export async function getPrivatePoolVerifyProgress(): Promise<ProbeJobSnapshot | null> {
+  const response = await api.get<ApiEnvelope<ProbeJobSnapshot | null>>(
+    '/api/private-pool/auth-files/verify-all/progress'
+  )
+  if (!response.data.success) {
+    throw new Error(
+      response.data.message || 'Failed to load verification progress'
+    )
+  }
+  return response.data.data ?? null
 }
 
 export async function getPrivatePoolUsage(): Promise<PoolUsageData> {
@@ -177,4 +234,61 @@ export async function resetPrivatePoolAccountQuota(
     { name }
   )
   return requireData(response.data, 'Failed to reset account quota')
+}
+
+export async function getPrivatePoolSettings(): Promise<PrivatePoolSettings> {
+  const response = await api.get<ApiEnvelope<PrivatePoolSettings>>(
+    '/api/private-pool/settings'
+  )
+  return requireData(response.data, 'Failed to load private pool settings')
+}
+
+export async function patchPrivatePoolSettings(
+  patch: Partial<PrivatePoolSettings>
+): Promise<PrivatePoolSettings> {
+  const response = await api.patch<ApiEnvelope<PrivatePoolSettings>>(
+    '/api/private-pool/settings',
+    patch
+  )
+  return requireData(response.data, 'Failed to update private pool settings')
+}
+
+export async function startPrivatePoolCodexLogin(): Promise<PrivatePoolOAuthSession> {
+  const response = await api.post<ApiEnvelope<PrivatePoolOAuthSession>>(
+    '/api/private-pool/oauth/codex/start'
+  )
+  return requireData(response.data, 'Failed to start Codex login')
+}
+
+export async function submitPrivatePoolCodexCallback(
+  sessionId: string,
+  redirectUrl: string
+): Promise<PrivatePoolOAuthStatus> {
+  const response = await api.post<ApiEnvelope<PrivatePoolOAuthStatus>>(
+    '/api/private-pool/oauth/codex/callback',
+    { session_id: sessionId, redirect_url: redirectUrl }
+  )
+  return requireData(response.data, 'Failed to submit OAuth callback')
+}
+
+export async function getPrivatePoolCodexLoginStatus(
+  sessionId: string
+): Promise<PrivatePoolOAuthStatus> {
+  const response = await api.get<ApiEnvelope<PrivatePoolOAuthStatus>>(
+    '/api/private-pool/oauth/codex/status',
+    { params: { session_id: sessionId } }
+  )
+  return requireData(response.data, 'Failed to check Codex login status')
+}
+
+export async function cancelPrivatePoolCodexLogin(
+  sessionId: string
+): Promise<void> {
+  const response = await api.delete<ApiEnvelope<unknown>>(
+    '/api/private-pool/oauth/codex/session',
+    { params: { session_id: sessionId } }
+  )
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Failed to cancel Codex login')
+  }
 }

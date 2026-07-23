@@ -5379,6 +5379,26 @@
     "Your pool is ready but has no upstream accounts yet.": "Your pool is ready but has no upstream accounts yet.",
     "Your private pool is being created": "Your private pool is being created",
     "Your private pool is not ready yet.": "Your private pool is not ready yet.",
-    "Your private pool needs attention": "Your private pool needs attention"
+    "Your private pool needs attention": "Your private pool needs attention",
+    "A “site cannot be reached” page is expected. Press Ctrl+L, Ctrl+C and paste the complete address below.": "A “site cannot be reached” page is expected. Press Ctrl+L, Ctrl+C and paste the complete address below.",
+    "Account added. The account list has been refreshed.": "Account added. The account list has been refreshed.",
+    "Authentication failed": "Authentication failed",
+    "Codex account added to your private pool": "Codex account added to your private pool",
+    "Codex accounts available only to your API keys.": "Codex accounts available only to your API keys.",
+    "Complete login": "Complete login",
+    "Complete login in the new tab. It will automatically redirect to localhost:1455.": "Complete login in the new tab. It will automatically redirect to localhost:1455.",
+    "Copy the localhost callback URL": "Copy the localhost callback URL",
+    "Credentials and MFA stay on OpenAI. This page only receives the one-time localhost callback.": "Credentials and MFA stay on OpenAI. This page only receives the one-time localhost callback.",
+    "Exchanging the authorization code...": "Exchanging the authorization code...",
+    "Import status": "Import status",
+    "Login session expired": "Login session expired",
+    "Login with OpenAI": "Login with OpenAI",
+    "Login with OpenAI, import a ZIP, upload JSON, or paste credentials. Up to 20 accounts.": "Login with OpenAI, import a ZIP, upload JSON, or paste credentials. Up to 20 accounts.",
+    "Open OpenAI login": "Open OpenAI login",
+    "Open the OpenAI login page": "Open the OpenAI login page",
+    "Preparing a secure login session...": "Preparing a secure login session...",
+    "Remove this account?": "Remove this account?",
+    "Waiting for the localhost callback URL...": "Waiting for the localhost callback URL...",
+    "Your upstream accounts, routing channel, and API keys will be isolated from every other user.": "Your upstream accounts, routing channel, and API keys will be isolated from every other user."
   }
 }

@@ -33,30 +33,45 @@ const (
 // PoolInfo is the safe metadata the frontend uses to render a pool selector.
 // Management URLs and secrets intentionally remain exclusive to PoolEntry.
 type PoolInfo struct {
-	ID            string `json:"id"`
-	Label         string `json:"label"`
-	BuildMode     string `json:"build_mode,omitempty"`
-	OwnerUserID   int    `json:"owner_user_id,omitempty"`
-	OwnerUsername string `json:"owner_username,omitempty"`
-	Kind          string `json:"kind"`
-	GroupKey      string `json:"group_key,omitempty"`
-	CreatedAt     int64  `json:"created_at,omitempty"`
+	ID                      string `json:"id"`
+	Label                   string `json:"label"`
+	BuildMode               string `json:"build_mode,omitempty"`
+	OwnerUserID             int    `json:"owner_user_id,omitempty"`
+	OwnerUsername           string `json:"owner_username,omitempty"`
+	Kind                    string `json:"kind"`
+	GroupKey                string `json:"group_key,omitempty"`
+	CreatedAt               int64  `json:"created_at,omitempty"`
+	AutoCleanEnabled        bool   `json:"auto_clean_enabled,omitempty"`
+	AutoCleanHours          int    `json:"auto_clean_hours,omitempty"`
+	UsageAutoRefreshEnabled bool   `json:"usage_auto_refresh_enabled,omitempty"`
+	UsageAutoResetEnabled   bool   `json:"usage_auto_reset_enabled,omitempty"`
 }
 
 // PoolEntry is a dynamically-provisioned pool's full record in the registry
 // file. The env-seeded default/k12 pools are never stored here.
 type PoolEntry struct {
-	ID          string `json:"id"`
-	Label       string `json:"label"`
-	MgmtURL     string `json:"mgmt_url"`
-	MgmtSecret  string `json:"mgmt_secret"`
-	Port        int    `json:"port,omitempty"`
-	ChannelID   int    `json:"channel_id,omitempty"`
-	BuildMode   string `json:"build_mode,omitempty"` // "cliproxy"(默认) | "gopool";仅 UI 引导,无服务端强制
-	OwnerUserID int    `json:"owner_user_id,omitempty"`
-	Kind        string `json:"kind,omitempty"`      // "admin"(legacy dynamic pool) | "private"
-	GroupKey    string `json:"group_key,omitempty"` // immutable routing key; private pools use private-<user id>
-	CreatedAt   int64  `json:"created_at,omitempty"`
+	ID                      string `json:"id"`
+	Label                   string `json:"label"`
+	MgmtURL                 string `json:"mgmt_url"`
+	MgmtSecret              string `json:"mgmt_secret"`
+	Port                    int    `json:"port,omitempty"`
+	ChannelID               int    `json:"channel_id,omitempty"`
+	BuildMode               string `json:"build_mode,omitempty"` // "cliproxy"(默认) | "gopool";仅 UI 引导,无服务端强制
+	OwnerUserID             int    `json:"owner_user_id,omitempty"`
+	Kind                    string `json:"kind,omitempty"`      // "admin"(legacy dynamic pool) | "private"
+	GroupKey                string `json:"group_key,omitempty"` // immutable routing key; private pools use private-<user id>
+	CreatedAt               int64  `json:"created_at,omitempty"`
+	AutoCleanEnabled        bool   `json:"auto_clean_enabled,omitempty"`
+	AutoCleanHours          int    `json:"auto_clean_hours,omitempty"`
+	UsageAutoRefreshEnabled bool   `json:"usage_auto_refresh_enabled,omitempty"`
+	UsageAutoResetEnabled   bool   `json:"usage_auto_reset_enabled,omitempty"`
+}
+
+type PrivatePoolSettings struct {
+	AutoCleanEnabled        bool `json:"auto_clean_enabled"`
+	AutoCleanHours          int  `json:"auto_clean_hours"`
+	UsageAutoRefreshEnabled bool `json:"usage_auto_refresh_enabled"`
+	UsageAutoResetEnabled   bool `json:"usage_auto_reset_enabled"`
 }
 
 // reservedPoolIDs are env-seeded and can never be created/removed dynamically.
@@ -127,14 +142,22 @@ func poolInfoFromEntry(entry PoolEntry) PoolInfo {
 	if buildMode == "" {
 		buildMode = "cliproxy"
 	}
+	autoCleanHours := entry.AutoCleanHours
+	if autoCleanHours <= 0 {
+		autoCleanHours = 24
+	}
 	return PoolInfo{
-		ID:          entry.ID,
-		Label:       label,
-		BuildMode:   buildMode,
-		OwnerUserID: entry.OwnerUserID,
-		Kind:        entry.Kind,
-		GroupKey:    entry.GroupKey,
-		CreatedAt:   entry.CreatedAt,
+		ID:                      entry.ID,
+		Label:                   label,
+		BuildMode:               buildMode,
+		OwnerUserID:             entry.OwnerUserID,
+		Kind:                    entry.Kind,
+		GroupKey:                entry.GroupKey,
+		CreatedAt:               entry.CreatedAt,
+		AutoCleanEnabled:        entry.AutoCleanEnabled,
+		AutoCleanHours:          autoCleanHours,
+		UsageAutoRefreshEnabled: entry.UsageAutoRefreshEnabled,
+		UsageAutoResetEnabled:   entry.UsageAutoResetEnabled,
 	}
 }
 
@@ -467,4 +490,29 @@ func SetPoolLabel(id, label string) error {
 		}
 	}
 	return fmt.Errorf("pool not found: %s", id)
+}
+
+// SetPrivatePoolSettings updates owner-scoped automation settings without
+// exposing or accepting management connection fields.
+func SetPrivatePoolSettings(id string, ownerUserID int, settings PrivatePoolSettings) error {
+	poolRegMutationMu.Lock()
+	defer poolRegMutationMu.Unlock()
+
+	id = strings.TrimSpace(id)
+	if settings.AutoCleanHours <= 0 {
+		settings.AutoCleanHours = 24
+	}
+	entries := append([]PoolEntry(nil), loadPoolRegistry()...)
+	for i := range entries {
+		entry := normalizePoolEntry(entries[i])
+		if entry.ID != id || entry.Kind != PoolKindPrivate || entry.OwnerUserID != ownerUserID {
+			continue
+		}
+		entries[i].AutoCleanEnabled = settings.AutoCleanEnabled
+		entries[i].AutoCleanHours = settings.AutoCleanHours
+		entries[i].UsageAutoRefreshEnabled = settings.UsageAutoRefreshEnabled
+		entries[i].UsageAutoResetEnabled = settings.UsageAutoResetEnabled
+		return SavePoolRegistry(entries)
+	}
+	return fmt.Errorf("private pool not found")
 }

@@ -5379,6 +5379,26 @@
     "Your pool is ready but has no upstream accounts yet.": "你的号池已就绪，但还没有上游账号。",
     "Your private pool is being created": "正在创建你的私人号池",
     "Your private pool is not ready yet.": "你的私人号池尚未就绪。",
-    "Your private pool needs attention": "你的私人号池需要处理"
+    "Your private pool needs attention": "你的私人号池需要处理",
+    "A “site cannot be reached” page is expected. Press Ctrl+L, Ctrl+C and paste the complete address below.": "出现“无法访问此网站”是正常的。按 Ctrl+L、Ctrl+C，然后把完整地址粘贴到下方。",
+    "Account added. The account list has been refreshed.": "账号已添加，账号列表已刷新。",
+    "Authentication failed": "认证失败",
+    "Codex account added to your private pool": "Codex 账号已加入你的私人号池",
+    "Codex accounts available only to your API keys.": "仅供你自己的 API Key 使用的 Codex 账号。",
+    "Complete login": "完成登录导入",
+    "Complete login in the new tab. It will automatically redirect to localhost:1455.": "在新标签页完成登录，随后会自动跳转到 localhost:1455。",
+    "Copy the localhost callback URL": "复制 localhost 回调地址",
+    "Credentials and MFA stay on OpenAI. This page only receives the one-time localhost callback.": "密码和二次验证始终由 OpenAI 处理，本页只接收一次性的 localhost 回调地址。",
+    "Exchanging the authorization code...": "正在交换授权凭证…",
+    "Import status": "导入状态",
+    "Login session expired": "登录会话已过期",
+    "Login with OpenAI": "通过 OpenAI 登录",
+    "Login with OpenAI, import a ZIP, upload JSON, or paste credentials. Up to 20 accounts.": "可通过 OpenAI 登录、导入 ZIP、上传 JSON 或粘贴凭证，最多添加 20 个账号。",
+    "Open OpenAI login": "打开 OpenAI 登录页",
+    "Open the OpenAI login page": "打开 OpenAI 登录页面",
+    "Preparing a secure login session...": "正在准备安全登录会话…",
+    "Remove this account?": "移除此账号？",
+    "Waiting for the localhost callback URL...": "等待粘贴 localhost 回调地址…",
+    "Your upstream accounts, routing channel, and API keys will be isolated from every other user.": "你的上游账号、路由渠道和 API Key 将与其他所有用户完全隔离。"
   }
 }

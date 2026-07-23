@@ -458,19 +458,22 @@ func StartPoolUsageAutoRefreshTask() {
 }
 
 func runPoolUsageAutoRefreshOnce() {
-	if !common.PoolUsageAutoRefreshEnabled {
-		return
-	}
 	if !common.IsMasterNode {
 		return
 	}
 	for _, pool := range common.ListConfiguredPools() {
+		autoReset := common.PoolUsageAutoResetEnabled
 		if pool.Kind == common.PoolKindPrivate {
-			continue // never consume a user's reset credit from a platform-wide task
+			if !pool.UsageAutoRefreshEnabled {
+				continue
+			}
+			autoReset = pool.UsageAutoResetEnabled
+		} else if !common.PoolUsageAutoRefreshEnabled {
+			continue
 		}
 		// The hourly pass is a full sweep — it is what keeps every account's
 		// percentages fresh; only the manual button narrows to exhausted accounts.
-		if _, err := StartPoolUsageRefreshJob(pool.ID, common.PoolUsageAutoResetEnabled, false); err != nil {
+		if _, err := StartPoolUsageRefreshJob(pool.ID, autoReset, false); err != nil {
 			// An in-flight manual refresh is fine — skip quietly; real failures log.
 			if !strings.Contains(err.Error(), "already running") {
 				common.SysError("pool quota auto-refresh failed for pool " + pool.ID + ": " + err.Error())

@@ -447,7 +447,7 @@ xju-api/
 ## 8. 安全基线
 
 1. **公网暴露面最小**：仅 Caddy 的 `80/443` 对外；new-api `3000`、CLIProxyAPI `8317` **只绑 `127.0.0.1`**（`docker run -p 127.0.0.1:3000:3000`，compose 加 `127.0.0.1:` 前缀，避开默认 `0.0.0.0` 语法坑）。
-2. **OAuth 回调口不对公网**：`1455`(codex)、`54545`(claude)、`51121`(antigravity)、`8085`/`11451`——仅交互式登录时临时启用，走 SSH 隧道（`ssh -p 48687 -L 1455:127.0.0.1:1455`）在本地浏览器完成，常驻期全部注释/不放行。
+2. **OAuth 回调口不对公网**：`1455`(codex)、`54545`(claude)、`51121`(antigravity)、`8085`/`11451`——常驻期全部注释/不放行。普通用户在「我的号池」使用登录导入：浏览器完成 OpenAI 登录后停在本机 `localhost:1455`，用户把完整回调地址粘回页面；new-api 校验固定 origin/path + owner-bound state 后，仅把一次性 code 转交该用户的 CLIProxyAPI。SSH `-L` 仅保留为管理员运维回退。
 3. **ufw 增量**：多项目共用机，只 `allow` 新增（48687/80/443）不 reset；enable 前务必确认 48687 已放行。
 4. **密钥占位**：`config.yaml` 的 `secret-key`/`api-keys`、`docker run` 的 `SESSION_SECRET` 全用 `__PLACEHOLDER__` 或 `$(openssl rand -hex 32)`；真实值只在部署机本地、`.gitignore` 覆盖，不入库。
 5. **鉴权分层**：下游用户持日卡 Token；new-api → CLIProxyAPI 用内部 `api-key`；CLIProxyAPI `remote-management.allow-remote: false`（管理接口仅 localhost）。

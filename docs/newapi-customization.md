@@ -28,6 +28,7 @@
 
 - `registry/xju-modules.ts` —— 自有模块注册中心(侧栏项/开关键/URL 映射/开关元数据)
 - `features/pool/` —— 号池管理页(`index.tsx` 双池 Tabs + zip 导入、`api.ts`)
+- `features/private-pool/` —— 用户「我的号池」引导 + 单池管理工作台 + owner-scoped Codex Web 登录导入
 - `features/invite-codes/` —— 邀请码(`api.ts`、`invite-code-dialog.tsx`、`auth-section.tsx`)
 - `features/keys/components/pool-integration/` —— `cc-switch-dialog.tsx`、`codex-config-dialog.tsx`
 - `routes/_authenticated/pool/` —— /pool 路由
@@ -43,8 +44,8 @@
 
 **后端自有(`server/newapi/`,统一 `xju_` 前缀)**:
 
-- `controller/xju_pool_auth.go`(+test)、`controller/xju_invite_code.go`
-- `service/xju_pool_client.go`、`service/xju_pool_cleanup.go`、`service/xju_invite_code.go`(+test)
+- `controller/xju_pool_auth.go`(+test)、`controller/xju_private_pool_oauth.go`(+test)、`controller/xju_private_pool_settings.go`、`controller/xju_invite_code.go`
+- `service/xju_pool_client.go`、`service/xju_pool_cleanup.go`、`service/xju_private_pool_oauth.go`(+test)、`service/xju_invite_code.go`(+test)
 - `model/xju_invite_code.go`、`common/xju_pool_registry.go`(+test)
 
 **后端注入点**:

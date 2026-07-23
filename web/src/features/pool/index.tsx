@@ -89,136 +89,20 @@ import {
   type PoolAuthFile,
   type PoolInfo,
   type ProbeResult,
-  type ProbeVerdict,
 } from '@/features/pool/api'
 import {
-  isSubscriptionExpired,
+  accountState,
+  cooldownLabel,
+  poolStats,
+  quotaPercentClass,
+  recentActivity,
+  STATE_META,
   subscriptionUntil,
-} from '@/features/pool/subscription'
+  VERDICT_META,
+  verdictBreakdown,
+} from '@/features/pool/workbench-utils'
 import { useStatus } from '@/hooks/use-status'
 import { api } from '@/lib/api'
-
-type AccountState = 'ok' | 'disabled' | 'expired' | 'unavailable'
-
-// xju-api:new — the codex subscription window carried in id_token parses in
-// ./subscription (epoch-guarded). An expired subscription is a certain death
-// (no cooldown will bring it back), so it ranks above the transient
-// `unavailable` cooldown state.
-function accountState(file: PoolAuthFile): AccountState {
-  if (file.disabled) return 'disabled'
-  if (isSubscriptionExpired(file)) return 'expired'
-  if (file.unavailable) return 'unavailable'
-  return 'ok'
-}
-
-const STATE_META: Record<
-  AccountState,
-  { labelKey: string; variant: 'success' | 'neutral' | 'danger' | 'warning' }
-> = {
-  ok: { labelKey: 'Active', variant: 'success' },
-  disabled: { labelKey: 'Disabled', variant: 'neutral' },
-  expired: { labelKey: 'Subscription expired', variant: 'danger' },
-  // Transient cooldown that self-heals when NextRetryAfter passes — amber, not red.
-  unavailable: { labelKey: 'Unavailable', variant: 'warning' },
-}
-
-// xju-api:new — verdict → badge style/label for active verification results.
-const VERDICT_META: Record<
-  ProbeVerdict,
-  { labelKey: string; variant: 'success' | 'neutral' | 'danger' | 'warning' }
-> = {
-  online: { labelKey: 'Online', variant: 'success' },
-  credential_dead: { labelKey: 'Credential dead', variant: 'danger' },
-  subscription_expired: { labelKey: 'Subscription expired', variant: 'danger' },
-  quota_exhausted: { labelKey: 'Quota exhausted', variant: 'warning' },
-  rate_limited: { labelKey: 'Rate limited', variant: 'warning' },
-  unknown: { labelKey: 'Unknown', variant: 'neutral' },
-}
-
-// xju-api:new — pool stats split into two orthogonal dimensions so "enabled"
-// (operator toggle) and "online" (health) never conflate. Total counts every
-// account; enabled counts those the operator hasn't disabled; online prefers
-// the live verify verdict and falls back to the passive health proxy.
-function poolStats(
-  files: PoolAuthFile[],
-  verdicts: Record<string, ProbeResult>
-): { total: number; enabled: number; online: number } {
-  let enabled = 0
-  let online = 0
-  for (const f of files) {
-    if (!f.disabled) enabled++
-    const verdict = verdicts[f.name]?.verdict
-    const isOnline = verdict ? verdict === 'online' : accountState(f) === 'ok'
-    if (isOnline) online++
-  }
-  return { total: files.length, enabled, online }
-}
-
-// xju-api:new — count verify results by verdict, in a stable display order, for
-// the verify-all summary breakdown.
-const VERDICT_ORDER: ProbeVerdict[] = [
-  'online',
-  'credential_dead',
-  'subscription_expired',
-  'quota_exhausted',
-  'rate_limited',
-  'unknown',
-]
-
-function verdictBreakdown(results: ProbeResult[]): [ProbeVerdict, number][] {
-  const counts = new Map<ProbeVerdict, number>()
-  for (const r of results) {
-    counts.set(r.verdict, (counts.get(r.verdict) ?? 0) + 1)
-  }
-  return VERDICT_ORDER.filter((v) => counts.has(v)).map((v) => [
-    v,
-    counts.get(v) ?? 0,
-  ])
-}
-
-// xju-api:new — aggregate the 10-minute recent-request buckets into a success
-// rate + total, so the operator sees "is this account actually being used and
-// succeeding" without opening logs. Returns null when there was no activity.
-function recentActivity(
-  file: PoolAuthFile
-): { total: number; rate: number } | null {
-  const buckets = file.recent_requests
-  if (!Array.isArray(buckets) || buckets.length === 0) return null
-  let ok = 0
-  let bad = 0
-  for (const b of buckets) {
-    ok += b.success || 0
-    bad += b.failed || 0
-  }
-  const total = ok + bad
-  if (total === 0) return null
-  return { total, rate: Math.round((ok / total) * 100) }
-}
-
-// xju-api:new — quota percent → tone class, matching the channels usage
-// dialog's thresholds (≥95 red, ≥80 amber).
-function quotaPercentClass(percent: number): string {
-  if (percent >= 95) return 'text-destructive'
-  if (percent >= 80) return 'text-warning'
-  return ''
-}
-
-// xju-api:new — human-readable time left on the account's cooldown
-// (NextRetryAfter), e.g. "8m" or "2h 5m". Null when there is no active
-// cooldown. Refreshed each time the list refetches. Codex cooldowns run up to
-// 12h (404), so minutes alone read poorly — roll into hours past 60 minutes.
-function cooldownLabel(file: PoolAuthFile): string | null {
-  const raw = file.next_retry_after
-  if (!raw) return null
-  const parsed = new Date(raw)
-  if (Number.isNaN(parsed.getTime())) return null
-  const min = Math.ceil((parsed.getTime() - Date.now()) / 60000)
-  if (min <= 0) return null
-  if (min < 60) return `${min}m`
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return m > 0 ? `${h}h ${m}m` : `${h}h`
-}
 
 export function Pool() {
   const { t } = useTranslation()

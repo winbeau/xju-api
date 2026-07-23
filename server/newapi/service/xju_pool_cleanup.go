@@ -43,9 +43,6 @@ func StartPoolAutoCleanTask() {
 }
 
 func runPoolAutoCleanOnce() {
-	if !common.PoolAutoCleanEnabled {
-		return
-	}
 	// xju-api:edit — 多实例守卫(REFACTOR-PLAN §5.2):sweep 会改池内账号状态,
 	// 多节点部署时只允许 master 执行,避免重复清理与并发状态写。
 	if !common.IsMasterNode {
@@ -55,9 +52,17 @@ func runPoolAutoCleanOnce() {
 	// 消灭「default 自动清、K12 只能手动清」的隐性行为差异。
 	for _, pool := range common.ListConfiguredPools() {
 		if pool.Kind == common.PoolKindPrivate {
-			continue // private-pool lifecycle stays under its owner's explicit control
+			if !pool.AutoCleanEnabled {
+				continue
+			}
+		} else if !common.PoolAutoCleanEnabled {
+			continue
 		}
-		disabled, err := SweepPoolOnceForPool(pool.ID, common.PoolAutoCleanHours)
+		hours := common.PoolAutoCleanHours
+		if pool.Kind == common.PoolKindPrivate {
+			hours = pool.AutoCleanHours
+		}
+		disabled, err := SweepPoolOnceForPool(pool.ID, hours)
 		if err != nil {
 			common.SysError("pool auto-clean sweep failed for pool " + pool.ID + ": " + err.Error())
 			continue

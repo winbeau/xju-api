@@ -344,7 +344,7 @@ func AddPoolAuthFile(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "private pools accept Codex credentials only", "data": gin.H{"skipped": privateSkipped}})
 			return
 		}
-		if err := enforcePrivatePoolAccountLimit(c.Request.Context(), baseURL, secret, items); err != nil {
+		if err := enforcePrivatePoolAccountLimit(c.Request.Context(), poolID, baseURL, secret, items); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 			return
 		}
@@ -541,7 +541,15 @@ func CleanPoolAuthFilesNow(c *gin.Context) {
 		})
 		return
 	}
-	disabled, err := service.SweepPoolOnceForPool(poolID, common.PoolAutoCleanHours)
+	hours := common.PoolAutoCleanHours
+	if isPrivatePoolRequest(c) {
+		if entry, ok := common.GetPoolEntry(poolID); ok && entry.AutoCleanHours > 0 {
+			hours = entry.AutoCleanHours
+		} else {
+			hours = 24
+		}
+	}
+	disabled, err := service.SweepPoolOnceForPool(poolID, hours)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
 		return
@@ -699,6 +707,9 @@ func RefreshPoolAccountUsage(c *gin.Context) {
 	autoReset := common.PoolUsageAutoResetEnabled
 	if isPrivatePoolRequest(c) {
 		autoReset = false
+		if entry, ok := common.GetPoolEntry(poolID); ok {
+			autoReset = entry.UsageAutoResetEnabled
+		}
 	}
 	snap, err := service.StartPoolUsageRefreshJob(poolID, autoReset, true)
 	if err != nil {
@@ -963,7 +974,7 @@ func privatePoolExistingAccountNames(ctx context.Context, baseURL, secret string
 	return names, nil
 }
 
-func enforcePrivatePoolAccountLimit(ctx context.Context, baseURL, secret string, items []poolAuthItem) error {
+func enforcePrivatePoolAccountLimit(ctx context.Context, poolID, baseURL, secret string, items []poolAuthItem) error {
 	existing, err := privatePoolExistingAccountNames(ctx, baseURL, secret)
 	if err != nil {
 		return err
@@ -975,7 +986,8 @@ func enforcePrivatePoolAccountLimit(ctx context.Context, baseURL, secret string,
 		}
 		newNames[item.name] = struct{}{}
 	}
-	if len(existing)+len(newNames) > privateMaxAccounts {
+	reserved := service.CountPrivatePoolOAuthReservations(poolID)
+	if len(existing)+len(newNames)+reserved > privateMaxAccounts {
 		return fmt.Errorf("private pool account limit is %d (currently %d)", privateMaxAccounts, len(existing))
 	}
 	return nil
@@ -1161,7 +1173,7 @@ func ImportPoolAuthFiles(c *gin.Context) {
 		items, privateSkipped = filterPrivatePoolCodexItems(items)
 		skipped = append(skipped, privateSkipped...)
 		if len(items) > 0 {
-			if err := enforcePrivatePoolAccountLimit(c.Request.Context(), baseURL, secret, items); err != nil {
+			if err := enforcePrivatePoolAccountLimit(c.Request.Context(), poolID, baseURL, secret, items); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error(), "data": gin.H{"skipped": skipped}})
 				return
 			}

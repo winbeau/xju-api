@@ -240,12 +240,31 @@ func SetApiRouter(router *gin.Engine) {
 				privatePoolAuthRoute.GET("", controller.ListPoolAuthFiles)
 				privatePoolAuthRoute.POST("", controller.AddPoolAuthFile)
 				privatePoolAuthRoute.POST("/import", controller.ImportPoolAuthFiles)
+				privatePoolAuthRoute.POST("/clean", controller.CleanPoolAuthFilesNow)
 				privatePoolAuthRoute.POST("/verify", controller.VerifyPoolAuthFile)
+				privatePoolAuthRoute.POST("/verify-all", controller.VerifyPoolAuthFilesNow)
+				privatePoolAuthRoute.GET("/verify-all/progress", controller.GetVerifyPoolProgress)
 				privatePoolAuthRoute.GET("/usage", controller.GetPoolAccountUsage)
 				privatePoolAuthRoute.POST("/usage/refresh", controller.RefreshPoolAccountUsage)
 				privatePoolAuthRoute.POST("/usage/reset", controller.ResetPoolAccountQuota)
 				privatePoolAuthRoute.PATCH("/status", controller.SetPoolAuthFileStatus)
 				privatePoolAuthRoute.DELETE("", controller.DeletePoolAuthFile)
+			}
+
+			privatePoolOAuthRoute := privatePoolRoute.Group("/oauth/codex")
+			privatePoolOAuthRoute.Use(middleware.PrivatePoolScope())
+			{
+				privatePoolOAuthRoute.POST("/start", controller.StartPrivatePoolCodexOAuth)
+				privatePoolOAuthRoute.POST("/callback", controller.SubmitPrivatePoolCodexOAuthCallback)
+				privatePoolOAuthRoute.GET("/status", controller.GetPrivatePoolCodexOAuthStatus)
+				privatePoolOAuthRoute.DELETE("/session", controller.CancelPrivatePoolCodexOAuth)
+			}
+
+			privatePoolSettingsRoute := privatePoolRoute.Group("/settings")
+			privatePoolSettingsRoute.Use(middleware.PrivatePoolScope())
+			{
+				privatePoolSettingsRoute.GET("", controller.GetPrivatePoolSettings)
+				privatePoolSettingsRoute.PATCH("", controller.PatchPrivatePoolSettings)
 			}
 		}
 
