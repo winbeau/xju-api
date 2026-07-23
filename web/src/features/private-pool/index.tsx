@@ -463,10 +463,23 @@ export function PrivatePool() {
       <CheckCircle2 className='text-success size-4' />
     )
   }
+  const pageTitle = state?.pool?.label || state?.label || t('My Pool')
 
   return (
     <SectionPageLayout>
-      <SectionPageLayout.Title>{t('My Pool')}</SectionPageLayout.Title>
+      <SectionPageLayout.Title>{pageTitle}</SectionPageLayout.Title>
+      {ready && (
+        <SectionPageLayout.Actions>
+          <Button
+            variant='outline'
+            render={<Link to='/keys' search={{ create: true }} />}
+          >
+            <KeyRound className='size-4' />
+            {t('Create API Key')}
+            <ArrowRight className='size-4' />
+          </Button>
+        </SectionPageLayout.Actions>
+      )}
       <SectionPageLayout.Content>
         <div className='mx-auto flex w-full max-w-[96rem] flex-col gap-5 pb-8'>
           <div className='grid gap-3 md:grid-cols-4'>
@@ -576,37 +589,7 @@ export function PrivatePool() {
           )}
 
           {ready && (
-            <>
-              <Card>
-                <CardContent className='flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between'>
-                  <div>
-                    <div className='flex items-center gap-2'>
-                      <CardTitle className='text-lg'>
-                        {state?.pool?.label || state?.label || t('My Pool')}
-                      </CardTitle>
-                      <StatusBadge
-                        label={t('Ready')}
-                        variant='success'
-                        copyable={false}
-                      />
-                    </div>
-                    <p className='text-muted-foreground mt-1 text-sm'>
-                      {t(
-                        'API Keys you create are locked to this pool and never fall back to another user or the shared pool.'
-                      )}
-                    </p>
-                  </div>
-                  <Button
-                    variant='outline'
-                    render={<Link to='/keys' search={{ create: true }} />}
-                  >
-                    <KeyRound className='size-4' />
-                    {t('Create API Key')}
-                    <ArrowRight className='size-4' />
-                  </Button>
-                </CardContent>
-              </Card>
-
+            <div className='contents'>
               <div className='grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
                 <Card data-card-hover='false'>
                   <CardHeader className='flex flex-row items-start justify-between gap-3 space-y-0'>
@@ -1255,7 +1238,7 @@ export function PrivatePool() {
                   </Card>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
 
