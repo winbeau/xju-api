@@ -371,6 +371,11 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	if err != nil {
 		return nil, fmt.Errorf("get request url failed: %w", err)
 	}
+	if strings.HasPrefix(fullRequestURL, "https://") {
+		fullRequestURL = "wss://" + strings.TrimPrefix(fullRequestURL, "https://")
+	} else if strings.HasPrefix(fullRequestURL, "http://") {
+		fullRequestURL = "ws://" + strings.TrimPrefix(fullRequestURL, "http://")
+	}
 	targetHeader := http.Header{}
 	err = a.SetupRequestHeader(c, &targetHeader, info)
 	if err != nil {
@@ -385,9 +390,19 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	for key, value := range headerOverride {
 		targetHeader.Set(key, value)
 	}
+	for _, key := range []string{"OpenAI-Organization", "OpenAI-Project", "User-Agent", "X-Codex-Turn-State"} {
+		if value := strings.TrimSpace(c.Request.Header.Get(key)); value != "" && targetHeader.Get(key) == "" {
+			targetHeader.Set(key, value)
+		}
+	}
 	targetHeader.Set("Content-Type", c.Request.Header.Get("Content-Type"))
-	targetConn, _, err := websocket.DefaultDialer.Dial(fullRequestURL, targetHeader)
+	targetConn, resp, err := websocket.DefaultDialer.Dial(fullRequestURL, targetHeader)
 	if err != nil {
+		if resp != nil {
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+			return nil, fmt.Errorf("dial failed to %s: upstream returned %d: %s", common.SanitizeURLForLog(fullRequestURL), resp.StatusCode, strings.TrimSpace(string(body)))
+		}
 		return nil, fmt.Errorf("dial failed to %s: %w", common.SanitizeURLForLog(fullRequestURL), err)
 	}
 	// send request body

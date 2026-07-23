@@ -169,6 +169,127 @@ func Distribute() func(c *gin.Context) {
 	}
 }
 
+// SelectChannelForResponsesWebsocket performs the channel-selection portion of
+// Distribute after the first response.create frame reveals the model name.
+// The HTTP upgrade request itself has no body, so the normal middleware cannot
+// select a channel before the WebSocket connection is established.
+func SelectChannelForResponsesWebsocket(c *gin.Context, modelName string) (*model.Channel, *types.NewAPIError) {
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" {
+		return nil, types.NewErrorWithStatusCode(
+			errors.New("model is required"),
+			types.ErrorCodeInvalidRequest,
+			http.StatusBadRequest,
+			types.ErrOptionWithSkipRetry(),
+		)
+	}
+
+	var channel *model.Channel
+	if channelIDValue, ok := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId); ok {
+		channelID, err := strconv.Atoi(fmt.Sprint(channelIDValue))
+		if err != nil {
+			return nil, types.NewErrorWithStatusCode(
+				errors.New("invalid token-specific channel id"),
+				types.ErrorCodeGetChannelFailed,
+				http.StatusBadRequest,
+				types.ErrOptionWithSkipRetry(),
+			)
+		}
+		channel, err = model.GetChannelById(channelID, true)
+		if err != nil || channel == nil {
+			return nil, types.NewErrorWithStatusCode(
+				errors.New("token-specific channel was not found"),
+				types.ErrorCodeGetChannelFailed,
+				http.StatusBadRequest,
+				types.ErrOptionWithSkipRetry(),
+			)
+		}
+		if channel.Status != common.ChannelStatusEnabled {
+			return nil, types.NewErrorWithStatusCode(
+				errors.New("token-specific channel is disabled"),
+				types.ErrorCodeGetChannelFailed,
+				http.StatusForbidden,
+				types.ErrOptionWithSkipRetry(),
+			)
+		}
+	} else {
+		if common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled) {
+			value, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
+			modelLimits, valid := value.(map[string]bool)
+			matchName := ratio_setting.FormatMatchingModelName(modelName)
+			if !ok || !valid || !modelLimits[matchName] {
+				return nil, types.NewErrorWithStatusCode(
+					fmt.Errorf("token is not allowed to use model %s", modelName),
+					types.ErrorCodeAccessDenied,
+					http.StatusForbidden,
+					types.ErrOptionWithSkipRetry(),
+				)
+			}
+		}
+
+		usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+		if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelName, usingGroup); found {
+			preferred, err := model.CacheGetChannel(preferredChannelID)
+			affinityUsable := false
+			if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled &&
+				channelSupportsRequestPath(preferred, c.Request.URL.Path, modelName) {
+				if usingGroup == "auto" {
+					userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+					for _, group := range service.GetUserAutoGroup(userGroup) {
+						if model.IsChannelEnabledForGroupModel(group, modelName, preferred.Id) {
+							common.SetContextKey(c, constant.ContextKeyAutoGroup, group)
+							channel = preferred
+							affinityUsable = true
+							service.MarkChannelAffinityUsed(c, group, preferred.Id)
+							break
+						}
+					}
+				} else if model.IsChannelEnabledForGroupModel(usingGroup, modelName, preferred.Id) {
+					channel = preferred
+					affinityUsable = true
+					service.MarkChannelAffinityUsed(c, usingGroup, preferred.Id)
+				}
+			}
+			if !affinityUsable && !service.ShouldKeepChannelAffinityOnChannelDisabled() {
+				service.ClearCurrentChannelAffinityCache(c)
+			}
+		}
+
+		var err error
+		if channel == nil {
+			channel, _, err = service.CacheGetRandomSatisfiedChannel(&service.RetryParam{
+				Ctx:         c,
+				ModelName:   modelName,
+				TokenGroup:  usingGroup,
+				RequestPath: c.Request.URL.Path,
+				Retry:       common.GetPointer(0),
+			})
+			if err != nil {
+				return nil, types.NewErrorWithStatusCode(
+					fmt.Errorf("failed to select channel for group %s and model %s: %w", usingGroup, modelName, err),
+					types.ErrorCodeGetChannelFailed,
+					http.StatusServiceUnavailable,
+					types.ErrOptionWithSkipRetry(),
+				)
+			}
+		}
+		if channel == nil {
+			return nil, types.NewErrorWithStatusCode(
+				fmt.Errorf("no available channel for group %s and model %s", usingGroup, modelName),
+				types.ErrorCodeModelNotFound,
+				http.StatusServiceUnavailable,
+				types.ErrOptionWithSkipRetry(),
+			)
+		}
+	}
+
+	common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
+	if apiErr := SetupContextForSelectedChannel(c, channel, modelName); apiErr != nil {
+		return nil, apiErr
+	}
+	return channel, nil
+}
+
 // channelSupportsRequestPath reports whether a channel can serve the request path.
 // Only Advanced Custom (type 58) channels are path-checked; all other channel types
 // always pass. A type-58 channel is usable only when one of its routes matches.

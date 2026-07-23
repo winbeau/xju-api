@@ -15,6 +15,8 @@
 api.selab.top {
 	encode zstd gzip
 
+	# Caddy reverse_proxy 原生透传 WebSocket Upgrade；GET /v1/responses
+	# 在 new-api 内完成日卡鉴权/计费后，再连所选 CLIProxyAPI 池。
 	reverse_proxy 127.0.0.1:3000 {
 		header_up X-Real-IP {remote_host}
 		# new-api 原生健康端点
@@ -28,6 +30,7 @@ codex.selab.top {
 	encode zstd gzip
 
 	# CLIProxyAPI 无专用健康端点(PLAN.md §3.3),不设主动健康检查
+	# reverse_proxy 会原生处理 /v1/responses 的 WebSocket Upgrade。
 	reverse_proxy 127.0.0.1:8317 {
 		header_up X-Real-IP {remote_host}
 	}

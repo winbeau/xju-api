@@ -841,6 +841,9 @@ type OpenAIResponsesRequest struct {
 	Model   string          `json:"model"`
 	Input   json.RawMessage `json:"input,omitempty"`
 	Include json.RawMessage `json:"include,omitempty"`
+	// Generate is only used by Responses WebSocket mode. A false value warms
+	// request state without starting model generation.
+	Generate *bool `json:"generate,omitempty"`
 	// 在后台运行推理，暂时还不支持依赖的接口
 	// Background         json.RawMessage `json:"background,omitempty"`
 	Conversation       json.RawMessage `json:"conversation,omitempty"`

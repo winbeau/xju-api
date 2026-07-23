@@ -28,6 +28,7 @@
 ## Codex 配置 / 模型
 
 - **Codex 一键配置** —— API 密钥操作列直达按钮,一键复制 `config.toml` / `auth.json`,去掉 CLI 字样,ChatGPT 花瓣图标。
+- **Responses WebSocket** —— `api.selab.top/v1/responses` 支持 `101 Switching Protocols`;L1 先验日卡、首帧按模型/分组选池,再保持到 CLIProxyAPI 的持久 WebSocket,每个 `response.create` 继续预扣费、按 usage 结算并写用量日志;一键配置默认生成 `supports_websockets = true`。
 - 修 base_url 变 localhost、key 变 `sk-sk` 两个 bug;默认模型改 `gpt-5.6-sol`。
 - **渠道测试识别图像模型** —— `gpt-image*` 走 `/v1/images/generations` 探测,不再误判不可用;移除号池不提供的 `gpt-5.3-codex-spark`。
 - 现役号池模型:`gpt-5.6-sol/terra/luna`、`gpt-5.5`、`gpt-5.4(-mini)`、`codex-auto-review`、`gpt-image-2/1.5`。

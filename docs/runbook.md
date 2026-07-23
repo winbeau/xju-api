@@ -85,6 +85,45 @@ bash deploy/prune-docker.sh && docker system df
 进程。完整实测链路、WSL mirrored networking 注意事项与安全边界见
 [docs/codex-pool-login.md](./codex-pool-login.md)。
 
+## Codex Responses WebSocket
+
+日卡用户继续使用 L1 地址 `https://api.selab.top/v1`。Codex 配置须包含：
+
+```toml
+model_provider = "OpenAI"
+
+[model_providers.OpenAI]
+name = "OpenAI"
+base_url = "https://api.selab.top/v1"
+wire_api = "responses"
+requires_openai_auth = true
+supports_websockets = true
+```
+
+请求链路为：Codex `GET /v1/responses` Upgrade → new-api 校验日卡 → 首个
+`response.create` 读取模型并按 token group 选池 → 对所选 CLIProxyAPI 渠道发起
+上游 Upgrade。连接内只允许一个 in-flight response；每个 turn 都重新校验令牌，
+并走与 HTTP Responses 相同的模型映射、字段过滤、预扣费、usage 结算和日志。
+`generate=false` 预热会退回预扣费，不产生零 token 消费日志。
+
+Caddy `reverse_proxy` 原生支持 WebSocket，无需 Nginx 风格的显式
+`Upgrade`/`Connection` 配置。上线后用一把有效日卡做短时握手检查：
+
+```bash
+curl --http1.1 -i -N --max-time 3 \
+  -H "Authorization: Bearer __DAY_CARD_TOKEN__" \
+  -H "Connection: Upgrade" \
+  -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Version: 13" \
+  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  https://api.selab.top/v1/responses
+```
+
+首行应为 `HTTP/1.1 101 Switching Protocols`；随后连接因测试命令的 3 秒上限
+退出是正常的。若返回 401，先查日卡；若握手后收到
+`do_request_failed`，说明选中的渠道上游没有实现 Responses WebSocket，或
+CLIProxyAPI 容器仍是旧镜像。临时回退可设 `supports_websockets = false`。
+
 ## 双池密钥（default + K12）
 
 两把**独立**的明文管理密钥,同机同目录、互不通用,均被 `.gitignore` 挡、600 权限:

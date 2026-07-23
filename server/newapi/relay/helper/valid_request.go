@@ -134,16 +134,26 @@ func GetAndValidateResponsesRequest(c *gin.Context) (*dto.OpenAIResponsesRequest
 	if err != nil {
 		return nil, err
 	}
-	if request.Model == "" {
-		return nil, errors.New("model is required")
-	}
-	if request.Input == nil {
-		return nil, errors.New("input is required")
-	}
-	if exceedsMaxTokensLimit(request.MaxOutputTokens) {
-		return nil, errors.New("max_output_tokens is invalid")
+	if err = ValidateResponsesRequest(request); err != nil {
+		return nil, err
 	}
 	return request, nil
+}
+
+func ValidateResponsesRequest(request *dto.OpenAIResponsesRequest) error {
+	if request == nil {
+		return errors.New("request is required")
+	}
+	if request.Model == "" {
+		return errors.New("model is required")
+	}
+	if request.Input == nil {
+		return errors.New("input is required")
+	}
+	if exceedsMaxTokensLimit(request.MaxOutputTokens) {
+		return errors.New("max_output_tokens is invalid")
+	}
+	return nil
 }
 
 func GetAndValidateResponsesCompactionRequest(c *gin.Context) (*dto.OpenAIResponsesCompactionRequest, error) {
