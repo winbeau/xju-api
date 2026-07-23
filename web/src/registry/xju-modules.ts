@@ -17,8 +17,8 @@ import { ROLE } from '@/lib/roles'
 // maintenance/sidebar-modules-section.tsx)只 import + 泛型 merge,
 // 不再写死任何 xju 专有字面量。新增自有页面时只改本文件与路由。
 
-/** 侧栏 general 组注入项。 */
-export const XJU_GENERAL_NAV_ITEMS = [
+/** 侧栏 personal 组注入项。私人号池属于当前账号，而非全局控制台。 */
+export const XJU_PERSONAL_NAV_ITEMS = [
   {
     titleKey: 'My Pool',
     url: '/my-pool' as const,
@@ -41,7 +41,7 @@ export const XJU_SIDEBAR_MODULE_DEFAULTS: Record<
   string,
   Record<string, boolean>
 > = {
-  console: { private_pool: true },
+  personal: { private_pool: true },
   admin: { pool: true },
 }
 
@@ -50,7 +50,7 @@ export const XJU_URL_TO_CONFIG: Record<
   string,
   { section: string; module: string }
 > = {
-  '/my-pool': { section: 'console', module: 'private_pool' },
+  '/my-pool': { section: 'personal', module: 'private_pool' },
   '/pool': { section: 'admin', module: 'pool' },
 }
 
@@ -59,7 +59,7 @@ export const XJU_SIDEBAR_MODULE_META: Record<
   string,
   Record<string, { titleKey: string; descriptionKey: string }>
 > = {
-  console: {
+  personal: {
     private_pool: {
       titleKey: 'My Pool',
       descriptionKey: 'Manage the upstream accounts in your private pool.',
