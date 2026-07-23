@@ -5399,6 +5399,9 @@
     "Preparing a secure login session...": "正在准备安全登录会话…",
     "Remove this account?": "移除此账号？",
     "Waiting for the localhost callback URL...": "等待粘贴 localhost 回调地址…",
-    "Your upstream accounts, routing channel, and API keys will be isolated from every other user.": "你的上游账号、路由渠道和 API Key 将与其他所有用户完全隔离。"
+    "Your upstream accounts, routing channel, and API keys will be isolated from every other user.": "你的上游账号、路由渠道和 API Key 将与其他所有用户完全隔离。",
+    "Login, upload, paste JSON, or import a ZIP.": "登录、上传、粘贴 JSON 或导入 ZIP。",
+    "Create API key": "创建 API 密钥",
+    "New keys route only to your private pool.": "新建密钥只会路由到你的私人号池。"
   }
 }

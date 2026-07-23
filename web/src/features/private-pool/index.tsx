@@ -116,32 +116,31 @@ import {
   type PrivatePoolOAuthSession,
 } from '@/features/private-pool/api'
 
-const STEPS = [
-  {
-    icon: CheckCircle2,
-    title: 'Create pool',
-    description: 'Provision your isolated account pool.',
-  },
-  {
-    icon: Upload,
-    title: 'Add accounts',
-    description: 'Login, upload, paste JSON, or import a ZIP.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Verify accounts',
-    description: 'Confirm at least one account is online.',
-  },
-  {
-    icon: KeyRound,
-    title: 'Create API key',
-    description: 'New keys route only to your private pool.',
-  },
-]
-
 export function PrivatePool() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const steps = [
+    {
+      icon: CheckCircle2,
+      title: t('Create pool'),
+      description: t('Provision your isolated account pool.'),
+    },
+    {
+      icon: Upload,
+      title: t('Add accounts'),
+      description: t('Login, upload, paste JSON, or import a ZIP.'),
+    },
+    {
+      icon: ShieldCheck,
+      title: t('Verify accounts'),
+      description: t('Confirm at least one account is online.'),
+    },
+    {
+      icon: KeyRound,
+      title: t('Create API key'),
+      description: t('New keys route only to your private pool.'),
+    },
+  ]
   const fileInputRef = useRef<HTMLInputElement>(null)
   const zipInputRef = useRef<HTMLInputElement>(null)
   const [content, setContent] = useState('')
@@ -483,7 +482,7 @@ export function PrivatePool() {
       <SectionPageLayout.Content>
         <div className='mx-auto flex w-full max-w-[96rem] flex-col gap-5 pb-8'>
           <div className='grid gap-3 md:grid-cols-4'>
-            {STEPS.map((step, index) => {
+            {steps.map((step, index) => {
               const Icon = step.icon
               const complete = index < completedSteps
               return (
@@ -501,10 +500,10 @@ export function PrivatePool() {
                     </div>
                     <div className='min-w-0'>
                       <p className='text-sm font-medium'>
-                        {index + 1}. {t(step.title)}
+                        {index + 1}. {step.title}
                       </p>
                       <p className='text-muted-foreground mt-1 text-xs'>
-                        {t(step.description)}
+                        {step.description}
                       </p>
                     </div>
                   </CardContent>

@@ -5399,6 +5399,9 @@
     "Preparing a secure login session...": "Preparing a secure login session...",
     "Remove this account?": "Remove this account?",
     "Waiting for the localhost callback URL...": "Waiting for the localhost callback URL...",
-    "Your upstream accounts, routing channel, and API keys will be isolated from every other user.": "Your upstream accounts, routing channel, and API keys will be isolated from every other user."
+    "Your upstream accounts, routing channel, and API keys will be isolated from every other user.": "Your upstream accounts, routing channel, and API keys will be isolated from every other user.",
+    "Login, upload, paste JSON, or import a ZIP.": "Login, upload, paste JSON, or import a ZIP.",
+    "Create API key": "Create API key",
+    "New keys route only to your private pool.": "New keys route only to your private pool."
   }
 }
