@@ -36,14 +36,14 @@ docker network inspect xju-net >/dev/null 2>&1 || docker network create xju-net
 # 注意: config.yaml 里的 secret-key 是 bcrypt 哈希、不能当 Bearer 用,故必须走明文 env。
 POOL_MGMT_ENV="${POOL_MGMT_ENV:-/opt/cli-proxy-api/.pool-mgmt.env}"
 POOL_MGMT_SECRET="${POOL_MGMT_SECRET:-$(
-	awk -F= '/^POOL_MGMT_SECRET=/{print $2;exit}' "$POOL_MGMT_ENV" 2>/dev/null
+	awk -F= '/^POOL_MGMT_SECRET=/{print $2;exit}' "$POOL_MGMT_ENV" 2>/dev/null || true
 )}"
 
 # K12 独立号池管理密钥(池感知批量导入 / 号池管理的 k12 目标)。从 .pool-mgmt-k12.env 读,
 # 留空则 new-api 的 k12 端点自动 503、前端不显示 k12 tab,老部署零影响。
 POOL_MGMT_K12_ENV="${POOL_MGMT_K12_ENV:-/opt/cli-proxy-api/.pool-mgmt-k12.env}"
 POOL_K12_MGMT_SECRET="${POOL_K12_MGMT_SECRET:-$(
-	awk -F= '/^POOL_K12_MGMT_SECRET=/{print $2;exit}' "$POOL_MGMT_K12_ENV" 2>/dev/null
+	awk -F= '/^POOL_K12_MGMT_SECRET=/{print $2;exit}' "$POOL_MGMT_K12_ENV" 2>/dev/null || true
 )}"
 
 docker rm -f new-api 2>/dev/null || true
