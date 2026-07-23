@@ -23,6 +23,6 @@ chk "new-api THIRD-PARTY-LICENSES.md 未改动" \
 chk "CLIProxyAPI LICENSE(MIT)未改动" \
     "echo '879792e89cf1bdd6a8d446033ec87e30496f97dcafc4656dc53f641509b346a6  $cproxy/LICENSE' | sha256sum -c --quiet -"
 chk "标记词表:只允许 xju-api:{new|edit|prune|inject}" \
-    "! grep -rn 'xju-api:' '$napi' '$cproxy' '$web' scripts deploy --include='*.go' --include='*.ts' --include='*.tsx' 2>/dev/null | grep -v node_modules | grep -vE 'xju-api:(new|edit|prune|inject)' | grep -q ."
+    "! grep -rn 'xju-api:' '$napi' '$cproxy' '$web' scripts deploy --include='*.go' --include='*.ts' --include='*.tsx' --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build 2>/dev/null | grep -vE 'xju-api:(new|edit|prune|inject)' | grep -q ."
 
 exit $fail

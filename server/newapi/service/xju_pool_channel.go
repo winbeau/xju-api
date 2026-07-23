@@ -5,7 +5,10 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service/relayconvert"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
@@ -13,11 +16,24 @@ import (
 // xju-api:new — pool routing channel (#4 Phase C). A dynamically-created pool is
 // only reachable for relay once a new-api channel routes its group to the pool's
 // cliproxy instance. This mirrors scripts/create-k12-channel.sh in Go: clone an
-// existing pool channel's model set, create an OpenAI-compatible channel keyed by
+// existing pool channel's model set, create an Advanced Custom channel keyed by
 // the pool's internal relay key, and register the group in the ratio/usable-group
-// options so cards in that group bill and route correctly.
+// options so cards in that group bill and route correctly. Advanced Custom keeps
+// Anthropic Messages requests native while the same channel continues to expose
+// CLIProxyAPI's OpenAI-compatible endpoints.
 
-const poolChannelType = 1 // OpenAI-compatible
+const poolChannelType = constant.ChannelTypeAdvancedCustom
+
+const poolClaudeHeaderPassthroughRule = `re:(?i)^(anthropic-|x-claude-|x-stainless-|user-agent$)`
+
+var poolAdvancedCustomPaths = []string{
+	"/v1/messages",
+	"/v1/messages/count_tokens",
+	"/v1/chat/completions",
+	"/v1/completions",
+	"/v1/responses",
+	"/v1/responses/compact",
+}
 
 func poolChannelName(poolID string) string { return "cliproxy-pool-" + poolID }
 
@@ -50,7 +66,7 @@ func poolTemplateModels() (string, error) {
 	// Fallback: any channel still using the cliproxy-pool name prefix.
 	var ch model.Channel
 	if err := model.DB.
-		Where("type = ? AND name LIKE ? AND models <> ''", poolChannelType, "cliproxy-pool%").
+		Where("type IN ? AND name LIKE ? AND models <> ''", []int{constant.ChannelTypeOpenAI, poolChannelType}, "cliproxy-pool%").
 		Order("id").
 		Select("models").
 		First(&ch).Error; err != nil {
@@ -63,13 +79,20 @@ func poolTemplateModels() (string, error) {
 // and registers its immutable group key. Private group keys are intentionally
 // omitted from global UserUsableGroups and are exposed only to their owner.
 func createPoolChannel(poolID, internalKey, baseURL, label, groupKey string, globallyVisible bool) (int, error) {
+	name := poolChannelName(poolID)
+	if existing := findChannelByName(name); existing != 0 {
+		channel, err := model.GetChannelById(existing, false)
+		if err != nil {
+			return 0, err
+		}
+		if _, err = ensurePoolChannelCompatibility(channel); err != nil {
+			return 0, err
+		}
+		return existing, nil
+	}
 	models, err := poolTemplateModels()
 	if err != nil {
 		return 0, err
-	}
-	name := poolChannelName(poolID)
-	if existing := findChannelByName(name); existing != 0 {
-		return existing, nil
 	}
 	groupKey = strings.TrimSpace(groupKey)
 	if groupKey == "" {
@@ -85,6 +108,10 @@ func createPoolChannel(poolID, internalKey, baseURL, label, groupKey string, glo
 		Group:   groupKey,
 		Status:  1, // enabled
 	}
+	applyPoolChannelCompatibility(ch)
+	if err := ch.ValidateSettings(); err != nil {
+		return 0, err
+	}
 	if err := ch.Insert(); err != nil {
 		return 0, err
 	}
@@ -93,6 +120,71 @@ func createPoolChannel(poolID, internalKey, baseURL, label, groupKey string, glo
 		common.SysError("pool channel: group options update failed for " + groupKey + ": " + err.Error())
 	}
 	return ch.Id, nil
+}
+
+func poolAdvancedCustomConfig() *dto.AdvancedCustomConfig {
+	routes := make([]dto.AdvancedCustomRoute, 0, len(poolAdvancedCustomPaths))
+	for _, path := range poolAdvancedCustomPaths {
+		routes = append(routes, dto.AdvancedCustomRoute{
+			IncomingPath: path,
+			UpstreamPath: path,
+			Converter:    relayconvert.ConverterNone,
+		})
+	}
+	return &dto.AdvancedCustomConfig{Routes: routes}
+}
+
+func mergePoolAdvancedCustomConfig(existing *dto.AdvancedCustomConfig) *dto.AdvancedCustomConfig {
+	if existing == nil {
+		return poolAdvancedCustomConfig()
+	}
+	routes := append([]dto.AdvancedCustomRoute(nil), existing.Routes...)
+	for _, path := range poolAdvancedCustomPaths {
+		found := false
+		for index := range routes {
+			if strings.TrimSpace(routes[index].IncomingPath) != path || len(routes[index].Models) != 0 {
+				continue
+			}
+			routes[index].IncomingPath = path
+			routes[index].UpstreamPath = path
+			routes[index].Converter = relayconvert.ConverterNone
+			found = true
+			break
+		}
+		if !found {
+			routes = append(routes, dto.AdvancedCustomRoute{
+				IncomingPath: path,
+				UpstreamPath: path,
+				Converter:    relayconvert.ConverterNone,
+			})
+		}
+	}
+	return &dto.AdvancedCustomConfig{Routes: routes}
+}
+
+// applyPoolChannelCompatibility mutates only the compatibility-owned fields.
+// Identity, routing, credentials, model sets and operational state stay intact.
+func applyPoolChannelCompatibility(ch *model.Channel) {
+	if ch == nil {
+		return
+	}
+	ch.Type = poolChannelType
+
+	settings := ch.GetSetting()
+	settings.PassThroughBodyEnabled = true
+	ch.SetSetting(settings)
+
+	otherSettings := ch.GetOtherSettings()
+	otherSettings.AdvancedCustom = mergePoolAdvancedCustomConfig(otherSettings.AdvancedCustom)
+	ch.SetOtherSettings(otherSettings)
+
+	headerOverride := ch.GetHeaderOverride()
+	headerOverride[poolClaudeHeaderPassthroughRule] = ""
+	encoded, err := common.Marshal(headerOverride)
+	if err == nil {
+		value := string(encoded)
+		ch.HeaderOverride = &value
+	}
 }
 
 // deletePoolChannel removes a pool's routing channel + its group registration.

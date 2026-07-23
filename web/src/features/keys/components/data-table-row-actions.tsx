@@ -31,6 +31,8 @@ import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { IconCodex } from '@/assets/custom/icon-codex'
+import ccSwitchIcon from '@/assets/vendor/cc-switch/app-icon.png'
 import { DataTableRowActionMenu } from '@/components/data-table/core/row-action-menu'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,7 +45,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { IconCodex } from '@/assets/custom/icon-codex'
 import { encodeChannelConnectionInfo } from '@/lib/channel-connection-info'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 
@@ -136,6 +137,14 @@ export function DataTableRowActions<TData>({
     setOpen('codex-config')
   }
 
+  const openCCSwitchConfig = async () => {
+    const realKey = await resolveRealKey(apiKey.id)
+    if (!realKey) return
+    setResolvedKey(realKey)
+    setCurrentRow(apiKey)
+    setOpen('cc-switch')
+  }
+
   return (
     <div className='-ml-1.5 flex items-center gap-1'>
       {/* Codex config is the primary self-serve action for a day-card user, so
@@ -154,6 +163,27 @@ export function DataTableRowActions<TData>({
           <IconCodex className='size-4' />
         </TooltipTrigger>
         <TooltipContent>{t('Codex Config')}</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant='ghost'
+              size='icon-sm'
+              onClick={openCCSwitchConfig}
+              disabled={isRealKeyLoading}
+              aria-label={t('CC Switch Configuration')}
+            />
+          }
+        >
+          {isRealKeyLoading ? (
+            <Loader2 className='size-4 animate-spin' />
+          ) : (
+            <img src={ccSwitchIcon} alt='' className='size-4 rounded-sm' />
+          )}
+        </TooltipTrigger>
+        <TooltipContent>{t('CC Switch Configuration')}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -234,15 +264,7 @@ export function DataTableRowActions<TData>({
           </DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={async () => {
-            const realKey = await resolveRealKey(apiKey.id)
-            if (!realKey) return
-            setResolvedKey(realKey)
-            setCurrentRow(apiKey)
-            setOpen('cc-switch')
-          }}
-        >
+        <DropdownMenuItem onClick={openCCSwitchConfig}>
           {t('CC Switch')}
           <DropdownMenuShortcut>
             <ArrowRightLeft size={16} />

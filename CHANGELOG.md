@@ -7,6 +7,7 @@
 
 ## 号池管理
 
+- **Anthropic / Claude Code 原生兼容** —— 现有 `cliproxy-pool-*` 渠道启动时原地、幂等升级为 Advanced Custom，保留渠道 ID、Group、Key、BaseURL、Models 与启停状态；`/v1/messages`（含 SSE、thinking、tool_use/tool_result）和 `/v1/messages/count_tokens` 保持 Anthropic 协议直达 CLIProxyAPI，同时保留 Chat Completions、Completions、Responses 与 Responses Compact。Claude Code 所需 `Anthropic-*`、`X-Claude-*`、`X-Stainless-*` 和 `User-Agent` 安全透传，用户鉴权头会被号池内部 Key 替换。
 - **私人号池完整工作台 + Web 登录导入** —— 「我的号池」保留四步引导，同时同步账号列表、上传 / ZIP / 粘贴、验活、启停删除、额度 / 重置券、自动清理等单池管理能力；用户和管理员号池工作台都提供「登录」按钮，可直接发起 OpenAI OAuth，复制浏览器失败页中的 localhost 回调地址即可入池，无需 SSH `-L`。管理员登录会绑定当前选中的号池。
 - **私人号池免平台余额限制** —— 私人号池请求继续按与公用号池相同的模型价格计算并写用量日志、用户 `used_quota`、请求数和渠道用量，但不校验、不扣减用户钱包或订阅额度；平台用户额度只限制公用号池。API Key 自身的可选额度仍可作为单 Key 安全阀，默认无限额度的私人 Key 可持续使用。
 - **一键导入号池认证** —— 粘贴 codex `auth.json` 即加号,无需 scp + 重启。
@@ -29,6 +30,7 @@
 
 ## Codex 配置 / 模型
 
+- **CC Switch Claude 一键配置** —— API Token 行在 Codex 图标右侧新增 CC Switch 官方 Logo；配置弹窗默认 Claude 模式，端点固定 `https://api.selab.top`、Full URL 为否，主模型必选且 Haiku/Sonnet/Opus 默认继承主模型，可复制标准 Config JSON 或 Deep Link。Token 默认遮罩，配置只在浏览器本地生成。
 - **Codex 一键配置** —— API 密钥操作列直达按钮,一键复制 `config.toml` / `auth.json`,去掉 CLI 字样,ChatGPT 花瓣图标。
 - **Responses WebSocket** —— `api.selab.top/v1/responses` 支持 `101 Switching Protocols`;L1 先验日卡、首帧按模型/分组选池,再保持到 CLIProxyAPI 的持久 WebSocket,每个 `response.create` 继续预扣费、按 usage 结算并写用量日志;一键配置默认生成 `supports_websockets = true`。
 - 修 base_url 变 localhost、key 变 `sk-sk` 两个 bug;默认模型改 `gpt-5.6-sol`。

@@ -76,6 +76,14 @@ func main() {
 		// for compatibility with old versions
 		common.MemoryCacheEnabled = true
 	}
+
+	// xju-api:new — upgrade every CLIProxyAPI pool channel in place before
+	// channel caches and endpoint pricing are initialized. This preserves ids,
+	// groups, keys, base URLs and models while enabling native Anthropic routes.
+	upgradedPoolChannels, failedPoolChannels := service.ReconcilePoolChannelCompatibility()
+	if upgradedPoolChannels > 0 || failedPoolChannels > 0 {
+		common.SysLog(fmt.Sprintf("pool channel compatibility reconcile complete: upgraded=%d failed=%d", upgradedPoolChannels, failedPoolChannels))
+	}
 	if common.MemoryCacheEnabled {
 		common.SysLog("memory cache enabled")
 		common.SysLog(fmt.Sprintf("sync frequency: %d seconds", common.SyncFrequency))

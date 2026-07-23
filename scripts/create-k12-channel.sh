@@ -6,7 +6,8 @@
 #
 # 做三件事(幂等):
 #   1. 读 channel 1 的 models,克隆给新渠道(避免模型集漂移)。
-#   2. POST /api/channel/ 建 type=1、组 k12、base cli-proxy-api-k12:8318 的渠道
+#   2. POST /api/channel/ 建 type=58 Advanced Custom、组 k12、base
+#      cli-proxy-api-k12:8318 的原生 Anthropic/OpenAI 多协议渠道
 #      (走 admin API 而非直插 SQL —— admin 路径会写 abilities 表,组路由才生效)。
 #   3. 把 k12 加进 GroupRatio(与 default 同倍率)与 UserUsableGroups 两个 option。
 set -euo pipefail
@@ -39,7 +40,7 @@ else
 	BODY="$(jq -nc --arg key "$K12_INTERNAL_KEY" --arg models "$MODELS" '{
 		mode: "single",
 		channel: {
-			type: 1,
+			type: 58,
 			name: "cliproxy-pool-k12",
 			key: $key,
 			base_url: "http://cli-proxy-api-k12:8318",
@@ -47,7 +48,17 @@ else
 			group: "k12",
 			status: 1,
 			priority: 0,
-			weight: 0
+			weight: 0,
+			setting: ({pass_through_body_enabled:true} | tojson),
+			header_override: ({"re:(?i)^(anthropic-|x-claude-|x-stainless-|user-agent$)":""} | tojson),
+			settings: ({advanced_custom:{advanced_routes:[
+				{incoming_path:"/v1/messages",upstream_path:"/v1/messages",converter:"none"},
+				{incoming_path:"/v1/messages/count_tokens",upstream_path:"/v1/messages/count_tokens",converter:"none"},
+				{incoming_path:"/v1/chat/completions",upstream_path:"/v1/chat/completions",converter:"none"},
+				{incoming_path:"/v1/completions",upstream_path:"/v1/completions",converter:"none"},
+				{incoming_path:"/v1/responses",upstream_path:"/v1/responses",converter:"none"},
+				{incoming_path:"/v1/responses/compact",upstream_path:"/v1/responses/compact",converter:"none"}
+			]}} | tojson)
 		}
 	}')"
 	RESP="$(api POST /api/channel/ "$BODY")"

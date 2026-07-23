@@ -138,6 +138,41 @@ func TestProcessHeaderOverride_PassthroughSkipsAcceptEncoding(t *testing.T) {
 	require.False(t, hasAcceptEncoding)
 }
 
+func TestProcessHeaderOverride_ClaudeCodeHeadersPassWithoutClientCredentials(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	ctx.Request.Header.Set("Anthropic-Beta", "prompt-caching-2024-07-31")
+	ctx.Request.Header.Set("X-Claude-Code-Session-Id", "session-123")
+	ctx.Request.Header.Set("X-Stainless-Runtime", "node")
+	ctx.Request.Header.Set("User-Agent", "claude-cli/2.1.0")
+	ctx.Request.Header.Set("Authorization", "Bearer sk-user-token")
+	ctx.Request.Header.Set("X-Api-Key", "sk-user-token")
+	ctx.Request.Header.Set("Cookie", "session=private")
+
+	info := &relaycommon.RelayInfo{
+		IsChannelTest: false,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			HeadersOverride: map[string]any{
+				`re:(?i)^(anthropic-|x-claude-|x-stainless-|user-agent$)`: "",
+			},
+		},
+	}
+
+	headers, err := processHeaderOverride(info, ctx)
+	require.NoError(t, err)
+	require.Equal(t, "prompt-caching-2024-07-31", headers["anthropic-beta"])
+	require.Equal(t, "session-123", headers["x-claude-code-session-id"])
+	require.Equal(t, "node", headers["x-stainless-runtime"])
+	require.Equal(t, "claude-cli/2.1.0", headers["user-agent"])
+	require.NotContains(t, headers, "authorization")
+	require.NotContains(t, headers, "x-api-key")
+	require.NotContains(t, headers, "cookie")
+}
+
 func TestProcessHeaderOverride_PassHeadersTemplateSetsRuntimeHeaders(t *testing.T) {
 	t.Parallel()
 

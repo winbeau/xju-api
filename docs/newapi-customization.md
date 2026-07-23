@@ -30,7 +30,8 @@
 - `features/pool/` —— 管理员号池管理页(`index.tsx` 多池 Tabs + zip / Web 登录导入、`api.ts`)，`codex-login-button.tsx` 为管理员与私人号池共用的 OAuth 交互
 - `features/private-pool/` —— 用户「我的号池」引导 + 单池管理工作台 + owner-scoped Codex Web 登录导入
 - `features/invite-codes/` —— 邀请码(`api.ts`、`invite-code-dialog.tsx`、`auth-section.tsx`)
-- `features/keys/components/pool-integration/` —— `cc-switch-dialog.tsx`、`codex-config-dialog.tsx`
+- `features/keys/components/pool-integration/` —— `cc-switch-dialog.tsx`（Claude 默认、标准 Config JSON / Deep Link、Token 本地遮罩）、`codex-config-dialog.tsx`
+- `assets/vendor/cc-switch/` —— CC Switch 官方 MIT Logo、原许可证与固定提交来源说明
 - `routes/_authenticated/pool/` —— /pool 路由
 
 **前端注入点(上游文件,标 `xju-api:inject` / `edit`)**:
@@ -51,12 +52,14 @@
 
 **后端注入点**:
 
-- `main.go` —— `StartPoolAutoCleanTask()`;embed 单主题化(edit)
+- `main.go` —— 启动期 `ReconcilePoolChannelCompatibility()`、`StartPoolAutoCleanTask()`；embed 单主题化(edit)
 - `router/api-router.go` —— `/api/pool` 路由组(RootAuth)
+- `router/relay-router.go`、`controller/claude_count_tokens.go` —— 原生 `/v1/messages/count_tokens` 走 TokenAuth / Distribute / 私人号池隔离，但不进入生成计费
 - `common/constants.go` —— `InviteCodeRequired` / `PoolAutoCleanEnabled` / `PoolAutoCleanHours` 三变量
 - `model/option.go` —— 三键 OptionMap 登记 + 生效通道(契约注释在文件内)
 - `controller/user.go` —— Register 调用 `service.ConsumeInviteCodeForRegistration`(edit)
 - `middleware/auth.go`、`relay/common/relay_info.go`、`service/billing*.go` / `quota.go` / `task_billing.go` —— 冻结私人号池免用户余额标记，使用 `private_pool` 计费来源；公用号池仍走钱包/订阅
+- `service/xju_pool_channel.go`、`service/xju_pool_channel_compat.go`、`relay/channel/api_request.go` —— 号池 Advanced Custom 六路由、启动幂等升级、Claude Code Header 白名单与用户鉴权头替换
 
 ## 30 天月卡档(留位)
 

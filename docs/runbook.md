@@ -54,6 +54,18 @@ done
 bash deploy/prune-docker.sh && docker system df
 ```
 
+### Anthropic 兼容升级说明（2026-07-24）
+
+New API 启动时会自动 reconcile `cliproxy-pool` / `cliproxy-pool-*` 存量渠道：原地升级为
+Advanced Custom 并补齐 Anthropic / OpenAI 六条原样路由和 Claude Code Header 白名单。
+升级保留渠道 ID、Group、Key、BaseURL、Models、启停状态及已有额外 Advanced Custom 路由；
+重复启动不会产生第二渠道。日志只输出渠道 ID 与成功/失败数，不输出号池内部 Key。
+
+上线前照常备份 `one-api.db`；启动后可在管理员渠道页确认同一渠道 ID 的类型已变为
+Advanced Custom，再分别用 `/v1/messages/count_tokens`、`/v1/messages` 和 `/v1/responses`
+做冒烟测试。用户端 Claude Endpoint 必须填写 `https://api.selab.top`（不带 `/v1`），
+不要让用户直连 `codex.selab.top`。
+
 **回滚** = 用上一版镜像 tag 重跑 `IMAGE=winbeau/xju-newapi:<旧tag> bash deploy/run-newapi.sh`(旧镜像仍在本机;数据在宿主 volume 不受影响)。升级前记下当前 tag。
 
 ## 统一动态池（2026-07-16 迁移完成）

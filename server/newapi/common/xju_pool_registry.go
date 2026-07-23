@@ -357,6 +357,27 @@ func GetPoolEntry(id string) (PoolEntry, bool) {
 	return PoolEntry{}, false
 }
 
+// ListRegisteredPoolChannelIDs returns only routing-channel identifiers from
+// the dynamic registry. It intentionally includes temporarily unconfigured
+// entries (for example, a missing management secret during a rolling restart)
+// and never exposes registry credentials to callers.
+func ListRegisteredPoolChannelIDs() []int {
+	entries := loadPoolRegistry()
+	ids := make([]int, 0, len(entries))
+	seen := make(map[int]struct{})
+	for _, entry := range entries {
+		if entry.ChannelID <= 0 {
+			continue
+		}
+		if _, ok := seen[entry.ChannelID]; ok {
+			continue
+		}
+		seen[entry.ChannelID] = struct{}{}
+		ids = append(ids, entry.ChannelID)
+	}
+	return ids
+}
+
 // FindPrivatePoolByOwner returns the private pool owned by a user. The registry
 // enforces one private pool per owner, so the first match is definitive.
 func FindPrivatePoolByOwner(ownerUserID int) (PoolEntry, bool) {
