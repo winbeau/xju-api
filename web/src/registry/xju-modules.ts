@@ -6,7 +6,7 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
-import { Boxes, Megaphone } from 'lucide-react'
+import { Box, Boxes, Megaphone } from 'lucide-react'
 
 import { ROLE } from '@/lib/roles'
 
@@ -22,7 +22,7 @@ export const XJU_PERSONAL_NAV_ITEMS = [
   {
     titleKey: 'My Pool',
     url: '/my-pool' as const,
-    icon: Boxes,
+    icon: Box,
   },
 ]
 
@@ -33,12 +33,14 @@ export const XJU_ADMIN_NAV_ITEMS = [
     url: '/pool' as const,
     icon: Boxes,
     requiredRole: ROLE.SUPER_ADMIN,
+    placement: 'before-users' as const,
   },
   {
     titleKey: 'Announcement Publishing',
     url: '/system-settings/content/announcements' as const,
     icon: Megaphone,
     requiredRole: ROLE.SUPER_ADMIN,
+    placement: 'after-users' as const,
   },
 ]
 

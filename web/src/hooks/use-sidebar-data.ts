@@ -43,6 +43,17 @@ import {
  */
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
+  const buildXjuAdminItems = (
+    placement: (typeof XJU_ADMIN_NAV_ITEMS)[number]['placement']
+  ) =>
+    XJU_ADMIN_NAV_ITEMS.filter((item) => item.placement === placement).map(
+      (item) => ({
+        title: t(item.titleKey),
+        url: item.url,
+        icon: item.icon,
+        requiredRole: item.requiredRole,
+      })
+    )
 
   // xju-api:prune (PLAN.md §5.2): the chat group (Playground + Chat presets),
   // Wallet, Redemption Codes and Subscriptions entries are removed — the
@@ -100,15 +111,13 @@ export function useSidebarData(): SidebarData {
             icon: Radio,
           },
           // xju-api:inject — 自有 admin 侧栏项由注册中心收敛(registry/xju-modules.ts)
-          ...XJU_ADMIN_NAV_ITEMS.map((item) => ({
-            ...item,
-            title: t(item.titleKey),
-          })),
+          ...buildXjuAdminItems('before-users'),
           {
             title: t('Users'),
             url: '/users',
             icon: Users,
           },
+          ...buildXjuAdminItems('after-users'),
           {
             title: t('System Info'),
             url: '/system-info',

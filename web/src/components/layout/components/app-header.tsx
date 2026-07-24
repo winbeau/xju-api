@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { GitHubRepositoryLink } from '@/components/github-repository-link'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationPopover } from '@/components/notification-popover'
 import { ProfileDropdown } from '@/components/profile-dropdown'
@@ -108,9 +109,10 @@ export function AppHeader({
             />
           )}
           <LanguageSwitcher />
+          <GitHubRepositoryLink />
           {showProfileDropdown && <ProfileDropdown />}
         </div>
       )}
     </Header>
-)
+  )
 }
