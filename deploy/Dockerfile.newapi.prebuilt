@@ -1,8 +1,8 @@
 # deploy/Dockerfile.newapi.prebuilt — Go-only 构建,前端产物预构建后 COPY 进来
 #
-# 唯一镜像构建路径(全量 Dockerfile 已删,git 历史可找回):前端一律先在
-# 本机(claude-vps)`bun run build`,产物放 server/newapi/prebuilt/dist,
-# 由 deploy/build-newapi.sh 编排;tri 上只编 Go(不跑 rspack,不会 OOM)。
+# 唯一镜像构建路径(全量 Dockerfile 已删,git 历史可找回):
+# deploy/build-newapi.sh 先构建前端并把产物放入 server/newapi/prebuilt/dist,
+# 再由本 Dockerfile 编译 Go。SKIP_WEB=1 时可复用外部搬入的现有前端产物。
 #
 # 构建(上下文 = server/newapi/):
 #   docker build -f deploy/Dockerfile.newapi.prebuilt -t winbeau/xju-newapi:<tag> server/newapi

@@ -17,16 +17,18 @@
 > ⚠️ new-api 前端已做换肤 + 裁剪 + 功能增强,**不能 `docker pull` 上游镜像**(会丢定制),必须**自建镜像** `winbeau/xju-newapi:<tag>`。
 
 ```bash
-# new-api: 仓库在 /home/winbeau/opt/xju-api;数据在宿主 volume,换镜像不丢
-cd /home/winbeau/opt/xju-api && git pull --ff-only origin main    # 拉最新定制代码(勿 reset --hard)
-# 前端产物由本机(claude-vps)构建后搬来(tri 跑 bun build 会 OOM):
-#   本机: cd web && bun run build && tar czf /tmp/dist.tgz -C dist .
-#         scp -P 48687 /tmp/dist.tgz winbeau@70.39.193.15:/tmp/
-#   tri:  rm -rf server/newapi/prebuilt/dist && mkdir -p server/newapi/prebuilt/dist \
-#         && tar xzf /tmp/dist.tgz -C server/newapi/prebuilt/dist
-SKIP_WEB=1 bash deploy/build-newapi.sh v0.6.x                    # Go-only 构建(-p 2 压内存峰值)
-IMAGE=winbeau/xju-newapi:v0.6.x bash deploy/run-newapi.sh        # 脚本内含 rm -f 旧容器
-curl -fsS http://127.0.0.1:3000/api/status                       # 验活
+# new-api: 仓库在 /home/winbeau/opt/xju-api;数据在宿主 volume,换镜像不丢。
+# 默认 fast-forward origin/main,在 tri 构建前端 + Go 镜像、换容器并验活;
+# 新版失败时自动尝试恢复部署前镜像。
+cd /home/winbeau/opt/xju-api
+bash deploy/deploy-newapi.sh
+
+# 指定镜像 tag:
+bash deploy/deploy-newapi.sh announcements-20260724
+
+# 已手工 git pull 时跳过拉取;SKIP_WEB=1 仅作低资源/应急通道:
+PULL=0 bash deploy/deploy-newapi.sh
+SKIP_WEB=1 bash deploy/deploy-newapi.sh emergency-tag
 
 # CLIProxyAPI(自建镜像 winbeau/cli-proxy-api:<tag> —— 含仓内 cliproxy 改动,不能追 eceasy 上游)
 cd /home/winbeau/opt/xju-api && git pull --ff-only origin main
@@ -160,9 +162,9 @@ tri 上迁移步骤:
 
 1. **备份先行**:`bash deploy/backup.sh`。
 2. **更新仓库**:`cd /home/winbeau/opt/xju-api && git pull --ff-only origin main`(git 自动应用 rename;或干脆删掉重 clone——仓库无状态,数据都在 `/opt` 宿主卷)。
-3. **prebuilt 新路径**:旧 `new-api/prebuilt/{default-dist,classic-dist}` 作废删除;本机产物今后解包到 `server/newapi/prebuilt/dist`(单产物,见上方升级节)。
+3. **prebuilt 新路径**:旧 `new-api/prebuilt/{default-dist,classic-dist}` 作废删除;tri 完整构建会自动生成 `server/newapi/prebuilt/dist`(单产物)。
 4. **引用检查**:backup cron 走 `deploy/backup.sh` 相对仓库路径未变,无需动;若有 `docker compose -f` 指向仓库内 compose 的命令/别名,文件名改为 `deploy/docker-compose.cliproxy.yml`(`/opt/cli-proxy-api/docker-compose.yml` 落位拷贝不受影响,如需同步内容重新拷一份)。
-5. **构建 + 换容器**:`SKIP_WEB=1 bash deploy/build-newapi.sh <tag>` → `IMAGE=winbeau/xju-newapi:<tag> bash deploy/run-newapi.sh` → 验活。
+5. **构建 + 换容器**:`bash deploy/deploy-newapi.sh <tag>`(默认在 tri 完整构建前端、Go 镜像、换容器并验活)。
 6. **回滚**:布局回滚 = `git checkout d02c62c`(重组前最后一个 commit,旧脚本名照旧用)+ 旧镜像 tag 重跑;数据不涉及。
 
 ## 号池一键开池 host helper(#4 Phase B,一次性安装)
@@ -201,7 +203,7 @@ bash /home/winbeau/opt/xju-api/deploy/prune-docker.sh
 docker system df    # 看回收效果
 ```
 - 升级后新 tag verify 通过即可跑一次,回收被取代的旧构建。
-- 本机(claude-vps)docker build 已坏、无 docker 垃圾;但注意清 `web/dist`、`/tmp/dist.tgz` 等构建临时产物。
+- 构建默认在 claude-tri 进行;重复构建后可运行 `bash deploy/prune-docker.sh` 回收旧镜像与 build cache。
 
 ## 备份 / 恢复
 

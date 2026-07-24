@@ -7,9 +7,8 @@
 # 用法(仓库根目录):
 #   ./deploy/build-newapi.sh              # tag 默认 winbeau/xju-newapi:latest
 #   ./deploy/build-newapi.sh v0.6.0       # 指定 tag
-#   SKIP_WEB=1 ./deploy/build-newapi.sh   # 跳过前端构建 —— 用于 claude-tri:
-#       前端产物在本机(claude-vps)构建后 tar/scp 到 tri,解包为
-#       server/newapi/prebuilt/dist 再跑本脚本(tri 内存紧,勿在其上 bun build)。
+#   SKIP_WEB=1 ./deploy/build-newapi.sh   # 跳过前端构建,复用已有 prebuilt/dist;
+#       仅用于应急回滚、低资源环境或已从其他机器搬入前端产物的场景。
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
