@@ -26,6 +26,7 @@ For commercial licensing, please contact support@quantumnous.com
  * - Size parameter: getLobeIcon("OpenAI", 20)
  */
 import * as LobeIcons from '@lobehub/icons'
+import { Waypoints } from 'lucide-react'
 
 /**
  * Parse a property value from string to appropriate type
@@ -102,6 +103,21 @@ export function getLobeIcon(
   // Parse component path and chained properties
   const segments = trimmedName.split('.')
   const baseKey = segments[0]
+
+  // XJU's Advanced Custom channel is presented as OmniMix: one routing
+  // channel can accept multiple API protocols without impersonating a
+  // third-party provider brand. Waypoints conveys those routes converging.
+  if (baseKey === 'OmniMix') {
+    return (
+      <Waypoints
+        aria-hidden='true'
+        className='text-sky-600 dark:text-sky-400'
+        size={size}
+        strokeWidth={2}
+      />
+    )
+  }
+
   const BaseIcon = (LobeIcons as Record<string, unknown>)[baseKey] as
     | Record<string, unknown>
     | undefined
