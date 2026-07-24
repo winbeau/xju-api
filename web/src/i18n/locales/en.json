@@ -7,6 +7,8 @@
     "Announcement Publishing": "Announcement Publishing",
     "Notification Announcement": "Notification Announcement",
     "Timeline Announcement": "Timeline Announcement",
+    "Tutorial Documentation": "Tutorial Documentation",
+    "Step-by-step guides for private pools, API keys, and client setup.": "Step-by-step guides for private pools, API keys, and client setup.",
     "Manage the notice and timeline shown in the header notification center. Markdown and sanitized HTML are supported with no content length limit.": "Manage the notice and timeline shown in the header notification center. Markdown and sanitized HTML are supported with no content length limit.",
     "Supports Markdown and sanitized HTML. No content length limit.": "Supports Markdown and sanitized HTML. No content length limit.",
     "Optional supplementary information. Markdown and sanitized HTML are supported with no content length limit.": "Optional supplementary information. Markdown and sanitized HTML are supported with no content length limit.",

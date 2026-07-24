@@ -78,6 +78,13 @@ export function SidebarModulesCard() {
           title: t('Usage Logs'),
           description: t('API usage records'),
         },
+        {
+          key: 'docs',
+          title: t('Tutorial Documentation'),
+          description: t(
+            'Step-by-step guides for private pools, API keys, and client setup.'
+          ),
+        },
       ],
     },
     {

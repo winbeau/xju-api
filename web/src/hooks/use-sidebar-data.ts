@@ -32,6 +32,7 @@ import type { SidebarData } from '@/components/layout/types'
 import { ROLE } from '@/lib/roles'
 import {
   XJU_ADMIN_NAV_ITEMS,
+  XJU_GENERAL_NAV_ITEMS,
   XJU_PERSONAL_NAV_ITEMS,
 } from '@/registry/xju-modules'
 
@@ -84,6 +85,10 @@ export function useSidebarData(): SidebarData {
             url: '/usage-logs/common',
             icon: FileText,
           },
+          ...XJU_GENERAL_NAV_ITEMS.map((item) => ({
+            ...item,
+            title: t(item.titleKey),
+          })),
         ],
       },
       {

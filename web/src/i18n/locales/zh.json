@@ -7,6 +7,8 @@
     "Announcement Publishing": "公告发布",
     "Notification Announcement": "通知公告",
     "Timeline Announcement": "时间线公告",
+    "Tutorial Documentation": "教程文档",
+    "Step-by-step guides for private pools, API keys, and client setup.": "私人号池、API 密钥和客户端配置的分步教程。",
     "Manage the notice and timeline shown in the header notification center. Markdown and sanitized HTML are supported with no content length limit.": "管理顶部通知中心中的通知公告与时间线公告。支持 Markdown 和经过安全过滤的 HTML，不限制内容字数。",
     "Supports Markdown and sanitized HTML. No content length limit.": "支持 Markdown 和经过安全过滤的 HTML，不限制内容字数。",
     "Optional supplementary information. Markdown and sanitized HTML are supported with no content length limit.": "可选补充说明。支持 Markdown 和经过安全过滤的 HTML，不限制内容字数。",

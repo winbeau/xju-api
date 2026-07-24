@@ -7,6 +7,8 @@
     "Announcement Publishing": "Публикация объявлений",
     "Notification Announcement": "Уведомление",
     "Timeline Announcement": "Объявление в хронологии",
+    "Tutorial Documentation": "Учебная документация",
+    "Step-by-step guides for private pools, API keys, and client setup.": "Пошаговые руководства по личным пулам, API-ключам и настройке клиентов.",
     "Manage the notice and timeline shown in the header notification center. Markdown and sanitized HTML are supported with no content length limit.": "Управляйте уведомлением и хронологией в центре уведомлений. Markdown и очищенный HTML поддерживаются без ограничения длины.",
     "Supports Markdown and sanitized HTML. No content length limit.": "Markdown и очищенный HTML поддерживаются без ограничения длины.",
     "Optional supplementary information. Markdown and sanitized HTML are supported with no content length limit.": "Необязательная дополнительная информация. Markdown и очищенный HTML поддерживаются без ограничения длины.",

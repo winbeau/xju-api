@@ -6,7 +6,7 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
-import { Box, Boxes, Megaphone } from 'lucide-react'
+import { BookOpenText, Box, Boxes, Megaphone } from 'lucide-react'
 
 import { ROLE } from '@/lib/roles'
 
@@ -16,6 +16,15 @@ import { ROLE } from '@/lib/roles'
 // 上游共享文件(use-sidebar-data.ts / use-sidebar-config.ts /
 // maintenance/sidebar-modules-section.tsx)只 import + 泛型 merge,
 // 不再写死任何 xju 专有字面量。新增自有页面时只改本文件与路由。
+
+/** 侧栏 general 组注入项。 */
+export const XJU_GENERAL_NAV_ITEMS = [
+  {
+    titleKey: 'Tutorial Documentation',
+    url: '/docs' as const,
+    icon: BookOpenText,
+  },
+]
 
 /** 侧栏 personal 组注入项。私人号池属于当前账号，而非全局控制台。 */
 export const XJU_PERSONAL_NAV_ITEMS = [
@@ -49,6 +58,7 @@ export const XJU_SIDEBAR_MODULE_DEFAULTS: Record<
   string,
   Record<string, boolean>
 > = {
+  console: { docs: true },
   personal: { private_pool: true },
   admin: { pool: true, announcements: true },
 }
@@ -58,6 +68,7 @@ export const XJU_URL_TO_CONFIG: Record<
   string,
   { section: string; module: string }
 > = {
+  '/docs': { section: 'console', module: 'docs' },
   '/my-pool': { section: 'personal', module: 'private_pool' },
   '/pool': { section: 'admin', module: 'pool' },
   '/announcements': {
@@ -71,6 +82,13 @@ export const XJU_SIDEBAR_MODULE_META: Record<
   string,
   Record<string, { titleKey: string; descriptionKey: string }>
 > = {
+  console: {
+    docs: {
+      titleKey: 'Tutorial Documentation',
+      descriptionKey:
+        'Step-by-step guides for private pools, API keys, and client setup.',
+    },
+  },
   personal: {
     private_pool: {
       titleKey: 'My Pool',

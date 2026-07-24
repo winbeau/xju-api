@@ -7,6 +7,8 @@
     "Announcement Publishing": "Đăng thông báo",
     "Notification Announcement": "Thông báo",
     "Timeline Announcement": "Thông báo dòng thời gian",
+    "Tutorial Documentation": "Tài liệu hướng dẫn",
+    "Step-by-step guides for private pools, API keys, and client setup.": "Hướng dẫn từng bước cho nhóm riêng, khóa API và cấu hình ứng dụng khách.",
     "Manage the notice and timeline shown in the header notification center. Markdown and sanitized HTML are supported with no content length limit.": "Quản lý thông báo và dòng thời gian trong trung tâm thông báo. Hỗ trợ Markdown và HTML đã làm sạch, không giới hạn độ dài.",
     "Supports Markdown and sanitized HTML. No content length limit.": "Hỗ trợ Markdown và HTML đã làm sạch, không giới hạn độ dài.",
     "Optional supplementary information. Markdown and sanitized HTML are supported with no content length limit.": "Thông tin bổ sung không bắt buộc. Hỗ trợ Markdown và HTML đã làm sạch, không giới hạn độ dài.",
