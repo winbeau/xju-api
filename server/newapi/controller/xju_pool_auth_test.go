@@ -131,6 +131,45 @@ func TestParsePoolAuthAccounts(t *testing.T) {
 		require.Len(t, items, 1)
 		assert.Equal(t, "codex-custom.json", items[0].name)
 	})
+	t.Run("single OpenAI OAuth wrapper unwraps credentials", func(t *testing.T) {
+		blob := `{
+			"name":"Wrapped Account",
+			"platform":"openai",
+			"type":"oauth",
+			"priority":2,
+			"credentials":{
+				"email":"wrapped@example.com",
+				"access_token":"access-token",
+				"refresh_token":"refresh-token",
+				"chatgpt_account_id":"account-123"
+			}
+		}`
+		items := parsePoolAuthAccounts(blob, "")
+		require.Len(t, items, 1)
+		assert.Equal(t, "codex-wrapped-example-com.json", items[0].name)
+
+		var cred map[string]any
+		require.NoError(t, json.Unmarshal([]byte(items[0].content), &cred))
+		assert.Equal(t, "codex", cred["type"])
+		assert.Equal(t, "account-123", cred["account_id"])
+		assert.Equal(t, float64(2), cred["priority"])
+		assert.NotContains(t, cred, "credentials")
+
+		accepted, skipped := filterPrivatePoolCodexItems(items)
+		require.Len(t, accepted, 1)
+		assert.Empty(t, skipped)
+	})
+	t.Run("non-OpenAI OAuth wrapper is not reclassified", func(t *testing.T) {
+		blob := `{"platform":"anthropic","type":"oauth","credentials":{"access_token":"token"}}`
+		items := parsePoolAuthAccounts(blob, "claude.json")
+		require.Len(t, items, 1)
+		assert.JSONEq(t, blob, items[0].content)
+
+		accepted, skipped := filterPrivatePoolCodexItems(items)
+		assert.Empty(t, accepted)
+		require.Len(t, skipped, 1)
+		assert.Contains(t, skipped[0].Reason, "Codex")
+	})
 	t.Run("exporter bundle expands every account", func(t *testing.T) {
 		blob := `{"type":"x","version":1,"accounts":[
 			{"name":"one","credentials":{"email":"one@x.com","access_token":"t1"}},

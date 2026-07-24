@@ -438,13 +438,62 @@ func expandPoolAuthAccounts(list []any) []poolAuthItem {
 
 // singlePoolAuthItem wraps a bare codex object, keeping the caller-supplied name
 // when present (the frontend derives it) and otherwise deriving one from the
-// object's email.
+// object's email. Some exporters wrap a single OpenAI OAuth account as
+// {platform:"openai",type:"oauth",credentials:{...}} instead of placing it in
+// an accounts array. Normalize that shape here so it follows the same path as
+// the already-supported bundle entries.
 func singlePoolAuthItem(obj map[string]any, rawName, content string) poolAuthItem {
+	if cred, ok := singleWrappedCodexCredential(obj); ok {
+		if raw, err := common.Marshal(cred); err == nil {
+			name := strings.TrimSpace(rawName)
+			if name == "" {
+				name = poolAuthAccountName(cred, stringField(obj, "name"), 0)
+			}
+			return poolAuthItem{name: sanitizePoolAuthName(name), content: string(raw)}
+		}
+	}
 	name := strings.TrimSpace(rawName)
 	if name == "" {
 		name = poolAuthAccountName(obj, "", 0)
 	}
 	return poolAuthItem{name: sanitizePoolAuthName(name), content: content}
+}
+
+// singleWrappedCodexCredential recognizes a single-account exporter wrapper
+// and returns the CLIProxyAPI-compatible top-level Codex credential. Requiring
+// an explicit OpenAI/Codex platform prevents another provider's OAuth wrapper
+// from being silently reclassified as Codex.
+func singleWrappedCodexCredential(obj map[string]any) (map[string]any, bool) {
+	inner, ok := obj["credentials"].(map[string]any)
+	if !ok || len(inner) == 0 {
+		return nil, false
+	}
+	platform := strings.ToLower(strings.TrimSpace(stringField(obj, "platform")))
+	if platform != "openai" && platform != "codex" {
+		return nil, false
+	}
+	if stringField(inner, "access_token") == "" &&
+		stringField(inner, "refresh_token") == "" &&
+		stringField(inner, "id_token") == "" {
+		return nil, false
+	}
+
+	cred := make(map[string]any, len(inner)+3)
+	for key, value := range inner {
+		cred[key] = value
+	}
+	cred["type"] = "codex"
+	if stringField(cred, "account_id") == "" {
+		if accountID := stringField(cred, "chatgpt_account_id"); accountID != "" {
+			cred["account_id"] = accountID
+		}
+	}
+	if _, exists := cred["priority"]; !exists {
+		if priority, exists := obj["priority"]; exists {
+			cred["priority"] = priority
+		}
+	}
+	return cred, true
 }
 
 // poolAuthAccountName builds codex-<slug>.json from the account email, falling
