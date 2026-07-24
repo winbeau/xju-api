@@ -87,7 +87,10 @@ export function AppHeader({
 
   return (
     <Header>
-      <SystemBrand variant='inline' />
+      <div className='flex min-w-0 items-center gap-0.5'>
+        <SystemBrand variant='inline' />
+        <GitHubRepositoryLink />
+      </div>
 
       {leftContent ? (
         <div className='ms-2 flex items-center'>{leftContent}</div>
@@ -109,7 +112,6 @@ export function AppHeader({
             />
           )}
           <LanguageSwitcher />
-          <GitHubRepositoryLink />
           {showProfileDropdown && <ProfileDropdown />}
         </div>
       )}

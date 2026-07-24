@@ -46,25 +46,31 @@ export function useUpdateOption() {
 
   return useMutation({
     mutationFn: (request: UpdateOptionRequest) => updateSystemOption(request),
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       if (data.success) {
-        // Always refresh system-options
-        queryClient.invalidateQueries({ queryKey: ['system-options'] })
+        const invalidations = [
+          queryClient.invalidateQueries({ queryKey: ['system-options'] }),
+        ]
 
         if (variables.key === 'Notice') {
-          queryClient.invalidateQueries({ queryKey: ['notice'] })
+          invalidations.push(
+            queryClient.invalidateQueries({ queryKey: ['notice'] })
+          )
         }
 
         // If updating frontend-display-related config, also refresh status
         if (STATUS_RELATED_KEYS.has(variables.key)) {
-          queryClient.invalidateQueries({ queryKey: ['status'] })
           try {
             window.localStorage.removeItem('status')
           } catch {
             /* empty */
           }
+          invalidations.push(
+            queryClient.invalidateQueries({ queryKey: ['status'] })
+          )
         }
 
+        await Promise.all(invalidations)
         toast.success(i18next.t('Setting updated successfully'))
       } else {
         toast.error(data.message || i18next.t('Failed to update setting'))

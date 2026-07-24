@@ -16,9 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useStatus } from '@/hooks/use-status'
+import { useQuery } from '@tanstack/react-query'
 
-import type { AnnouncementItem, ApiInfoItem, FAQItem } from '../types'
+import { useStatus } from '@/hooks/use-status'
+import { getNotice } from '@/lib/api'
+
+import type { ApiInfoItem, FAQItem } from '../types'
 
 /**
  * Get specific list from status data
@@ -42,13 +45,19 @@ export function useApiInfo() {
 }
 
 /**
- * Get announcements list
+ * Get the standalone notification announcement.
  */
-export function useAnnouncements() {
-  return useStatusData<AnnouncementItem>(
-    'announcements_enabled',
-    'announcements'
-  )
+export function useNotice() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['notice'],
+    queryFn: getNotice,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  return {
+    notice: data?.success ? (data.data || '').trim() : '',
+    loading: isLoading,
+  }
 }
 
 /**
@@ -67,7 +76,7 @@ export function useDashboardContentVisibility() {
 
   return {
     apiInfo: hasStatus && status?.api_info_enabled !== false,
-    announcements: hasStatus && status?.announcements_enabled !== false,
+    announcements: hasStatus,
     faq: hasStatus && status?.faq_enabled !== false,
     uptimeKuma: hasStatus && status?.uptime_kuma_enabled !== false,
   }

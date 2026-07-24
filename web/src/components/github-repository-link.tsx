@@ -79,11 +79,11 @@ export function GitHubRepositoryLink() {
       }
     >
       <FaGithub className='size-[1.15rem]' />
-      <span className='flex items-center gap-0.5' aria-hidden='true'>
+      <span className='hidden items-center gap-0.5 md:flex' aria-hidden='true'>
         <Star className='size-3.5' />
         {stars}
       </span>
-      <span className='flex items-center gap-0.5' aria-hidden='true'>
+      <span className='hidden items-center gap-0.5 md:flex' aria-hidden='true'>
         <GitFork className='size-3.5' />
         {forks}
       </span>

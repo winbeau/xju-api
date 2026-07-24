@@ -221,27 +221,33 @@ export function AnnouncementsSection({
     setShowDeleteDialog(true)
   }
 
-  const confirmDelete = () => {
-    if (deleteTarget === 'single' && editingAnnouncement) {
-      setAnnouncements((prev) =>
-        prev.filter((item) => item.id !== editingAnnouncement.id)
-      )
-      setHasChanges(true)
-      toast.success(t('Announcement deleted. Click "Save Settings" to apply.'))
-    } else if (deleteTarget === 'batch') {
-      setAnnouncements((prev) =>
-        prev.filter((item) => !selectedIds.includes(item.id))
-      )
+  const confirmDelete = async () => {
+    const idsToDelete =
+      deleteTarget === 'single' && editingAnnouncement
+        ? [editingAnnouncement.id]
+        : selectedIds
+
+    if (idsToDelete.length === 0) return
+
+    const nextAnnouncements = announcements.filter(
+      (item) => !idsToDelete.includes(item.id)
+    )
+
+    try {
+      const result = await updateOption.mutateAsync({
+        key: 'console_setting.announcements',
+        value: JSON.stringify(nextAnnouncements),
+      })
+      if (!result.success) return
+
+      setAnnouncements(nextAnnouncements)
       setSelectedIds([])
-      setHasChanges(true)
-      toast.success(
-        t('{{count}} announcements deleted. Click "Save Settings" to apply.', {
-          count: selectedIds.length,
-        })
-      )
+      setHasChanges(false)
+      setShowDeleteDialog(false)
+      setEditingAnnouncement(null)
+    } catch {
+      // useUpdateOption already reports the request error.
     }
-    setShowDeleteDialog(false)
-    setEditingAnnouncement(null)
   }
 
   const handleSubmitForm = (values: AnnouncementFormValues) => {
@@ -601,8 +607,12 @@ export function AnnouncementsSection({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant='destructive' onClick={confirmDelete}>
-              {t('Delete')}
+            <AlertDialogAction
+              variant='destructive'
+              disabled={updateOption.isPending}
+              onClick={() => void confirmDelete()}
+            >
+              {updateOption.isPending ? t('Deleting...') : t('Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
