@@ -50,7 +50,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -77,19 +76,14 @@ type Announcement = {
 type AnnouncementsSectionProps = {
   enabled: boolean
   data: string
+  title?: string
 }
 
 const announcementSchema = z.object({
-  content: z
-    .string()
-    .min(1, 'Content is required')
-    .max(500, 'Content must be less than 500 characters'),
+  content: z.string().min(1, 'Content is required'),
   publishDate: z.string().min(1, 'Publish date is required'),
   type: z.enum(['default', 'ongoing', 'success', 'warning', 'error']),
-  extra: z
-    .string()
-    .max(100, 'Extra must be less than 100 characters')
-    .optional(),
+  extra: z.string().optional(),
 })
 
 type AnnouncementFormValues = z.infer<typeof announcementSchema>
@@ -132,6 +126,7 @@ const typeOptions = [
 export function AnnouncementsSection({
   enabled,
   data,
+  title,
 }: AnnouncementsSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
@@ -177,14 +172,15 @@ export function AnnouncementsSection({
 
   const handleToggleEnabled = async (checked: boolean) => {
     try {
-      await updateOption.mutateAsync({
+      const result = await updateOption.mutateAsync({
         key: 'console_setting.announcements_enabled',
         value: checked,
       })
-      setIsEnabled(checked)
-      toast.success(t('Setting saved'))
+      if (result.success) {
+        setIsEnabled(checked)
+      }
     } catch {
-      toast.error(t('Failed to update setting'))
+      // useUpdateOption already reports the request error.
     }
   }
 
@@ -267,14 +263,15 @@ export function AnnouncementsSection({
 
   const handleSaveAll = async () => {
     try {
-      await updateOption.mutateAsync({
+      const result = await updateOption.mutateAsync({
         key: 'console_setting.announcements',
         value: JSON.stringify(announcements),
       })
-      setHasChanges(false)
-      toast.success(t('Announcements saved successfully'))
+      if (result.success) {
+        setHasChanges(false)
+      }
     } catch {
-      toast.error(t('Failed to save announcements'))
+      // useUpdateOption already reports the request error.
     }
   }
 
@@ -310,7 +307,7 @@ export function AnnouncementsSection({
   }
 
   return (
-    <SettingsSection title={t('Announcement Publishing')}>
+    <SettingsSection title={title ?? t('Announcement Publishing')}>
       <div className='space-y-4'>
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2'>
@@ -485,7 +482,9 @@ export function AnnouncementsSection({
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('Maximum 500 characters. Supports Markdown and HTML.')}
+                    {t(
+                      'Supports Markdown and sanitized HTML. No content length limit.'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -569,14 +568,15 @@ export function AnnouncementsSection({
                 <FormItem>
                   <FormLabel>{t('Extra Notes (Optional)')}</FormLabel>
                   <FormControl>
-                    <Input
+                    <Textarea
                       placeholder={t('Additional information')}
+                      rows={3}
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Optional supplementary information (max 100 characters)'
+                      'Optional supplementary information. Markdown and sanitized HTML are supported with no content length limit.'
                     )}
                   </FormDescription>
                   <FormMessage />

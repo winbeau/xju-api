@@ -37,15 +37,11 @@ function hashString(input: string): string {
 }
 
 /**
- * Generate a unique key for an announcement
- * Prefer backend id, fall back to a content hash so edits register
+ * Generate a versioned key for an announcement. The id identifies the item,
+ * while the fingerprint makes an edited/re-published item unread again.
  */
 function getAnnouncementKey(item: Record<string, unknown>): string {
   if (!item) return ''
-
-  if (item.id !== undefined && item.id !== null) {
-    return `id:${item.id}`
-  }
 
   const fingerprint = JSON.stringify({
     publishDate: (item?.publishDate as string) || '',
@@ -55,7 +51,13 @@ function getAnnouncementKey(item: Record<string, unknown>): string {
     title: ((item?.title as string) || '').trim(),
     link: ((item?.link as string) || '').trim(),
   })
-  return `hash:${hashString(fingerprint)}`
+  const version = hashString(fingerprint)
+
+  if (item.id !== undefined && item.id !== null) {
+    return `id:${item.id}:hash:${version}`
+  }
+
+  return `hash:${version}`
 }
 
 /**
@@ -82,10 +84,16 @@ export function useNotifications() {
   // Fetch Announcements from status
   const { status, loading: statusLoading } = useStatus()
   const announcementsEnabled = status?.announcements_enabled ?? false
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const announcements: Record<string, unknown>[] = announcementsEnabled
-    ? ((status?.announcements || []) as Record<string, unknown>[]).slice(0, 20)
-    : []
+  const announcements = useMemo<Record<string, unknown>[]>(
+    () =>
+      announcementsEnabled
+        ? ((status?.announcements || []) as Record<string, unknown>[]).slice(
+            0,
+            20
+          )
+        : [],
+    [announcementsEnabled, status?.announcements]
+  )
 
   // Notification store
   const {

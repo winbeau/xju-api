@@ -37,7 +37,7 @@ export const XJU_ADMIN_NAV_ITEMS = [
   },
   {
     titleKey: 'Announcement Publishing',
-    url: '/system-settings/content/announcements' as const,
+    url: '/announcements' as const,
     icon: Megaphone,
     requiredRole: ROLE.SUPER_ADMIN,
     placement: 'after-users' as const,
@@ -60,7 +60,7 @@ export const XJU_URL_TO_CONFIG: Record<
 > = {
   '/my-pool': { section: 'personal', module: 'private_pool' },
   '/pool': { section: 'admin', module: 'pool' },
-  '/system-settings/content/announcements': {
+  '/announcements': {
     section: 'admin',
     module: 'announcements',
   },

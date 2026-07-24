@@ -17,14 +17,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Save } from 'lucide-react'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
 
+import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -45,9 +48,15 @@ type NoticeFormValues = z.infer<typeof noticeSchema>
 
 type NoticeSectionProps = {
   defaultValue: string
+  inlineActions?: boolean
+  title?: string
 }
 
-export function NoticeSection({ defaultValue }: NoticeSectionProps) {
+export function NoticeSection({
+  defaultValue,
+  inlineActions = false,
+  title,
+}: NoticeSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
   const form = useForm<NoticeFormValues>({
@@ -63,24 +72,31 @@ export function NoticeSection({ defaultValue }: NoticeSectionProps) {
 
   const onSubmit = async (values: NoticeFormValues) => {
     const normalized = values.Notice ?? ''
-    if (normalized === (defaultValue ?? '')) {
-      return
+    try {
+      const result = await updateOption.mutateAsync({
+        key: 'Notice',
+        value: normalized,
+      })
+      if (result.success) {
+        form.reset({ Notice: normalized })
+      }
+    } catch {
+      // useUpdateOption already reports the request error.
     }
-    await updateOption.mutateAsync({
-      key: 'Notice',
-      value: normalized,
-    })
   }
 
   return (
-    <SettingsSection title={t('System Notice')}>
+    <SettingsSection title={title ?? t('System Notice')}>
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
-          <SettingsPageFormActions
-            onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending}
-            saveLabel='Save notice'
-          />
+          {!inlineActions && (
+            <SettingsPageFormActions
+              onSave={form.handleSubmit(onSubmit)}
+              isSaving={updateOption.isPending}
+              isSaveDisabled={!form.formState.isDirty}
+              saveLabel='Save notice'
+            />
+          )}
           <FormField
             control={form.control}
             name='Notice'
@@ -96,10 +112,29 @@ export function NoticeSection({ defaultValue }: NoticeSectionProps) {
                     {...field}
                   />
                 </FormControl>
+                <FormDescription>
+                  {t(
+                    'Supports Markdown and sanitized HTML. No content length limit.'
+                  )}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
+          {inlineActions && (
+            <div data-settings-form-span='full' className='flex justify-end'>
+              <Button
+                type='submit'
+                size='sm'
+                disabled={updateOption.isPending || !form.formState.isDirty}
+              >
+                <Save data-icon='inline-start' />
+                <span>
+                  {t(updateOption.isPending ? 'Saving...' : 'Save notice')}
+                </span>
+              </Button>
+            </div>
+          )}
         </SettingsForm>
       </Form>
     </SettingsSection>
