@@ -99,7 +99,9 @@ PULL=0 PRUNE=0 HEALTH_URL="$LOCAL_HEALTH_URL" \
 
 echo "==> [4/5] 清理 Docker 构建垃圾"
 if [[ "$PRUNE" == 1 ]]; then
-	bash "$REPO_ROOT/deploy/prune-docker.sh"
+	if ! bash "$REPO_ROOT/deploy/prune-docker.sh"; then
+		echo "WARN: Docker 清理未完全成功,继续执行部署后健康检查。" >&2
+	fi
 else
 	echo "==> PRUNE=0,跳过 Docker 清理"
 fi

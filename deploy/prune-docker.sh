@@ -11,31 +11,63 @@ set -uo pipefail
 KEEP="${KEEP:-2}"                 # 每个自建 repo 保留最新 N 个 tag(含回滚锚)
 CACHE_KEEP="${CACHE_KEEP:-3GB}"   # build cache 保留上限
 REPOS=("winbeau/xju-newapi" "winbeau/cli-proxy-api")
+fail=0
 
-echo "== 清理前 =="; docker system df
+show_system_df() {
+	local output
+	if output="$(docker system df 2>&1)"; then
+		printf '%s\n' "$output"
+		return 0
+	fi
+
+	printf '%s\n' "$output" >&2
+	echo "WARN: Docker/containerd 占用统计失败;清理脚本继续,请检查输出中的容器 ID 与缺失 snapshot。" >&2
+	return 0
+}
+
+echo "== 清理前 =="
+show_system_df
 
 # 1) dangling 孤儿层
-docker image prune -f
+if ! docker image prune -f; then
+	echo "WARN: dangling 镜像清理失败" >&2
+	fail=1
+fi
 
 # 2) 每个自建 repo 只留最新 KEEP 个 tag(按创建时间倒序),跳过运行中容器在用的镜像
-inuse="$(docker ps --format '{{.Image}}' | sort -u)"
-for repo in "${REPOS[@]}"; do
-	mapfile -t tags < <(docker images "$repo" --format '{{.CreatedAt}}\t{{.Tag}}' \
-		| sort -r | cut -f2)
-	i=0
-	for tag in "${tags[@]}"; do
-		[ "$tag" = "<none>" ] && continue
-		i=$((i + 1))
-		[ "$i" -le "$KEEP" ] && continue
-		img="$repo:$tag"
-		if grep -qx "$img" <<<"$inuse"; then
-			echo "  跳过(运行中): $img"; continue
+if ! inuse="$(docker ps --format '{{.Image}}' | sort -u)"; then
+	echo "WARN: 无法读取运行中容器,为避免误删已跳过旧 tag 清理。" >&2
+	fail=1
+else
+	for repo in "${REPOS[@]}"; do
+		if ! image_rows="$(docker images "$repo" --format '{{.CreatedAt}}\t{{.Tag}}')"; then
+			echo "WARN: 无法列出 $repo 镜像,已跳过该仓库的旧 tag 清理。" >&2
+			fail=1
+			continue
 		fi
-		echo "  删除旧 tag: $img"; docker rmi "$img" >/dev/null 2>&1 || true
+		mapfile -t tags < <(printf '%s\n' "$image_rows" | sort -r | cut -f2)
+		i=0
+		for tag in "${tags[@]}"; do
+			[ "$tag" = "<none>" ] && continue
+			i=$((i + 1))
+			[ "$i" -le "$KEEP" ] && continue
+			img="$repo:$tag"
+			if grep -qx "$img" <<<"$inuse"; then
+				echo "  跳过(运行中): $img"
+				continue
+			fi
+			echo "  删除旧 tag: $img"
+			docker rmi "$img" >/dev/null 2>&1 || true
+		done
 	done
-done
+fi
 
 # 3) build cache 按上限回收(保留增量速度,不清空)
-docker builder prune -f --keep-storage "$CACHE_KEEP"
+if ! docker builder prune -f --keep-storage "$CACHE_KEEP"; then
+	echo "WARN: Docker build cache 清理失败" >&2
+	fail=1
+fi
 
-echo "== 清理后 =="; docker system df
+echo "== 清理后 =="
+show_system_df
+exit "$fail"

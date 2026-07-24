@@ -204,6 +204,7 @@ docker system df    # 看回收效果
 ```
 - 升级后新 tag verify 通过即可跑一次,回收被取代的旧构建。
 - 构建默认在 claude-tri 进行;重复构建后可运行 `bash deploy/prune-docker.sh` 回收旧镜像与 build cache。
+- `docker system df` 若因 containerd 遗留的缺失 snapshot 报错,清理脚本会记录警告并让总部署继续做 API/服务验活;按错误中的容器 ID 定位后再单独清理。
 
 ## 备份 / 恢复
 
