@@ -60,9 +60,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Combobox } from '@/components/ui/combobox'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
   addPoolAuthFile,
@@ -108,6 +108,11 @@ import {
 } from '@/features/pool/workbench-utils'
 import { useStatus } from '@/hooks/use-status'
 import { api } from '@/lib/api'
+
+function poolDisplayLabel(pool: PoolInfo): string {
+  if (pool.kind !== 'private') return pool.label
+  return `@${pool.owner_username || pool.owner_user_id || pool.id}`
+}
 
 export function Pool() {
   const { t } = useTranslation()
@@ -476,38 +481,25 @@ export function Pool() {
           </Badge>
         </span>
       </SectionPageLayout.Title>
-      {/* xju-api:edit — pool tab nav + create action share the title row, so
-          switching/creating pools reads as a top-level action. */}
+      {/* xju-api:edit — the searchable pool switcher + create action share the
+          title row. Private pools use their concise @username identity. */}
       <SectionPageLayout.Actions>
         {pools.length > 1 && (
-          <Tabs
+          <Combobox
+            options={pools.map((item) => ({
+              value: item.id,
+              label: poolDisplayLabel(item),
+            }))}
             value={pool}
             onValueChange={(value) => {
-              setPool(String(value))
+              if (!value) return
+              setPool(value)
               setImportResult(null)
             }}
-          >
-            <TabsList className='h-auto gap-1 p-1'>
-              {pools.map((p) => (
-                <TabsTrigger
-                  key={p.id}
-                  value={p.id}
-                  className='px-3 py-1 text-sm font-medium'
-                >
-                  <span className='flex min-w-0 flex-col items-start leading-tight'>
-                    <span className='max-w-36 truncate'>{p.label}</span>
-                    {p.kind === 'private' && (
-                      <span className='text-muted-foreground max-w-36 truncate text-[10px] font-normal'>
-                        {p.owner_username
-                          ? `@${p.owner_username}`
-                          : `#${p.owner_user_id}`}
-                      </span>
-                    )}
-                  </span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+            placeholder={t('Search pools...')}
+            emptyText={t('No results found')}
+            className='w-48 sm:w-60'
+          />
         )}
         <Button
           type='button'
