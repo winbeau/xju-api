@@ -4,6 +4,8 @@
     "1000": "1000",
     "10000": "10000",
     "{{value}} tokens": "{{value}} tokens",
+    "Announcement Publishing": "お知らせの公開",
+    "Publish and manage platform announcements.": "プラットフォームのお知らせを公開・管理します。",
     "Point any OpenAI-compatible client at the gateway.": "Point any OpenAI-compatible client at the gateway.",
     "Track your requests and remaining card time.": "Track your requests and remaining card time.",
     "An OpenAI-compatible AI API relay": "An OpenAI-compatible AI API relay",

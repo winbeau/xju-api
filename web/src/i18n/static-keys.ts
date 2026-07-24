@@ -30,6 +30,8 @@ export const STATIC_I18N_KEYS = [
   // Sidebar views (drill-in workspaces)
   'System Settings',
   'Back to Dashboard',
+  'Announcement Publishing',
+  'Publish and manage platform announcements.',
   'Auto-disable rules',
   'Channel health checks',
   'Request retry',

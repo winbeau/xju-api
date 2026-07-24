@@ -4,6 +4,8 @@
     "1000": "1000",
     "10000": "10000",
     "{{value}} tokens": "{{value}} tokens",
+    "Announcement Publishing": "公告发布",
+    "Publish and manage platform announcements.": "发布并管理平台公告。",
     "Point any OpenAI-compatible client at the gateway.": "把任意兼容 OpenAI 的客户端指向本服务即可。",
     "Track your requests and remaining card time.": "查看请求记录和剩余卡时间。",
     "An OpenAI-compatible AI API relay": "兼容 OpenAI 的 AI API 中转",

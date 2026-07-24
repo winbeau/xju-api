@@ -6,7 +6,7 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
-import { Boxes } from 'lucide-react'
+import { Boxes, Megaphone } from 'lucide-react'
 
 import { ROLE } from '@/lib/roles'
 
@@ -34,6 +34,12 @@ export const XJU_ADMIN_NAV_ITEMS = [
     icon: Boxes,
     requiredRole: ROLE.SUPER_ADMIN,
   },
+  {
+    titleKey: 'Announcement Publishing',
+    url: '/system-settings/content/announcements' as const,
+    icon: Megaphone,
+    requiredRole: ROLE.SUPER_ADMIN,
+  },
 ]
 
 /** 侧栏模块开关默认值(merge 进 DEFAULT_SIDEBAR_MODULES 对应 section)。 */
@@ -42,7 +48,7 @@ export const XJU_SIDEBAR_MODULE_DEFAULTS: Record<
   Record<string, boolean>
 > = {
   personal: { private_pool: true },
-  admin: { pool: true },
+  admin: { pool: true, announcements: true },
 }
 
 /** URL → 配置键映射(merge 进 URL_TO_CONFIG_MAP)。 */
@@ -52,6 +58,10 @@ export const XJU_URL_TO_CONFIG: Record<
 > = {
   '/my-pool': { section: 'personal', module: 'private_pool' },
   '/pool': { section: 'admin', module: 'pool' },
+  '/system-settings/content/announcements': {
+    section: 'admin',
+    module: 'announcements',
+  },
 }
 
 /** 管理端「侧栏模块」开关面板的标题/描述元数据(消费点过 t())。 */
@@ -69,6 +79,10 @@ export const XJU_SIDEBAR_MODULE_META: Record<
     pool: {
       titleKey: 'Account Pool',
       descriptionKey: 'Manage upstream codex accounts in the shared pool.',
+    },
+    announcements: {
+      titleKey: 'Announcement Publishing',
+      descriptionKey: 'Publish and manage platform announcements.',
     },
   },
 }

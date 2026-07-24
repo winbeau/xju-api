@@ -53,7 +53,7 @@ const CONTENT_SECTIONS = [
   },
   {
     id: 'announcements',
-    titleKey: 'Announcements',
+    titleKey: 'Announcement Publishing',
     build: (settings: ContentSettings) => (
       <AnnouncementsSection
         enabled={settings['console_setting.announcements_enabled']}
