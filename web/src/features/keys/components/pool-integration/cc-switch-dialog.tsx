@@ -249,24 +249,6 @@ export function CCSwitchDialog(props: Props) {
         </div>
 
         <section className='bg-muted/35 space-y-3 rounded-lg border p-4'>
-          <div className='flex items-center justify-between gap-3'>
-            <Label>{t('API Endpoint')}</Label>
-            <span className='text-muted-foreground text-xs'>
-              {t('Full URL')}: {t('No')}
-            </span>
-          </div>
-          <div className='flex gap-2'>
-            <Input value={endpoint} readOnly className='font-mono text-xs' />
-            <Button
-              type='button'
-              variant='outline'
-              size='icon'
-              onClick={() => void copyValue(endpoint)}
-              aria-label={t('Copy Endpoint')}
-            >
-              <Copy className='size-4' />
-            </Button>
-          </div>
           <div className='space-y-2'>
             <div className='flex items-center justify-between gap-3'>
               <Label>{t('API Key')}</Label>
@@ -300,6 +282,26 @@ export function CCSwitchDialog(props: Props) {
                   }
                 }}
                 aria-label={t('Copy API key')}
+              >
+                <Copy className='size-4' />
+              </Button>
+            </div>
+          </div>
+          <div className='space-y-2'>
+            <div className='flex items-center justify-between gap-3'>
+              <Label>{t('API Endpoint')}</Label>
+              <span className='text-muted-foreground text-xs'>
+                {t('Full URL')}: {t('No')}
+              </span>
+            </div>
+            <div className='flex gap-2'>
+              <Input value={endpoint} readOnly className='font-mono text-xs' />
+              <Button
+                type='button'
+                variant='outline'
+                size='icon'
+                onClick={() => void copyValue(endpoint)}
+                aria-label={t('Copy Endpoint')}
               >
                 <Copy className='size-4' />
               </Button>
