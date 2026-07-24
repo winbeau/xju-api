@@ -32,7 +32,15 @@ import { Textarea } from '@/components/ui/textarea'
 import { getUserModels } from '@/lib/api'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 
-const PUBLIC_API_ENDPOINT = 'https://api.selab.top'
+import {
+  PUBLIC_API_ENDPOINT,
+  XJU_CLAUDE_DEFAULT_MODELS,
+  buildCCSwitchURL,
+  buildClaudeConfig,
+  endpointForApp,
+  type AppType,
+  type Models,
+} from './cc-switch-config'
 
 const APP_CONFIGS = {
   claude: {
@@ -55,13 +63,7 @@ const CLAUDE_ADVANCED_MODELS = [
   { key: 'opusModel', labelKey: 'Opus Model' },
 ] as const
 
-type AppType = keyof typeof APP_CONFIGS
 type ClaudeAdvancedModelKey = (typeof CLAUDE_ADVANCED_MODELS)[number]['key']
-type Models = Record<string, string>
-
-function endpointForApp(app: AppType): string {
-  return app === 'codex' ? `${PUBLIC_API_ENDPOINT}/v1` : PUBLIC_API_ENDPOINT
-}
 
 function normalizedToken(tokenKey: string): string {
   if (!tokenKey) return ''
@@ -74,51 +76,6 @@ function maskedToken(token: string): string {
   return `${token.slice(0, 7)}••••••••${token.slice(-4)}`
 }
 
-function resolvedClaudeModels(models: Models) {
-  const primary = models.model || ''
-  return {
-    model: primary,
-    haikuModel: models.haikuModel || primary,
-    sonnetModel: models.sonnetModel || primary,
-    opusModel: models.opusModel || primary,
-  }
-}
-
-function buildClaudeConfig(token: string, models: Models) {
-  const resolved = resolvedClaudeModels(models)
-  return {
-    env: {
-      ANTHROPIC_BASE_URL: PUBLIC_API_ENDPOINT,
-      ANTHROPIC_AUTH_TOKEN: token,
-      ANTHROPIC_MODEL: resolved.model,
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: resolved.haikuModel,
-      ANTHROPIC_DEFAULT_SONNET_MODEL: resolved.sonnetModel,
-      ANTHROPIC_DEFAULT_OPUS_MODEL: resolved.opusModel,
-    },
-  }
-}
-
-function buildCCSwitchURL(
-  app: AppType,
-  name: string,
-  models: Models,
-  apiKey: string
-): string {
-  const params = new URLSearchParams()
-  const resolved = app === 'claude' ? resolvedClaudeModels(models) : models
-  params.set('resource', 'provider')
-  params.set('app', app)
-  params.set('name', name)
-  params.set('endpoint', endpointForApp(app))
-  params.set('apiKey', apiKey)
-  for (const [key, value] of Object.entries(resolved)) {
-    if (value) params.set(key, value)
-  }
-  params.set('homepage', PUBLIC_API_ENDPOINT)
-  params.set('enabled', 'true')
-  return `ccswitch://v1/import?${params.toString()}`
-}
-
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -129,11 +86,10 @@ export function CCSwitchDialog(props: Props) {
   const { t } = useTranslation()
   const [app, setApp] = useState<AppType>('claude')
   const [name, setName] = useState<string>(APP_CONFIGS.claude.defaultName)
-  const [models, setModels] = useState<Models>({})
+  const [models, setModels] = useState<Models>({
+    ...XJU_CLAUDE_DEFAULT_MODELS,
+  })
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [overriddenModels, setOverriddenModels] = useState<
-    Set<ClaudeAdvancedModelKey>
-  >(new Set())
   const [showToken, setShowToken] = useState(false)
 
   const { data: modelsData } = useQuery({
@@ -173,9 +129,8 @@ export function CCSwitchDialog(props: Props) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setApp('claude')
     setName(APP_CONFIGS.claude.defaultName)
-    setModels({})
+    setModels({ ...XJU_CLAUDE_DEFAULT_MODELS })
     setAdvancedOpen(false)
-    setOverriddenModels(new Set())
     setShowToken(false)
   }, [props.open])
 
@@ -183,26 +138,18 @@ export function CCSwitchDialog(props: Props) {
     const nextApp = value as AppType
     setApp(nextApp)
     setName(APP_CONFIGS[nextApp].defaultName)
-    setModels({})
+    setModels(nextApp === 'claude' ? { ...XJU_CLAUDE_DEFAULT_MODELS } : {})
     setAdvancedOpen(false)
-    setOverriddenModels(new Set())
   }
 
   const handlePrimaryModelChange = (value: string) => {
-    setModels((previous) => {
-      const next: Models = { ...previous, model: value }
-      for (const field of CLAUDE_ADVANCED_MODELS) {
-        if (!overriddenModels.has(field.key)) next[field.key] = value
-      }
-      return next
-    })
+    setModels((previous) => ({ ...previous, model: value }))
   }
 
   const handleAdvancedModelChange = (
     key: ClaudeAdvancedModelKey,
     value: string
   ) => {
-    setOverriddenModels((previous) => new Set(previous).add(key))
     setModels((previous) => ({ ...previous, [key]: value }))
   }
 
@@ -336,6 +283,9 @@ export function CCSwitchDialog(props: Props) {
 
         {app === 'claude' && (
           <section className='rounded-lg border'>
+            <p className='text-muted-foreground border-b px-4 py-3 text-xs'>
+              Opus → gpt-5.6-sol · Sonnet → gpt-5.6-terra · Haiku → gpt-5.6-luna
+            </p>
             <Button
               type='button'
               variant='ghost'

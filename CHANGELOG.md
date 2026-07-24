@@ -30,7 +30,7 @@
 
 ## Codex 配置 / 模型
 
-- **CC Switch Claude 一键配置** —— API Token 行在 Codex 图标右侧新增 CC Switch 官方 Logo；配置弹窗默认 Claude 模式，端点固定 `https://api.selab.top`、Full URL 为否，主模型必选且 Haiku/Sonnet/Opus 默认继承主模型，可复制标准 Config JSON 或 Deep Link。Token 默认遮罩，配置只在浏览器本地生成。
+- **CC Switch Claude 一键配置** —— API Token 行在 Codex 图标右侧新增 CC Switch 官方 Logo；配置弹窗默认 Claude 模式，端点固定 `https://api.selab.top`、Full URL 为否，并预设 XJU 三档映射：主模型/Opus → `gpt-5.6-sol`、Sonnet → `gpt-5.6-terra`、Haiku → `gpt-5.6-luna`。可复制标准 Config JSON 或 Deep Link；Token 默认遮罩，配置只在浏览器本地生成。
 - **Codex 一键配置** —— API 密钥操作列直达按钮,一键复制 `config.toml` / `auth.json`,去掉 CLI 字样,ChatGPT 花瓣图标。
 - **Responses WebSocket** —— `api.selab.top/v1/responses` 支持 `101 Switching Protocols`;L1 先验日卡、首帧按模型/分组选池,再保持到 CLIProxyAPI 的持久 WebSocket,每个 `response.create` 继续预扣费、按 usage 结算并写用量日志;一键配置默认生成 `supports_websockets = true`。
 - 修 base_url 变 localhost、key 变 `sk-sk` 两个 bug;默认模型改 `gpt-5.6-sol`。
