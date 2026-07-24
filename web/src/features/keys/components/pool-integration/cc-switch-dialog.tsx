@@ -33,7 +33,6 @@ import { getUserModels } from '@/lib/api'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 
 import {
-  PUBLIC_API_ENDPOINT,
   XJU_CLAUDE_DEFAULT_MODELS,
   buildCCSwitchURL,
   buildClaudeConfig,
@@ -268,14 +267,50 @@ export function CCSwitchDialog(props: Props) {
               <Copy className='size-4' />
             </Button>
           </div>
+          <div className='space-y-2'>
+            <div className='flex items-center justify-between gap-3'>
+              <Label>{t('API Key')}</Label>
+              <Button
+                type='button'
+                variant='ghost'
+                size='sm'
+                onClick={() => setShowToken((visible) => !visible)}
+              >
+                {showToken ? (
+                  <EyeOff className='size-4' />
+                ) : (
+                  <Eye className='size-4' />
+                )}
+                {showToken ? t('Hide Token') : t('Show Token')}
+              </Button>
+            </div>
+            <div className='flex gap-2'>
+              <Input
+                value={showToken ? token : maskedToken(token)}
+                readOnly
+                className='font-mono text-xs'
+              />
+              <Button
+                type='button'
+                variant='outline'
+                size='icon'
+                onClick={() => {
+                  if (ensureReady()) {
+                    void copyValue(token)
+                  }
+                }}
+                aria-label={t('Copy API key')}
+              >
+                <Copy className='size-4' />
+              </Button>
+            </div>
+          </div>
           {app === 'claude' && (
-            <div className='text-muted-foreground space-y-1 text-sm'>
-              <p>{t('Claude Code automatically appends /v1/messages')}</p>
+            <div className='text-sm'>
               <p className='text-amber-700 dark:text-amber-300'>
+                {t('Claude Code automatically appends /v1/messages')}
+                <span className='mx-1'>·</span>
                 {t('Do not add /v1 to the Claude Endpoint')}
-              </p>
-              <p className='font-mono text-xs'>
-                {t('Actual request')}: {PUBLIC_API_ENDPOINT}/v1/messages
               </p>
             </div>
           )}
