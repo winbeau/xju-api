@@ -18,17 +18,17 @@
 
 ```bash
 # new-api: 仓库在 /home/winbeau/opt/xju-api;数据在宿主 volume,换镜像不丢。
-# 默认 fast-forward origin/main,在 tri 构建前端 + Go 镜像、换容器并验活;
-# 新版失败时自动尝试恢复部署前镜像。
+# 总入口会 fast-forward origin/main,跑护栏,在 tri 构建前端 + Go 镜像、
+# 换容器、清理 Docker,再检查本地/公网 API 与 xju-provision;新版失败时尝试回滚。
 cd /home/winbeau/opt/xju-api
-bash deploy/deploy-newapi.sh
+bash deploy/deploy.sh
 
 # 指定镜像 tag:
-bash deploy/deploy-newapi.sh announcements-20260724
+bash deploy/deploy.sh announcements-20260724
 
 # 已手工 git pull 时跳过拉取;SKIP_WEB=1 仅作低资源/应急通道:
-PULL=0 bash deploy/deploy-newapi.sh
-SKIP_WEB=1 bash deploy/deploy-newapi.sh emergency-tag
+PULL=0 bash deploy/deploy.sh
+SKIP_WEB=1 bash deploy/deploy.sh emergency-tag
 
 # CLIProxyAPI(自建镜像 winbeau/cli-proxy-api:<tag> —— 含仓内 cliproxy 改动,不能追 eceasy 上游)
 cd /home/winbeau/opt/xju-api && git pull --ff-only origin main
@@ -164,7 +164,7 @@ tri 上迁移步骤:
 2. **更新仓库**:`cd /home/winbeau/opt/xju-api && git pull --ff-only origin main`(git 自动应用 rename;或干脆删掉重 clone——仓库无状态,数据都在 `/opt` 宿主卷)。
 3. **prebuilt 新路径**:旧 `new-api/prebuilt/{default-dist,classic-dist}` 作废删除;tri 完整构建会自动生成 `server/newapi/prebuilt/dist`(单产物)。
 4. **引用检查**:backup cron 走 `deploy/backup.sh` 相对仓库路径未变,无需动;若有 `docker compose -f` 指向仓库内 compose 的命令/别名,文件名改为 `deploy/docker-compose.cliproxy.yml`(`/opt/cli-proxy-api/docker-compose.yml` 落位拷贝不受影响,如需同步内容重新拷一份)。
-5. **构建 + 换容器**:`bash deploy/deploy-newapi.sh <tag>`(默认在 tri 完整构建前端、Go 镜像、换容器并验活)。
+5. **完整部署**:`bash deploy/deploy.sh <tag>`(拉取、护栏、构建、换容器、清理、本地/公网验活与服务检查)。
 6. **回滚**:布局回滚 = `git checkout d02c62c`(重组前最后一个 commit,旧脚本名照旧用)+ 旧镜像 tag 重跑;数据不涉及。
 
 ## 号池一键开池 host helper(#4 Phase B,一次性安装)

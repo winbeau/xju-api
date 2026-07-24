@@ -58,12 +58,12 @@
 
 ## 部署
 
-开发改动在本机完成;`claude-tri` 可通过 `deploy/deploy-newapi.sh` 拉取代码、构建前端与镜像并一键部署。
+开发改动在本机完成;`claude-tri` 通过 `deploy/deploy.sh` 一键完成拉取、护栏检查、前端/镜像构建、换容器、清理与验活。
 
 ```bash
 # 在 claude-tri 上(仓库 clone 于 /home/winbeau/opt/xju-api):
 cd /home/winbeau/opt/xju-api
-bash deploy/deploy-newapi.sh # 拉取 main、构建前端 + 镜像、换容器、验活
+bash deploy/deploy.sh
 ```
 
 编排见 [`deploy/`](./deploy/);升级、回滚、排障见 [docs/runbook.md](./docs/runbook.md)。
