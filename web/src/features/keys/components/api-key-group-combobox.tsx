@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, ShieldCheck } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -35,14 +35,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import type { ApiKeyGroupOption } from '@/features/keys/lib/api-key-groups'
 import { cn } from '@/lib/utils'
-
-export type ApiKeyGroupOption = {
-  value: string
-  label: string
-  desc?: string
-  ratio?: number | string
-}
 
 type ApiKeyGroupComboboxProps = {
   options: ApiKeyGroupOption[]
@@ -50,6 +44,7 @@ type ApiKeyGroupComboboxProps = {
   onValueChange: (value: string) => void
   placeholder?: string
   disabled?: boolean
+  compact?: boolean
 }
 
 function formatGroupRatio(
@@ -96,12 +91,25 @@ function GroupRatioBadge({ ratio }: { ratio: ApiKeyGroupOption['ratio'] }) {
   )
 }
 
+function PrivatePoolBadge() {
+  const { t } = useTranslation()
+  return (
+    <Badge
+      variant='outline'
+      className='border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-300'
+    >
+      {t('My Pool')}
+    </Badge>
+  )
+}
+
 export function ApiKeyGroupCombobox({
   options,
   value,
   onValueChange,
   placeholder,
   disabled,
+  compact = false,
 }: ApiKeyGroupComboboxProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -139,29 +147,50 @@ export function ApiKeyGroupCombobox({
             role='combobox'
             aria-expanded={open}
             disabled={disabled}
-            className='border-input bg-muted/40 hover:bg-muted/55 hover:text-foreground active:bg-background data-popup-open:border-ring data-popup-open:bg-background data-popup-open:ring-ring/20 h-auto min-h-14 w-full justify-between gap-2 rounded-lg px-3 py-2 text-start shadow-none transition-[background-color,border-color,box-] duration-150 data-popup-open:ring-[3px] sm:min-h-20 sm:gap-3 sm:px-4 sm:py-3'
+            className={cn(
+              'border-input bg-muted/40 hover:bg-muted/55 hover:text-foreground active:bg-background data-popup-open:border-ring data-popup-open:bg-background data-popup-open:ring-ring/20 h-auto w-full justify-between text-start shadow-none transition-[background-color,border-color,box-shadow] duration-150 data-popup-open:ring-[3px]',
+              compact
+                ? 'min-h-8 gap-1.5 rounded-md px-2 py-1 text-xs'
+                : 'min-h-14 gap-2 rounded-lg px-3 py-2 sm:min-h-20 sm:gap-3 sm:px-4 sm:py-3',
+              selectedOption?.isPrivate &&
+                'border-teal-300 bg-teal-50/80 text-teal-950 hover:bg-teal-100/80 data-popup-open:border-teal-500 data-popup-open:bg-teal-50 dark:border-teal-800 dark:bg-teal-950/35 dark:text-teal-100 dark:hover:bg-teal-950/55 dark:data-popup-open:border-teal-600 dark:data-popup-open:bg-teal-950/45'
+            )}
           />
         }
       >
         <span className='flex min-w-0 flex-1 items-center justify-between gap-2 sm:gap-3'>
-          <span className='min-w-0'>
-            <span className='block truncate font-medium'>
-              {selectedOption?.label || placeholder || t('Select a group')}
-            </span>
-            {selectedOption?.desc && (
-              <span className='text-muted-foreground block truncate text-[11px] sm:text-xs'>
-                {selectedOption.desc}
-              </span>
+          <span className='flex min-w-0 items-center gap-2'>
+            {selectedOption?.isPrivate && (
+              <ShieldCheck className='size-4 shrink-0 text-teal-600 dark:text-teal-400' />
             )}
+            <span className='min-w-0'>
+              <span className='block truncate font-medium'>
+                {selectedOption?.label || placeholder || t('Select a group')}
+              </span>
+              {!compact && selectedOption?.desc && (
+                <span className='text-muted-foreground block truncate text-[11px] sm:text-xs'>
+                  {selectedOption.desc}
+                </span>
+              )}
+            </span>
           </span>
-          <span className='hidden sm:block'>
-            <GroupRatioBadge ratio={selectedOption?.ratio} />
-          </span>
+          {!compact && (
+            <span className='hidden sm:block'>
+              {selectedOption?.isPrivate ? (
+                <PrivatePoolBadge />
+              ) : (
+                <GroupRatioBadge ratio={selectedOption?.ratio} />
+              )}
+            </span>
+          )}
         </span>
         <ChevronsUpDown className='h-4 w-4 shrink-0 opacity-50' />
       </PopoverTrigger>
       <PopoverContent
-        className='data-closed:zoom-out-100 data-open:zoom-in-100 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0 data-[side=top]:slide-in-from-bottom-0 w-[var(--anchor-width)] overflow-hidden rounded-xl p-0  data-closed:duration-75 data-open:duration-100'
+        className={cn(
+          'data-closed:zoom-out-100 data-open:zoom-in-100 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0 data-[side=top]:slide-in-from-bottom-0 overflow-hidden rounded-xl p-0 data-closed:duration-75 data-open:duration-100',
+          compact ? 'w-72' : 'w-[var(--anchor-width)]'
+        )}
         onWheel={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
@@ -180,7 +209,11 @@ export function ApiKeyGroupCombobox({
                   key={option.value}
                   value={option.value}
                   onSelect={() => handleSelect(option.value)}
-                  className='data-[selected=true]:bg-muted items-start gap-3 rounded-lg px-3 py-3 transition-colors'
+                  className={cn(
+                    'data-[selected=true]:bg-muted items-start gap-3 rounded-lg border border-transparent px-3 py-3 transition-colors',
+                    option.isPrivate &&
+                      'border-teal-200 bg-teal-50/70 data-[selected=true]:bg-teal-100/80 dark:border-teal-900 dark:bg-teal-950/30 dark:data-[selected=true]:bg-teal-950/55'
+                  )}
                 >
                   <Check
                     className={cn(
@@ -188,6 +221,9 @@ export function ApiKeyGroupCombobox({
                       value === option.value ? 'opacity-100' : 'opacity-0'
                     )}
                   />
+                  {option.isPrivate && (
+                    <ShieldCheck className='mt-0.5 size-4 shrink-0 text-teal-600 dark:text-teal-400' />
+                  )}
                   <span className='min-w-0 flex-1'>
                     <span className='block truncate font-medium'>
                       {option.label}
@@ -198,7 +234,11 @@ export function ApiKeyGroupCombobox({
                       </span>
                     )}
                   </span>
-                  <GroupRatioBadge ratio={option.ratio} />
+                  {option.isPrivate ? (
+                    <PrivatePoolBadge />
+                  ) : (
+                    <GroupRatioBadge ratio={option.ratio} />
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>

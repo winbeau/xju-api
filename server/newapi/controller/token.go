@@ -164,30 +164,19 @@ func GetTokenUsage(c *gin.Context) {
 	})
 }
 
-func bindNewTokenToPrivatePool(c *gin.Context, token *model.Token) bool {
-	if c.GetInt("role") >= common.RoleRootUser {
-		return true
-	}
-	userID := c.GetInt("id")
-	entry, ok := common.FindPrivatePoolByOwner(userID)
+func bindTokenGroup(c *gin.Context, token *model.Token) bool {
+	group, ok := resolveUserTokenGroup(c.GetInt("id"), token.Group)
 	if !ok {
-		c.JSON(http.StatusConflict, gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"code":    "private_pool_required",
-			"message": "请先创建自己的私人号池，再创建 API Key",
+			"code":    "token_group_unavailable",
+			"message": "所选号池不存在或当前账号无权使用",
 		})
 		return false
 	}
-	if _, _, ready := common.ResolvePoolMgmt(entry.ID); !ready || entry.ChannelID <= 0 || strings.TrimSpace(entry.GroupKey) == "" {
-		c.JSON(http.StatusConflict, gin.H{
-			"success": false,
-			"code":    "private_pool_not_ready",
-			"message": "私人号池尚未完成路由配置，请稍后重试",
-		})
-		return false
-	}
-	// Client-supplied routing fields are ignored for every non-root user.
-	token.Group = entry.GroupKey
+	token.Group = group
+	// XJU currently exposes concrete pool routes only. Keep retries inside the
+	// selected pool instead of silently spilling into another user's route.
 	token.CrossGroupRetry = false
 	return true
 }
@@ -203,7 +192,7 @@ func AddToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
-	if !bindNewTokenToPrivatePool(c, &token) {
+	if !bindTokenGroup(c, &token) {
 		return
 	}
 	// 非无限额度时，检查额度值是否超出有效范围
@@ -281,6 +270,7 @@ func DeleteToken(c *gin.Context) {
 func UpdateToken(c *gin.Context) {
 	userId := c.GetInt("id")
 	statusOnly := c.Query("status_only")
+	groupOnly := c.Query("group_only")
 	token := model.Token{}
 	err := c.ShouldBindJSON(&token)
 	if err != nil {
@@ -291,7 +281,7 @@ func UpdateToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
-	if !token.UnlimitedQuota {
+	if statusOnly == "" && groupOnly == "" && !token.UnlimitedQuota {
 		if token.RemainQuota < 0 {
 			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
 			return
@@ -319,6 +309,12 @@ func UpdateToken(c *gin.Context) {
 	}
 	if statusOnly != "" {
 		cleanToken.Status = token.Status
+	} else if groupOnly != "" {
+		if !bindTokenGroup(c, &token) {
+			return
+		}
+		cleanToken.Group = token.Group
+		cleanToken.CrossGroupRetry = false
 	} else {
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
@@ -328,12 +324,11 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled
 		cleanToken.ModelLimits = token.ModelLimits
 		cleanToken.AllowIps = token.AllowIps
-		// Existing non-root tokens keep their original routing. This avoids an
-		// implicit migration of legacy keys; root retains explicit group control.
-		if c.GetInt("role") >= common.RoleRootUser {
-			cleanToken.Group = token.Group
-			cleanToken.CrossGroupRetry = token.CrossGroupRetry
+		if !bindTokenGroup(c, &token) {
+			return
 		}
+		cleanToken.Group = token.Group
+		cleanToken.CrossGroupRetry = false
 	}
 	err = cleanToken.Update()
 	if err != nil {

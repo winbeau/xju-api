@@ -69,13 +69,10 @@ import {
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { getPrivatePool } from '@/features/private-pool/api'
 import { useStatus } from '@/hooks/use-status'
-import { getUserModels, getUserGroups } from '@/lib/api'
+import { getUserModels } from '@/lib/api'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
-import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/stores/auth-store'
 
 import {
   createApiKey,
@@ -84,18 +81,17 @@ import {
   getApiKey,
 } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
+import { useApiKeyGroups } from '../hooks/use-api-key-groups'
 import {
   getApiKeyFormSchema,
   type ApiKeyFormValues,
   getApiKeyFormDefaultValues,
+  getPreferredApiKeyGroup,
   transformFormDataToPayload,
   transformApiKeyToFormDefaults,
 } from '../lib'
 import type { ApiKey } from '../types'
-import {
-  ApiKeyGroupCombobox,
-  type ApiKeyGroupOption,
-} from './api-key-group-combobox'
+import { ApiKeyGroupCombobox } from './api-key-group-combobox'
 import { useApiKeys } from './api-keys-provider'
 
 type ApiKeyMutateDrawerProps = {
@@ -113,8 +109,6 @@ export function ApiKeysMutateDrawer({
   const isUpdate = !!currentRow
   const { triggerRefresh } = useApiKeys()
   const { status } = useStatus()
-  const user = useAuthStore((state) => state.auth.user)
-  const isRoot = (user?.role ?? 0) >= ROLE.SUPER_ADMIN
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const defaultUseAutoGroup = status?.default_use_auto_group === true
@@ -127,45 +121,21 @@ export function ApiKeysMutateDrawer({
     staleTime: 0,
   })
 
-  // Fetch groups
-  const { data: groupsData } = useQuery({
-    queryKey: ['user-groups'],
-    queryFn: getUserGroups,
-    enabled: open && isRoot,
-    staleTime: 0,
-  })
-
-  const { data: privatePool } = useQuery({
-    queryKey: ['private-pool'],
-    queryFn: getPrivatePool,
-    enabled: open && !isRoot,
-    refetchInterval: (query) =>
-      query.state.data?.status === 'provisioning' ? 2000 : false,
-  })
-  const privatePoolReady = privatePool?.status === 'ready'
-  const privateGroup = privatePool?.pool?.group_key ?? ''
-  let privateRoutingDescription = t('Your private pool is not ready yet.')
-  if (isUpdate) {
-    privateRoutingDescription = t(
-      'This existing API Key keeps its current route.'
-    )
-  } else if (privatePoolReady) {
-    privateRoutingDescription = t('This API Key will only use {{pool}}.', {
-      pool: privatePool?.pool?.label || privatePool?.label || t('My Pool'),
-    })
-  }
+  const {
+    options: groups,
+    privateGroup,
+    privatePool,
+    privatePoolReady,
+    isLoading: groupsLoading,
+  } = useApiKeyGroups(open)
+  const privatePoolName =
+    privatePool?.pool?.label || privatePool?.label || t('My Pool')
 
   const models = modelsData?.data || []
-  const groupsRaw = groupsData?.data || {}
-  const groups: ApiKeyGroupOption[] = Object.entries(groupsRaw).map(
-    ([key, info]) => ({
-      value: key,
-      label: key,
-      desc: info.desc || key,
-      ratio: info.ratio,
-    })
-  )
   const backendHasAuto = groups.some((g) => g.value === 'auto')
+  const fallbackGroup =
+    defaultUseAutoGroup && backendHasAuto ? 'auto' : 'default'
+  const preferredGroup = getPreferredApiKeyGroup(groups, fallbackGroup)
   const schema = getApiKeyFormSchema(t)
 
   const form = useForm<ApiKeyFormValues>({
@@ -178,17 +148,27 @@ export function ApiKeysMutateDrawer({
     if (open && isUpdate && currentRow) {
       void getApiKey(currentRow.id).then((result) => {
         if (result.success && result.data) {
-          form.reset(transformApiKeyToFormDefaults(result.data))
+          const defaults = transformApiKeyToFormDefaults(result.data)
+          const group = groups.some((item) => item.value === defaults.group)
+            ? defaults.group
+            : preferredGroup
+          form.reset({
+            ...defaults,
+            group,
+            cross_group_retry:
+              group === 'auto' ? defaults.cross_group_retry : false,
+          })
         }
       })
     } else if (open && !isUpdate) {
       const defaults = getApiKeyFormDefaultValues(
-        isRoot && defaultUseAutoGroup && backendHasAuto
+        defaultUseAutoGroup && backendHasAuto
       )
       form.reset({
         ...defaults,
-        group: isRoot ? defaults.group : privateGroup,
-        cross_group_retry: isRoot ? defaults.cross_group_retry : false,
+        group: preferredGroup,
+        cross_group_retry:
+          preferredGroup === 'auto' ? defaults.cross_group_retry : false,
       })
     }
   }, [
@@ -198,34 +178,23 @@ export function ApiKeysMutateDrawer({
     form,
     defaultUseAutoGroup,
     backendHasAuto,
-    isRoot,
-    privateGroup,
+    groups,
+    preferredGroup,
   ])
 
   // Correct group after groups load: if the form value is not in available groups, fall back
   useEffect(() => {
-    if (!isRoot) return
     if (groups.length === 0) return
     const currentGroup = form.getValues('group')
     if (currentGroup && !groups.some((g) => g.value === currentGroup)) {
-      const fallback =
-        groups.find((g) => g.value === 'default')?.value ??
-        groups[0]?.value ??
-        ''
-      form.setValue('group', fallback)
+      form.setValue('group', preferredGroup)
       if (currentGroup === 'auto') {
         form.setValue('cross_group_retry', false)
       }
     }
-  }, [groups, form, isRoot])
+  }, [groups, form, preferredGroup])
 
   const onSubmit = async (data: ApiKeyFormValues) => {
-    if (!isUpdate && !isRoot && !privatePoolReady) {
-      toast.error(
-        t('Create and prepare your private pool before creating an API Key')
-      )
-      return
-    }
     setIsSubmitting(true)
     try {
       const basePayload = transformFormDataToPayload(data)
@@ -384,26 +353,34 @@ export function ApiKeysMutateDrawer({
                 )}
               />
 
-              {isRoot ? (
-                <FormField
-                  control={form.control}
-                  name='group'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('Group')}</FormLabel>
-                      <FormControl>
-                        <ApiKeyGroupCombobox
-                          options={groups}
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          placeholder={t('Select a group')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ) : (
+              <FormField
+                control={form.control}
+                name='group'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Group')}</FormLabel>
+                    <FormControl>
+                      <ApiKeyGroupCombobox
+                        options={groups}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder={t('Select a group')}
+                        disabled={groupsLoading || groups.length === 0}
+                      />
+                    </FormControl>
+                    {field.value === privateGroup && privatePoolReady && (
+                      <FormDescription>
+                        {t('This API Key will only use {{pool}}.', {
+                          pool: privatePoolName,
+                        })}
+                      </FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {!groupsLoading && !privatePoolReady && (
                 <div className='border-border bg-muted/30 rounded-lg border p-3'>
                   <div className='flex items-start gap-3'>
                     <Boxes className='text-primary mt-0.5 size-4 shrink-0' />
@@ -412,24 +389,22 @@ export function ApiKeysMutateDrawer({
                         {t('Private pool routing')}
                       </p>
                       <p className='text-muted-foreground mt-1 text-xs'>
-                        {privateRoutingDescription}
+                        {t('Your private pool is not ready yet.')}
                       </p>
                     </div>
-                    {!isUpdate && !privatePoolReady && (
-                      <Button
-                        type='button'
-                        size='sm'
-                        variant='outline'
-                        render={<Link to='/my-pool' />}
-                      >
-                        {t('Open My Pool')}
-                      </Button>
-                    )}
+                    <Button
+                      type='button'
+                      size='sm'
+                      variant='outline'
+                      render={<Link to='/my-pool' />}
+                    >
+                      {t('Open My Pool')}
+                    </Button>
                   </div>
                 </div>
               )}
 
-              {isRoot && selectedGroup === 'auto' && (
+              {selectedGroup === 'auto' && (
                 <FormField
                   control={form.control}
                   name='cross_group_retry'
@@ -708,9 +683,7 @@ export function ApiKeysMutateDrawer({
           <Button
             type='button'
             onClick={form.handleSubmit(onSubmit, onInvalid)}
-            disabled={
-              isSubmitting || (!isUpdate && !isRoot && !privatePoolReady)
-            }
+            disabled={isSubmitting || groupsLoading || groups.length === 0}
             className='w-full sm:w-auto'
           >
             {isSubmitting ? t('Saving...') : t('Save changes')}

@@ -67,22 +67,28 @@ function PrivatePoolStatusBanner() {
   if (provisioning) {
     title = t('Your private pool is being created')
     description = t(
-      'API Key creation will be available as soon as the private routing channel is ready.'
+      'Until your private pool is ready, new API Keys can use the shared default pool.'
     )
     StatusIcon = Loader2
     statusIconClass += ' animate-spin'
   } else if (failed) {
     title = t('Your private pool needs attention')
-    description = state.error || t('Open My Pool to retry provisioning.')
+    description = state.error
+      ? `${state.error} ${t('Until your private pool is ready, new API Keys can use the shared default pool.')}`
+      : t(
+          'Until your private pool is ready, new API Keys can use the shared default pool.'
+        )
     StatusIcon = AlertTriangle
     statusIconClass = 'text-destructive mt-0.5 size-5 shrink-0'
   } else if (state?.status === 'ready') {
-    title = t('Add an account before creating an API Key')
-    description = t('Your pool is ready but has no upstream accounts yet.')
-  } else {
-    title = t('Create your private pool before creating an API Key')
+    title = t('Your private pool needs attention')
     description = t(
-      'Every API Key you create will be locked to your own isolated account pool.'
+      'New API Keys use your private pool by default; the shared default pool remains available.'
+    )
+  } else {
+    title = t('Your private pool is not ready yet.')
+    description = t(
+      'Until your private pool is ready, new API Keys can use the shared default pool.'
     )
   }
 

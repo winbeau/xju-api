@@ -16,12 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 
-import { BadgeCell, TruncatedCell } from '@/components/data-table'
-import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -30,18 +27,16 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { toIntlLocale } from '@/i18n/languages'
-import { getUserGroups } from '@/lib/api'
 import dayjs from '@/lib/dayjs'
 import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { API_KEY_STATUSES } from '../constants'
+import { useApiKeyGroups } from '../hooks/use-api-key-groups'
 import type { ApiKey } from '../types'
+import { ApiKeyGroupCell } from './api-key-group-cell'
 import { ApiKeyTimestampCell } from './api-key-timestamp-cell'
-import {
-  ApiKeyCell,
-  ModelLimitsCell,
-} from './api-keys-cells'
+import { ApiKeyCell, ModelLimitsCell } from './api-keys-cells'
 import { DataTableRowActions } from './data-table-row-actions'
 
 function getQuotaProgressColor(percentage: number): string {
@@ -50,29 +45,9 @@ function getQuotaProgressColor(percentage: number): string {
   return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
 }
 
-function useGroupRatios(): Record<string, number> {
-  const { data } = useQuery({
-    queryKey: ['user-groups'],
-    queryFn: getUserGroups,
-    staleTime: 0,
-    select: (res) => {
-      if (!res.success || !res.data) return {}
-      const ratios: Record<string, number> = {}
-      for (const [group, info] of Object.entries(res.data)) {
-        if (typeof info.ratio === 'number') {
-          ratios[group] = info.ratio
-        }
-      }
-      return ratios
-    },
-  })
-
-  return data ?? {}
-}
-
 export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
   const { t, i18n } = useTranslation()
-  const groupRatios = useGroupRatios()
+  const { options: groupOptions, isLoading: groupsLoading } = useApiKeyGroups()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const justNowLabel = t('Just now')
   const staleAccessThreshold = dayjs(now).subtract(3, 'month').valueOf()
@@ -234,47 +209,14 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
     {
       accessorKey: 'group',
       header: t('Group'),
-      cell: ({ row }) => {
-        const apiKey = row.original
-        const group = row.getValue('group') as string
-        const ratio = group && group !== 'auto' ? groupRatios[group] : undefined
-
-        if (group === 'auto') {
-          return (
-            <Tooltip>
-              <TooltipTrigger
-                render={<BadgeCell className='gap-1.5 text-xs' />}
-              >
-                <GroupBadge group='auto' />
-                {apiKey.cross_group_retry && (
-                  <StatusBadge
-                    label={t('Cross-group')}
-                    variant='info'
-                    copyable={false}
-                  />
-                )}
-              </TooltipTrigger>
-              <TooltipContent>
-                <span className='text-xs'>
-                  {t(
-                    'Automatically selects the best available group with circuit breaker mechanism'
-                  )}
-                </span>
-              </TooltipContent>
-            </Tooltip>
-          )
-        }
-        return (
-          <TruncatedCell
-            className='-ml-1.5'
-            tooltipContent={group || '-'}
-            tooltipClassName='break-all'
-          >
-            <GroupBadge group={group} ratio={ratio} />
-          </TruncatedCell>
-        )
-      },
-      size: 120,
+      cell: ({ row }) => (
+        <ApiKeyGroupCell
+          apiKey={row.original}
+          options={groupOptions}
+          isLoading={groupsLoading}
+        />
+      ),
+      size: 160,
       meta: { mobileHidden: true },
     },
     {

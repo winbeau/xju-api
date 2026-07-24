@@ -99,6 +99,16 @@ export async function updateApiKeyStatus(
   return res.data
 }
 
+// Update only the routing group so the table can switch pools without opening
+// the full edit drawer or resubmitting unrelated API-key fields.
+export async function updateApiKeyGroup(
+  id: number,
+  group: string
+): Promise<ApiResponse<ApiKey>> {
+  const res = await api.put('/api/token/?group_only=true', { id, group })
+  return res.data
+}
+
 // Fetch the real (unmasked) key for a token by ID
 export async function fetchTokenKey(
   id: number

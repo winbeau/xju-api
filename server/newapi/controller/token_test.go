@@ -15,6 +15,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
@@ -111,6 +112,23 @@ func setupTokenControllerTestDB(t *testing.T) *gorm.DB {
 	db := openTokenControllerTestDB(t)
 	migrateTokenControllerTestDB(t, db)
 	return db
+}
+
+func registerTokenTestGroup(t *testing.T, group string) {
+	t.Helper()
+	previous := ratio_setting.GroupRatio2JSONString()
+	ratios := ratio_setting.GetGroupRatioCopy()
+	ratios[group] = 1
+	raw, err := common.Marshal(ratios)
+	if err != nil {
+		t.Fatalf("failed to marshal group ratios: %v", err)
+	}
+	if err := ratio_setting.UpdateGroupRatioByJSONString(string(raw)); err != nil {
+		t.Fatalf("failed to register test group: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = ratio_setting.UpdateGroupRatioByJSONString(previous)
+	})
 }
 
 func openTokenControllerExternalDB(t *testing.T, dialect string, dsn string) (*gorm.DB, *bool) {
@@ -506,7 +524,7 @@ func TestUpdateTokenMasksKeyInResponse(t *testing.T) {
 	}
 }
 
-func TestAddTokenForcesPrivatePoolRouting(t *testing.T) {
+func TestAddTokenDefaultsToPrivatePoolRouting(t *testing.T) {
 	db := setupTokenControllerTestDB(t)
 	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(t.TempDir(), "pools.json"))
 	requireNoError := func(err error) {
@@ -518,13 +536,14 @@ func TestAddTokenForcesPrivatePoolRouting(t *testing.T) {
 		ID: "1", Label: "Alice Pool", MgmtURL: "http://pool-1:8319", MgmtSecret: "secret", ChannelID: 123,
 		OwnerUserID: 42, Kind: common.PoolKindPrivate,
 	}))
+	registerTokenTestGroup(t, common.PrivatePoolGroupKey(42))
 
 	body := map[string]any{
 		"name":              "private-key",
 		"expired_time":      -1,
 		"remain_quota":      100,
 		"unlimited_quota":   true,
-		"group":             "forged-group",
+		"group":             "",
 		"cross_group_retry": true,
 	}
 	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", body, 42)
@@ -547,7 +566,7 @@ func TestAddTokenForcesPrivatePoolRouting(t *testing.T) {
 	}
 }
 
-func TestAddTokenRequiresReadyPrivatePool(t *testing.T) {
+func TestAddTokenAllowsDefaultWithoutPrivatePool(t *testing.T) {
 	db := setupTokenControllerTestDB(t)
 	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(t.TempDir(), "pools.json"))
 	body := map[string]any{
@@ -561,37 +580,36 @@ func TestAddTokenRequiresReadyPrivatePool(t *testing.T) {
 	ctx.Set("role", common.RoleCommonUser)
 	AddToken(ctx)
 
-	if recorder.Code != http.StatusConflict {
-		t.Fatalf("expected conflict, got %d: %s", recorder.Code, recorder.Body.String())
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected default token creation to succeed, got %s", response.Message)
 	}
-	if !strings.Contains(recorder.Body.String(), "private_pool_required") {
-		t.Fatalf("expected private_pool_required code, got %s", recorder.Body.String())
+	var token model.Token
+	if err := db.First(&token, "user_id = ?", 7).Error; err != nil {
+		t.Fatalf("failed to load created token: %v", err)
 	}
-	var count int64
-	if err := db.Model(&model.Token{}).Count(&count).Error; err != nil {
-		t.Fatalf("failed to count tokens: %v", err)
-	}
-	if count != 0 {
-		t.Fatalf("no token should be created without a private pool, got %d", count)
+	if token.Group != "default" {
+		t.Fatalf("expected shared default group, got %q", token.Group)
 	}
 }
 
-func TestUpdateTokenPreservesNonRootRouting(t *testing.T) {
+func TestUpdateTokenGroupOnlyAllowsOwnedPrivatePool(t *testing.T) {
 	db := setupTokenControllerTestDB(t)
+	t.Setenv("POOL_REGISTRY_FILE", filepath.Join(t.TempDir(), "pools.json"))
 	token := seedToken(t, db, 9, "legacy-key", "legacy1234token5678")
+	if err := common.AddPoolToRegistry(common.PoolEntry{
+		ID: "9", Label: "User 9 Pool", MgmtURL: "http://pool-9:8319", MgmtSecret: "secret", ChannelID: 129,
+		OwnerUserID: 9, Kind: common.PoolKindPrivate,
+	}); err != nil {
+		t.Fatalf("failed to add private pool: %v", err)
+	}
+	registerTokenTestGroup(t, common.PrivatePoolGroupKey(9))
 
 	body := map[string]any{
-		"id":                   token.Id,
-		"name":                 "legacy-key-updated",
-		"expired_time":         -1,
-		"remain_quota":         100,
-		"unlimited_quota":      true,
-		"model_limits_enabled": false,
-		"model_limits":         "",
-		"group":                "forged-group",
-		"cross_group_retry":    true,
+		"id":    token.Id,
+		"group": common.PrivatePoolGroupKey(9),
 	}
-	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/token/", body, 9)
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/token/?group_only=true", body, 9)
 	ctx.Set("role", common.RoleCommonUser)
 	UpdateToken(ctx)
 	response := decodeAPIResponse(t, recorder)
@@ -603,8 +621,24 @@ func TestUpdateTokenPreservesNonRootRouting(t *testing.T) {
 	if err := db.First(&updated, token.Id).Error; err != nil {
 		t.Fatalf("failed to load updated token: %v", err)
 	}
-	if updated.Group != "default" || updated.CrossGroupRetry {
-		t.Fatalf("non-root update changed routing: group=%q retry=%v", updated.Group, updated.CrossGroupRetry)
+	if updated.Group != common.PrivatePoolGroupKey(9) || updated.CrossGroupRetry {
+		t.Fatalf("group-only update failed: group=%q retry=%v", updated.Group, updated.CrossGroupRetry)
+	}
+}
+
+func TestUpdateTokenGroupOnlyRejectsUnavailablePool(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	token := seedToken(t, db, 9, "legacy-key", "legacy1234token5678")
+	body := map[string]any{"id": token.Id, "group": "private-10"}
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/token/?group_only=true", body, 9)
+	ctx.Set("role", common.RoleCommonUser)
+	UpdateToken(ctx)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected bad request, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "token_group_unavailable") {
+		t.Fatalf("expected unavailable group error, got %s", recorder.Body.String())
 	}
 }
 

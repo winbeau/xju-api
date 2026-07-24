@@ -29,3 +29,9 @@ export {
 } from './api-key-form'
 
 export { getPublicServerAddress } from './server-address'
+
+export {
+  buildApiKeyGroupOptions,
+  getPreferredApiKeyGroup,
+  type ApiKeyGroupOption,
+} from './api-key-groups'

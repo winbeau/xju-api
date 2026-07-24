@@ -29,10 +29,21 @@ func TestGetUserGroupsAddsOnlyOwnedPrivateGroup(t *testing.T) {
 	oldRatios := ratio_setting.GroupRatio2JSONString()
 	ratios := ratio_setting.GetGroupRatioCopy()
 	ratios[common.PrivatePoolGroupKey(42)] = 1
+	ratios["k12"] = 1
+	ratios["vip"] = 1
 	rawRatios, err := common.Marshal(ratios)
 	require.NoError(t, err)
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(string(rawRatios)))
 	t.Cleanup(func() { _ = ratio_setting.UpdateGroupRatioByJSONString(oldRatios) })
+
+	oldUsableGroups := setting.UserUsableGroups2JSONString()
+	usableGroups := setting.GetUserUsableGroupsCopy()
+	usableGroups["k12"] = "K12"
+	usableGroups["vip"] = "VIP"
+	rawUsableGroups, err := common.Marshal(usableGroups)
+	require.NoError(t, err)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(string(rawUsableGroups)))
+	t.Cleanup(func() { _ = setting.UpdateUserUsableGroupsByJSONString(oldUsableGroups) })
 
 	_, globallyVisible := setting.GetUserUsableGroupsCopy()[common.PrivatePoolGroupKey(42)]
 	assert.False(t, globallyVisible)
@@ -53,4 +64,6 @@ func TestGetUserGroupsAddsOnlyOwnedPrivateGroup(t *testing.T) {
 	privateGroup, ok := response.Data[common.PrivatePoolGroupKey(42)]
 	require.True(t, ok)
 	assert.Equal(t, "Alice Pool", privateGroup["desc"])
+	assert.NotContains(t, response.Data, "k12")
+	assert.NotContains(t, response.Data, "vip")
 }
